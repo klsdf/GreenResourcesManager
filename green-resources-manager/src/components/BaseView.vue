@@ -8,6 +8,7 @@
                 :sort-by="sortBy"
                 :add-button-text="toolbarConfig.addButtonText" 
                 :add-folder-button-text="toolbarConfig.addFolderButtonText"
+                :import-folder-button-text="toolbarConfig.importFolderButtonText"
                 :import-bookmark-button-text="toolbarConfig.importBookmarkButtonText"
                 :search-placeholder="toolbarConfig.searchPlaceholder"
                 :sort-options="toolbarConfig.sortOptions" 
@@ -16,6 +17,7 @@
                 :show-layout-control="showLayoutControl"
                 @add-item="handleAddItem"
                 @add-folder="handleAddFolder"
+                @import-folder="$emit('import-folder')"
                 @import-bookmark="handleImportBookmark"
                 @update:searchQuery="handleSearchQueryUpdate"
                 @update:sortBy="handleSortByUpdate"
@@ -140,6 +142,7 @@ export default {
         'empty-state-action',
         'add-item',
         'add-folder',
+        'import-folder',
         'import-bookmark',
         'sort-changed',
         'search-query-changed',

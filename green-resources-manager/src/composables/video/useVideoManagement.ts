@@ -241,6 +241,49 @@ export function useVideoManagement(pageId: string = 'videos') {
     return videoManager.value
   }
 
+  /**
+   * Imports new videos from a selected directory.
+   */
+  const importFromDirectory = async (): Promise<void> => {
+    try {
+      // 1. Let user select a folder
+      // @ts-ignore
+      const result = await window.electronAPI.selectFolder();
+      if (!result || !result.success || !result.path) {
+        console.log('Folder selection cancelled.');
+        return;
+      }
+      const directoryPath = result.path;
+
+      // 2. Scan for new video files
+      const manager = initVideoManager();
+      if (!manager) {
+        throw new Error('Video manager is not initialized.');
+      }
+      notify.toast('info', '正在扫描文件夹...', `正在扫描 ${directoryPath}`);
+      const newFiles = await manager.scanDirectoryForNewVideos(directoryPath);
+
+      // 3. Check results and provide feedback
+      if (newFiles.length === 0) {
+        notify.toast('info', '扫描完成', '没有发现新的视频或图片文件。');
+        return;
+      }
+
+      notify.toast('info', '正在导入...', `发现 ${newFiles.length} 个新文件，正在添加到媒体库...`);
+
+      // 4. Batch add new videos
+      const addedCount = await manager.addVideosInBatch(newFiles);
+
+      // 5. Reload and provide final feedback
+      await loadVideos();
+      notify.toast('success', '导入完成', `成功添加 ${addedCount} 个新视频到媒体库。`);
+
+    } catch (error) {
+      console.error('Failed to import from directory:', error);
+      notify.toast('error', '导入失败', `发生错误: ${error.message}`);
+    }
+  };
+
   return {
     videos,
     videoManager,
@@ -255,7 +298,8 @@ export function useVideoManagement(pageId: string = 'videos') {
     checkFileExistence,
     checkVideoCollectionAchievements,
     getVideoManager,
-    initVideoManager
+    initVideoManager,
+    importFromDirectory
   }
 }
 

@@ -12,6 +12,7 @@
           @empty-state-action="handleEmptyStateAction"
           @add-item="showAddVideoDialog"
           @add-folder="showAddFolderDialog"
+          @import-folder="handleImportFolder"
           @sort-changed="handleSortChanged"
           @search-query-changed="handleSearchQueryChanged"
           @sort-by-changed="handleSortByChanged"
@@ -418,6 +419,7 @@ export default {
       videoToolbarConfig: {
         addButtonText: '添加视频',
         addFolderButtonText: '添加文件夹',
+        importFolderButtonText: '导入文件夹',
         searchPlaceholder: '搜索视频...',
         sortOptions: [
           { value: 'name', label: '按名称排序' },
@@ -1835,6 +1837,15 @@ export default {
     handleEmptyStateAction(actionName) {
       if (actionName === 'showAddVideoDialog') {
         this.showAddVideoDialog()
+      }
+    },
+
+    handleImportFolder() {
+      // The 'importFromDirectory' method is exposed from the setup function
+      if (this.importFromDirectory) {
+        this.importFromDirectory();
+      } else {
+        console.error('importFromDirectory function is not available.');
       }
     },
     

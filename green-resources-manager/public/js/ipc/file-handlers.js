@@ -173,6 +173,45 @@ function registerIpcHandlers(ipcMain, fileUtils, pathUtils) {
     }
   })
 
+  // Recursively scan a directory for files with given extensions
+  ipcMain.handle('scan-directory-recursively', async (event, directoryPath, fileExtensions) => {
+    try {
+      if (!directoryPath || directoryPath.trim() === '') {
+        return { success: false, error: 'Invalid directory path' };
+      }
+
+      const absolutePath = pathUtils ? pathUtils.normalizePath(directoryPath) : path.resolve(directoryPath);
+
+      if (!fs.existsSync(absolutePath)) {
+        return { success: false, error: `Directory does not exist: ${absolutePath}` };
+      }
+
+      const foundFiles = [];
+      const lowerCaseExtensions = new Set(fileExtensions.map(ext => ext.toLowerCase()));
+
+      const scan = (currentPath) => {
+        const items = fs.readdirSync(currentPath, { withFileTypes: true });
+        for (const item of items) {
+          const itemPath = path.join(currentPath, item.name);
+          if (item.isDirectory()) {
+            scan(itemPath);
+          } else if (item.isFile()) {
+            const extension = path.extname(item.name).toLowerCase();
+            if (lowerCaseExtensions.has(extension)) {
+              foundFiles.push(itemPath);
+            }
+          }
+        }
+      };
+
+      scan(absolutePath);
+      return { success: true, files: foundFiles };
+    } catch (error) {
+      console.error('Failed to recursively scan directory:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // 列出指定文件夹下的图片文件
   ipcMain.handle('list-image-files', async (event, folderPath) => {
     try {

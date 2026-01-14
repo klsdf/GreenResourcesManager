@@ -18,6 +18,14 @@
         {{ addFolderButtonText }}
       </fun-button>
       <fun-button
+        v-if="importFolderButtonText"
+        type="secondary"
+        icon="📥"
+        @click="$emit('import-folder')"
+      >
+        {{ importFolderButtonText }}
+      </fun-button>
+      <fun-button
         v-if="importBookmarkButtonText"
         type="secondary"
         icon="📑"
@@ -83,6 +91,10 @@ export default {
       type: String,
       default: ''
     },
+    importFolderButtonText: {
+      type: String,
+      default: ''
+    },
     importBookmarkButtonText: {
       type: String,
       default: ''
@@ -120,6 +132,7 @@ export default {
   emits: [
     'add-item',
     'add-folder',
+    'import-folder',
     'import-bookmark',
     'update:searchQuery',
     'update:sortBy',

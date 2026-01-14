@@ -54,6 +54,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listImageFiles: (folderPath) => ipcRenderer.invoke('list-image-files', folderPath),
   getFolderSize: (filePath) => ipcRenderer.invoke('get-folder-size', filePath),
   checkFileExists: (filePath) => ipcRenderer.invoke('check-file-exists', filePath),
+  scanDirectoryRecursively: (directoryPath, fileExtensions) => ipcRenderer.invoke('scan-directory-recursively', directoryPath, fileExtensions),
   
   // 文件URL处理
   getFileUrl: (filePath) => ipcRenderer.invoke('get-file-url', filePath),

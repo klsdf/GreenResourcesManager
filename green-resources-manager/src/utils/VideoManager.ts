@@ -104,6 +104,55 @@ class VideoManager {
     return video
   }
 
+  // Batch add videos from a list of file paths
+  async addVideosInBatch(filePaths: string[]): Promise<number> {
+    const deriveNameFromPath = (filePath) => {
+      if (!filePath) return '';
+      const normalized = filePath.replace(/\\/g, '/');
+      const filename = normalized.substring(normalized.lastIndexOf('/') + 1);
+      const dotIndex = filename.lastIndexOf('.');
+      return dotIndex > 0 ? filename.substring(0, dotIndex) : filename;
+    };
+
+    let addedCount = 0;
+    for (const filePath of filePaths) {
+      // Basic check to avoid duplicates if called incorrectly
+      if (this.videos.some(v => v.filePath === filePath)) {
+        continue;
+      }
+
+      const video = {
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // More unique ID for batches
+        name: deriveNameFromPath(filePath) || '未知视频',
+        description: '',
+        tags: [],
+        actors: [],
+        series: '',
+        director: '',
+        genre: '',
+        year: '',
+        duration: 0,
+        filePath: filePath,
+        thumbnail: '',
+        watchProgress: 0,
+        watchCount: 0,
+        lastWatched: null,
+        firstWatched: null,
+        addedDate: new Date().toISOString(),
+        rating: 0,
+        notes: ''
+      };
+      this.videos.push(video);
+      addedCount++;
+    }
+
+    if (addedCount > 0) {
+      await this.saveVideos();
+    }
+
+    return addedCount;
+  }
+
   // 更新视频
   async updateVideo(id, videoData) {
     const index = this.videos.findIndex(video => video.id === id)
@@ -256,6 +305,42 @@ class VideoManager {
       totalTags: this.getAllTags().length,
       totalSeries: this.getAllSeries().length,
       totalGenres: this.getAllGenres().length
+    }
+  }
+
+  // Scan a directory recursively for new video and image files
+  async scanDirectoryForNewVideos(directoryPath: string): Promise<string[]> {
+    const mediaExtensions = [
+      // Video formats
+      '.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mpg', '.mpeg',
+      // Image formats (useful for covers/thumbnails)
+      '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'
+    ];
+
+    try {
+      // @ts-ignore
+      if (!window.electronAPI || !window.electronAPI.scanDirectoryRecursively) {
+        throw new Error('The scanning functionality is not available in the current environment.');
+      }
+
+      // @ts-ignore
+      const result = await window.electronAPI.scanDirectoryRecursively(directoryPath, mediaExtensions);
+
+      if (result.success) {
+        // Create a Set of existing file paths for efficient lookup
+        const existingPaths = new Set(this.videos.map(video => video.filePath));
+        
+        // Filter out files that already exist in the library
+        const newFiles = result.files.filter(filePath => !existingPaths.has(filePath));
+
+        console.log(`Found ${result.files.length} media files, of which ${newFiles.length} are new.`);
+        return newFiles;
+      } else {
+        throw new Error(result.error || 'An unknown error occurred during the scan.');
+      }
+    } catch (error) {
+      console.error(`Error scanning directory ${directoryPath}:`, error);
+      throw error;
     }
   }
 
