@@ -32,14 +32,28 @@ function generateGameId() {
  * @param {Object} router - Express 路由对象
  */
 function registerGamesRoutes(router) {
-  // GET /api/games - 获取所有游戏
+  // GET /api/games - 获取游戏信息
   router.get('/api/games', async (req, res) => {
     try {
-      const games = await sqlite.getTableResources('games')
-      res.json(games)
+      const games = await sqlite.getTableResources('games', {
+        'name': req.query.name,
+        'developer': req.query.developer,
+        'publisher': req.query.publisher
+      })
+      res.json({
+        'status': 200,
+        'message': 'success',
+        'total': games.length,
+        'data': games
+      })
     } catch (error) {
-      console.error('获取所有游戏失败:', error)
-      res.status(500).json({ error: error.message })
+      console.error('获取游戏信息失败:', error)
+      res.status(500).json({
+        'status': 500,
+        'message': error.message,
+        'total': -1,
+        'data': []
+      })
     }
   })
 

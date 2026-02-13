@@ -1,15 +1,21 @@
 <template>
-  <HelpSection 
-    title="🎮 游戏管理 API" 
+  <HelpSection
+    title="🎮 游戏管理 API"
     subtitle="通过 HTTP API 管理游戏数据"
     intro="游戏的CRUD操作。">
-    
 
-    <DetailCard title="📥 获取所有游戏">
+
+    <DetailCard title="📥 获取游戏信息">
       <div class="api-endpoint">
         <div class="method get">GET</div>
         <code>/api/games</code>
       </div>
+      <p><strong>参数：</strong><br/>
+        &nbsp;&nbsp;<code>name</code> - 游戏名称（可选）<br/>
+        &nbsp;&nbsp;<code>developer</code> - 开发商（可选）<br/>
+        &nbsp;&nbsp;<code>publisher</code> - 发行商（可选）<br/>
+        备注：不传参数即可查询所有游戏
+      </p>
       <p><strong>响应：</strong>200 OK，返回游戏数组。例如：</p>
       <CodeBlock :code="CODE.gamesArray" language="json" />
       <p class="code-label">JavaScript代码示例</p>
@@ -127,34 +133,39 @@ import DetailCard from '../../../DetailCard.vue'
 import CodeBlock from '../../../CodeBlock.vue'
 
 const CODE = {
-  gamesArray: `[
-  {
-    "id": "1767042792152n1yc9qrf3",
-    "resourceType": "game",
-    "name": "游戏名称",
-    "nickname": "",
-    "nameZh": "",
-    "nameEn": "",
-    "nameJa": "",
-    "description": "游戏描述",
-    "developers": ["开发商1", "开发商2"],
-    "publisher": "发行商",
-    "tags": ["标签1", "标签2"],
-    "engine": "RPGMaker",
-    "coverPath": "C:/Games/Screenshots/cover.png",
-    "resourcePath": "C:/Games/GameFolder/game.exe",
-    "playTime": 3600,
-    "playCount": 10,
-    "visitedSessions": [
-      "2025-12-29T22:05:34.528Z",
-      "2026-01-21T08:53:13.157Z"
-    ],
-    "addedDate": "2025-12-29T21:13:12.152Z",
-    "rating": 5,
-    "comment": "好玩",
-    "isFavorite": true
-  }
-]`,
+  gamesArray: `{
+    "status": 200,
+    "msg": "success",
+    "total": 1,
+    "data": [
+      {
+        "id": "1767042792152n1yc9qrf3",
+        "resourceType": "game",
+        "name": "游戏名称",
+        "nickname": "",
+        "nameZh": "",
+        "nameEn": "",
+        "nameJa": "",
+        "description": "游戏描述",
+        "developers": ["开发商1", "开发商2"],
+        "publisher": "发行商",
+        "tags": ["标签1", "标签2"],
+        "engine": "RPGMaker",
+        "coverPath": "C:/Games/Screenshots/cover.png",
+        "resourcePath": "C:/Games/GameFolder/game.exe",
+        "playTime": 3600,
+        "playCount": 10,
+        "visitedSessions": [
+          "2025-12-29T22:05:34.528Z",
+          "2026-01-21T08:53:13.157Z"
+        ],
+        "addedDate": "2025-12-29T21:13:12.152Z",
+        "rating": 5,
+        "comment": "好玩",
+        "isFavorite": true
+      }
+    ]
+  }`,
   gameObject: `{
   "id": "1767042792152n1yc9qrf3",
   "resourceType": "game",
@@ -211,7 +222,8 @@ const CODE = {
   errorResponse: `{
   "error": "错误信息"
 }`,
-  jsGetAll: `const res = await fetch('http://127.0.0.1:8765/api/games')
+  jsGetAll: `const params = new URLSearchParams({'name': '游戏名称'}) // 按需添加查询条件，条件为空时查询所有游戏
+const res = await fetch(\`http://127.0.0.1:8765/api/games?\${params}\`)
 const games = await res.json()`,
   jsGetOne: `const res = await fetch('http://127.0.0.1:8765/api/games/1234567890abc')
 const game = await res.json()`,
@@ -234,7 +246,8 @@ const updatedGame = await res.json()`,
   jsDelete: `await fetch('http://127.0.0.1:8765/api/games/1234567890abc', { method: 'DELETE' })
 // 成功返回 204，无响应体`,
   pyGetAll: `import requests
-response = requests.get('http://127.0.0.1:8765/api/games')
+params = {'name': '游戏名称'} # 按需添加查询条件，条件为空时查询所有游戏
+response = requests.get('http://127.0.0.1:8765/api/games', params=params)
 games = response.json()`,
   pyGetOne: `import requests
 response = requests.get('http://127.0.0.1:8765/api/games/1234567890abc')
