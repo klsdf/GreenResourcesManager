@@ -18,6 +18,8 @@
  */
 
 const sqlite = require('../database/sqlite')
+const { detectGameEngine } = require('../utils/game-engine-detector')
+
 
 /**
  * 生成唯一的游戏ID
@@ -82,6 +84,12 @@ function registerGamesRoutes(router) {
       if (typeof req.body.name !== 'string') {
         return res.status(400).json({ error: '游戏名称必须是字符串' })
       }
+      const resourcePath = typeof req.body.resourcePath === 'string' ? req.body.resourcePath : ''
+      let engine = typeof req.body.engine === 'string' ? req.body.engine : ''
+      if (resourcePath && !engine) {
+        // 检查游戏引擎
+        engine = await detectGameEngine(resourcePath)
+      }
 
       // 生成ID并构建游戏对象
       const newGame = {
@@ -96,9 +104,9 @@ function registerGamesRoutes(router) {
         developers: Array.isArray(req.body.developers) ? req.body.developers : [],
         publisher: typeof req.body.publisher === 'string' ? req.body.publisher : '',
         tags: Array.isArray(req.body.tags) ? req.body.tags : [],
-        engine: typeof req.body.engine === 'string' ? req.body.engine : '',
+        engine: engine,
         coverPath: typeof req.body.coverPath === 'string' ? req.body.coverPath : '',
-        resourcePath: typeof req.body.resourcePath === 'string' ? req.body.resourcePath : '',
+        resourcePath: resourcePath,
         playTime: typeof req.body.playTime === 'number' ? req.body.playTime : 0,
         playCount: typeof req.body.playCount === 'number' ? req.body.playCount : 0,
         visitedSessions: typeof req.body.visitedSessions === 'number' ? req.body.visitedSessions : 0,
