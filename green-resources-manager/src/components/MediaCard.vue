@@ -1,13 +1,13 @@
 <template>
   <fun-card
     class="media-card"
-    :class="ratingBorderClass"
+    :class="[ratingBorderClass, { 'selected': isSelected }]"
     :data-type="type"
     :style="{ '--card-scale': scale / 100 }"
     :bordered="false"
     :shadow="false"
     :clickable="true"
-    @click="$emit('click', item)"
+    @click="handleCardClick"
     @contextmenu="$emit('contextmenu', $event, item)"
   >
     <div class="media-image">
@@ -17,6 +17,14 @@
         loading="lazy"
         @error="handleImageError"
       >
+      <!-- 多选框 -->
+      <div v-if="isMultiSelectMode" class="multi-select-checkbox">
+        <input 
+          type="checkbox" 
+          :checked="isSelected"
+          @click.stop
+        >
+      </div>
       <!-- 动态徽章 -->
       <div v-if="badgeText && scale >= 30" class="media-badge">
         {{ badgeText }}
@@ -37,10 +45,10 @@
         📁
       </div>
       <!-- 收藏标识 -->
-      <div v-if="itemIsFavorite" class="favorite-indicator" title="已收藏">
+      <div v-if="itemIsFavorite && !isMultiSelectMode" class="favorite-indicator" title="已收藏">
         ⭐
       </div>
-      <div class="media-overlay" v-if="showActionButton">
+      <div class="media-overlay" v-if="showActionButton && !isMultiSelectMode">
         <div class="action-button" @click.stop="$emit('action', item)">
           <span class="action-icon">{{ actionIcon }}</span>
         </div>
@@ -302,9 +310,17 @@ export default {
     scale: {
       type: Number,
       default: 100
+    },
+    isMultiSelectMode: {
+      type: Boolean,
+      default: false
+    },
+    isSelected: {
+      type: Boolean,
+      default: false
     }
   },
-  emits: ['click', 'contextmenu', 'action'],
+  emits: ['click', 'contextmenu', 'action', 'toggle-select'],
   data() {
     return {
       imageCache: {},
@@ -708,6 +724,13 @@ export default {
     }
   },
   methods: {
+    handleCardClick() {
+      if (this.isMultiSelectMode) {
+        this.$emit('toggle-select')
+      } else {
+        this.$emit('click', this.item)
+      }
+    },
     // 获取特殊项的值
     getSpecialItemValue(specialItem) {
       const value = getNestedFieldValue(this.item, specialItem.field)
@@ -1382,10 +1405,33 @@ $running-color-dark: #10b981;
   background-color: $card-bg-dark;
 }
 
-.media-card:hover {
+.media-card:hover,
+.media-card.selected {
   transform: translateY(-4px);
   box-shadow: 0 8px 25px var(--shadow-medium);
   border-color: var(--accent-color);
+}
+
+.multi-select-checkbox {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 20;
+  width: 24px;
+  height: 24px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.multi-select-checkbox input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
 }
 
 /* 评分边框样式 */

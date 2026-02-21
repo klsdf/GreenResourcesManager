@@ -17,6 +17,13 @@ export interface ChangelogEntry {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    version: 'v0.7.2',
+    date: '2026-02-22',
+    features: [
+      "增加从托盘快速打开主窗口的快捷键",
+    ],
+  },
+  {
     version: 'v0.7.1',
     date: '2026-02-19',
     features: [

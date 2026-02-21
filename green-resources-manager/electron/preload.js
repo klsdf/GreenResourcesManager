@@ -46,6 +46,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveThumbnail: (filePath, dataUrl) => ipcRenderer.invoke('save-thumbnail', filePath, dataUrl),
   getFileStats: (filePath) => ipcRenderer.invoke('get-file-stats', filePath),
   listFiles: (dirPath) => ipcRenderer.invoke('list-files', dirPath),
+  searchMatchingFiles: (rootDir, extensions) => ipcRenderer.invoke('search-matching-files', rootDir, extensions),
   
   // 伪装图片功能
   readDisguiseImages: () => ipcRenderer.invoke('read-disguise-images'),

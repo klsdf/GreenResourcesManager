@@ -15,6 +15,7 @@
                 :page-type="toolbarConfig.pageType"
                 :scale="scale"
                 :show-layout-control="showLayoutControl"
+                :is-multi-select-mode="isMultiSelectMode"
                 @add-item="handleAddItem"
                 @add-folder="handleAddFolder"
                 @import-bookmark="handleImportBookmark"
@@ -23,7 +24,8 @@
                 @update:searchQuery="handleSearchQueryUpdate"
                 @update:sortBy="handleSortByUpdate"
                 @sort-changed="handleSortChanged"
-                @update:scale="$emit('update:scale', $event)" />
+                @update:scale="$emit('update:scale', $event)"
+                @toggle-multi-select="$emit('toggle-multi-select')" />
 
             <!-- 分页导航 -->
             <fun-pagination 
@@ -135,6 +137,10 @@ export default {
         showLayoutControl: {
             type: Boolean,
             default: false
+        },
+        isMultiSelectMode: {
+            type: Boolean,
+            default: false
         }
     },
     emits: [
@@ -149,7 +155,8 @@ export default {
         'page-change',
         'update:scale',
         'button-click',
-        'search'
+        'search',
+        'toggle-multi-select'
     ],
     computed: {
         currentEmptyState() {

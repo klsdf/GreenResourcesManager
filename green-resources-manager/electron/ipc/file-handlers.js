@@ -83,6 +83,10 @@ function registerIpcHandlers(ipcMain, fileUtils, pathUtils) {
     return await fileUtils.listFiles(dirPath)
   })
 
+  ipcMain.handle('search-matching-files', async (event, rootDir, extensions) => {
+    return await fileUtils.searchMatchingFiles(rootDir, extensions)
+  })
+
   ipcMain.handle('get-file-stats', async (event, filePath) => {
     return await fileUtils.getFileStats(filePath)
   })

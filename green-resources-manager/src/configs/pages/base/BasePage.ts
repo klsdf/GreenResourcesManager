@@ -74,9 +74,16 @@ export interface ToolbarLayoutItem extends ToolbarItemBase {
 }
 
 /**
+ * 多选模式类型工具栏项
+ */
+export interface ToolbarMultiSelectItem extends ToolbarItemBase {
+	type: 'multi-select'
+}
+
+/**
  * 工具栏项类型
  */
-export type ToolbarItem = ToolbarButtonItem | ToolbarSearchItem | ToolbarSortItem | ToolbarLayoutItem
+export type ToolbarItem = ToolbarButtonItem | ToolbarSearchItem | ToolbarSortItem | ToolbarLayoutItem | ToolbarMultiSelectItem
 
 /**
  * 工具栏配置接口（旧版兼容）

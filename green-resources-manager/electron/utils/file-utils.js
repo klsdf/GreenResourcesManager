@@ -561,6 +561,100 @@ async function readTextFile(filePath) {
   }
 }
 
+/**
+ * 递归搜索目录，找到匹配扩展名的文件
+ * 搜索规则：
+ * - 根目录：遍历所有内容
+ *   - 如果是文件：检查扩展名，匹配则加入结果
+ *   - 如果是文件夹：递归搜索，一旦找到匹配文件则停止该文件夹的搜索
+ * @param {string} rootDir - 根目录路径
+ * @param {string[]} extensions - 要匹配的扩展名数组（如 ['.exe', '.zip']）
+ * @returns {Promise<Object>} { success: boolean, files?: string[], error?: string }
+ */
+async function searchMatchingFiles(rootDir, extensions) {
+  try {
+    if (!fs.existsSync(rootDir)) {
+      return { success: false, error: '目录不存在' }
+    }
+
+    const matchedFiles = []
+    const lowerExtensions = extensions.map(ext => ext.toLowerCase())
+
+    // 辅助函数：递归搜索文件夹（广度优先）
+    const searchFolder = (dirPath) => {
+      const items = fs.readdirSync(dirPath)
+      
+      // 第一遍：先检查当前文件夹下的所有文件
+      for (const item of items) {
+        const itemPath = path.join(dirPath, item)
+        const stats = fs.statSync(itemPath)
+
+        if (stats.isFile()) {
+          // 检查文件扩展名
+          const lowerItem = item.toLowerCase()
+          const matches = lowerExtensions.some(ext => lowerItem.endsWith(ext))
+          if (matches) {
+            // 找到匹配文件，返回相对于根目录的路径
+            const relativePath = path.relative(rootDir, itemPath)
+            matchedFiles.push(relativePath)
+            return true // 找到匹配文件，停止该文件夹的搜索
+          }
+        }
+      }
+      
+      // 第二遍：如果没有找到匹配文件，才递归搜索子文件夹
+      for (const item of items) {
+        const itemPath = path.join(dirPath, item)
+        const stats = fs.statSync(itemPath)
+
+        if (stats.isDirectory()) {
+          // 递归搜索子文件夹
+          const found = searchFolder(itemPath)
+          if (found) {
+            return true // 子文件夹找到匹配文件，停止当前文件夹搜索
+          }
+        }
+      }
+      
+      return false // 该文件夹没有找到匹配文件
+    }
+
+    // 遍历根目录
+    const rootItems = fs.readdirSync(rootDir)
+    
+    // 根目录第一遍：先检查所有文件
+    for (const item of rootItems) {
+      const itemPath = path.join(rootDir, item)
+      const stats = fs.statSync(itemPath)
+
+      if (stats.isFile()) {
+        // 根目录的文件：直接检查扩展名
+        const lowerItem = item.toLowerCase()
+        const matches = lowerExtensions.some(ext => lowerItem.endsWith(ext))
+        if (matches) {
+          matchedFiles.push(item)
+        }
+      }
+    }
+    
+    // 根目录第二遍：处理子文件夹
+    for (const item of rootItems) {
+      const itemPath = path.join(rootDir, item)
+      const stats = fs.statSync(itemPath)
+
+      if (stats.isDirectory()) {
+        // 根目录的子文件夹：递归搜索
+        searchFolder(itemPath)
+      }
+    }
+
+    return { success: true, files: matchedFiles }
+  } catch (error) {
+    console.error('搜索匹配文件失败:', error)
+    return { success: false, error: error.message }
+  }
+}
+
 module.exports = {
   writeJsonFile,
   readJsonFile,
@@ -571,6 +665,7 @@ module.exports = {
   ensureDirectory,
   listFiles,
   getFileStats,
-  readTextFile
+  readTextFile,
+  searchMatchingFiles
 }
 

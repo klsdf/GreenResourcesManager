@@ -11,7 +11,8 @@
       :sort-by="sortBy" 
       :search-query="searchQuery"
       :scale="scale" 
-      :show-layout-control="true" 
+      :show-layout-control="true"
+      :is-multi-select-mode="isMultiSelectMode"
       @update:scale="updateScale"
       @empty-state-action="handleEmptyStateAction" 
       @add-item="showAddDialogHandler" 
@@ -20,7 +21,8 @@
       @search-query-changed="handleSearchQueryChanged" 
       @sort-by-changed="handleSortByChanged"
       @context-menu-click="handleContextMenuClick" 
-      @page-change="handlePageChange">
+      @page-change="handlePageChange"
+      @toggle-multi-select="toggleMultiSelectMode">
       
     <!-- 主内容区域 -->
     <!-- 直接使用 div + useDragAndDrop，避免 FunDropZone 组件的性能问题 -->
@@ -55,9 +57,12 @@
           :file-exists="getFileExists(item)"
           :scale="scale"
           :is-running="isResourceRunning(item)"
+          :is-multi-select-mode="isMultiSelectMode"
+          :is-selected="isItemSelected(item)"
           @click="() => (this as any).showDetail(item)"
           @contextmenu.prevent="handleContextMenu($event, item)"
           @action="handleResourceAction"
+          @toggle-select="() => toggleSelectItem(item)"
         />
       </FunGrid>
       <div v-else class="empty-grid" :class="{ 'is-dragging': isDragOver }"></div>
@@ -265,6 +270,16 @@
       </div>
     </div>
   </div>
+
+  <!-- 批量导入对话框 -->
+  <BatchImportDialog
+    ref="batchImportDialogRef"
+    :visible="showBatchImportDialog"
+    :files="batchImportFiles"
+    :folder-path="batchImportFolderPath"
+    @close="closeBatchImportDialog"
+    @confirm="handleBatchImportConfirm"
+  />
 </template>
 
 <script lang="ts">
@@ -279,6 +294,7 @@ import TextReader from './TextReader.vue'
 import EbookReader from './epub-reader-v2/EbookReader.vue'
 import ContentView from './epub-reader-v2/ContentView.vue'
 import PathUpdateDialog from './PathUpdateDialog.vue'
+import BatchImportDialog from './BatchImportDialog.vue'
 import { createResourcePage } from '../composables/createResourcePage'
 // // import { FunDropZone } from '../fun-ui'  // 临时移除，避免性能问题  // 临时移除，避免性能问题
 import FunGrid from '../fun-ui/layout/Grid/FunGrid.vue'
@@ -409,6 +425,7 @@ export default defineComponent({
     PathUpdateDialog,
     ScraperUpdateDialog,
     FolderVideosGrid,
+    BatchImportDialog,
     // FunDropZone,  // 临时移除，避免性能问题
     FunGrid
   },
@@ -484,8 +501,18 @@ export default defineComponent({
     const searchQuery = ref('')
     const sortBy = ref('name-asc')
     
+    // 多选模式相关
+    const isMultiSelectMode = ref(false)
+    const selectedItems = ref<Set<string>>(new Set())
+    
     // 数据加载状态
     const isLoadingData = ref(false)
+    
+    // 批量导入对话框相关
+    const showBatchImportDialog = ref(false)
+    const batchImportFiles = ref<string[]>([])
+    const batchImportFolderPath = ref<string>('')
+    const batchImportDialogRef = ref<any>(null)
 
     const { getVideoDuration } = useVideoDuration()
     const { getAudioDuration } = useAudioDuration()
@@ -817,6 +844,28 @@ export default defineComponent({
     // 创建用于筛选的“运行中”函数（游戏/软件等可执行程序共用同一 store）
     const isGameRunningForFilter = (item: any) => {
       return gameRunningStore.isGameRunning(item.id?.value || item.id)
+    }
+
+    // 多选模式相关方法
+    const toggleMultiSelectMode = () => {
+      isMultiSelectMode.value = !isMultiSelectMode.value
+      if (!isMultiSelectMode.value) {
+        selectedItems.value.clear()
+      }
+    }
+    
+    const isItemSelected = (item: any): boolean => {
+      const itemId = item.id?.value || item.id
+      return selectedItems.value.has(itemId)
+    }
+    
+    const toggleSelectItem = (item: any) => {
+      const itemId = item.id?.value || item.id
+      if (selectedItems.value.has(itemId)) {
+        selectedItems.value.delete(itemId)
+      } else {
+        selectedItems.value.add(itemId)
+      }
     }
 
     
@@ -2676,7 +2725,7 @@ export default defineComponent({
     })
 
     // 处理灵活工具栏按钮点击
-    const handleButtonClick = (item: any) => {
+    const handleButtonClick = async (item: any) => {
       console.log('🔘 GenericResourceView 收到按钮点击:', item)
       
       // 支持直接调用 showAddDialogHandler 和其他预设方法
@@ -2684,12 +2733,205 @@ export default defineComponent({
         resourcePage.showAddDialogHandler()
       } else if (item.action === 'filterBySearch') {
         // 搜索操作不需要额外处理，搜索框已经绑定了 searchQuery
+      } else if (item.action === 'showBatchImportDialog') {
+        // 批量导入本地资源
+        if (!isElectronEnvironment.value || !window.electronAPI) {
+          notify.toast('error', '操作失败', '当前环境不支持此功能')
+          return
+        }
+
+        try {
+          // 选择文件夹
+          const folderResult = await window.electronAPI.selectFolder()
+          if (!folderResult.success || !folderResult.path) {
+            console.log('[GenericResourceView] 用户取消选择文件夹或选择失败')
+            return
+          }
+
+          // 获取当前页面支持的资源类型
+          const pageResourceTypes = pageConfig.resourceTypes || [resourceType.value]
+
+          // 收集所有匹配的扩展名
+          let allAcceptedExtensions: string[] = []
+          pageResourceTypes.forEach((resType: string) => {
+            const config = resourceClassMap[resType]
+            if (config && config.resourceClass && config.resourceClass.acceptedExtensions) {
+              allAcceptedExtensions = [...allAcceptedExtensions, ...config.resourceClass.acceptedExtensions]
+            }
+          })
+
+          // 去重
+          allAcceptedExtensions = [...new Set(allAcceptedExtensions)]
+
+          // 使用新的 API 递归搜索匹配的文件
+          const searchResult = await window.electronAPI.searchMatchingFiles(folderResult.path, allAcceptedExtensions)
+          if (!searchResult.success) {
+            notify.toast('error', '搜索文件失败', searchResult.error || '未知错误')
+            return
+          }
+
+          const matchedFiles = searchResult.files || []
+          
+          // 设置文件列表和文件夹路径并显示对话框
+          batchImportFiles.value = matchedFiles
+          batchImportFolderPath.value = folderResult.path
+          showBatchImportDialog.value = true
+        } catch (error: any) {
+          console.error('[GenericResourceView] 批量导入失败:', error)
+          notify.toast('error', '操作失败', error.message || '未知错误')
+        }
+      }
+    }
+
+    // 关闭批量导入对话框
+    const closeBatchImportDialog = () => {
+      showBatchImportDialog.value = false
+      batchImportFiles.value = []
+      batchImportFolderPath.value = ''
+    }
+
+    // 处理批量导入确认
+    const handleBatchImportConfirm = async (selectedFiles: string[], folderPath: string) => {
+      if (selectedFiles.length === 0) {
+        notify.toast('warning', '提示', '请至少选择一个文件')
+        return
+      }
+
+      try {
+        let addedCount = 0
+        let failedCount = 0
+
+        // 获取当前页面支持的资源类型
+        const pageResourceTypes = pageConfig.resourceTypes || [resourceType.value]
+
+        for (const relativeFilePath of selectedFiles) {
+          // 拼接完整路径
+          const fullFilePath = folderPath + (folderPath.endsWith('\\') || folderPath.endsWith('/') ? '' : '/') + relativeFilePath
+          const fileName = relativeFilePath.split(/[\\/]/).pop() || ''
+
+          // 获取文件扩展名
+          const lowerFileName = fileName.toLowerCase()
+          const fileExt = lowerFileName.includes('.') 
+            ? '.' + lowerFileName.split('.').pop() 
+            : ''
+
+          // 匹配资源类型
+          let matchedResourceType: string | null = null
+          let MatchedResourceClass: any = null
+          
+          for (const resType of pageResourceTypes) {
+            const config = resourceClassMap[resType]
+            if (!config) continue
+            
+            const ResourceClassToCheck = config.resourceClass
+            const acceptedExtensions = ResourceClassToCheck.acceptedExtensions || []
+            
+            // 检查文件扩展名是否匹配
+            if (acceptedExtensions.some((ext: string) => ext.toLowerCase() === fileExt)) {
+              matchedResourceType = resType
+              MatchedResourceClass = ResourceClassToCheck
+              break
+            }
+          }
+
+          if (!matchedResourceType || !MatchedResourceClass) {
+            failedCount++
+            continue
+          }
+
+          // 创建资源数据
+          const resourceData: any = {
+            id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            resourceType: matchedResourceType === 'Anime' ? 'videoFolder' : (matchedResourceType === 'Video' ? 'video' : matchedResourceType.toLowerCase()),
+            name: extractNameFromPath(fileName),
+            description: '',
+            tags: [],
+            resourcePath: fullFilePath,
+            coverPath: '',
+            folderSize: 0,
+            playTime: 0,
+            playCount: 0,
+            visitedSessions: [],
+            addedDate: new Date().toISOString(),
+            fileExists: true
+          }
+
+          // 获取文件大小
+          if (isElectronEnvironment.value && window.electronAPI) {
+            if (window.electronAPI.getFileStats) {
+              const result = await window.electronAPI.getFileStats(fullFilePath)
+              if (result.success && result.size) {
+                resourceData.folderSize = result.size
+              }
+            } else if (window.electronAPI.getFolderSize) {
+              const result = await window.electronAPI.getFolderSize(fullFilePath)
+              if (result.success) {
+                resourceData.folderSize = result.size
+              }
+            }
+          }
+
+          // 使用匹配到的资源类创建实例
+          const resource = MatchedResourceClass.fromJSON(resourceData)
+          
+          // 检查是否已存在相同路径
+          const existingItem = items.value.find((item: any) => {
+            const itemPath = BaseResources.extractPrimitiveValue(
+              item.resourcePath?.value || item.resourcePath
+            )
+            return itemPath === fullFilePath
+          })
+
+          if (existingItem) {
+            failedCount++
+            continue
+          }
+
+          // 添加到列表
+          items.value.push(resource)
+          addedCount++
+        }
+
+        // 保存数据
+        if (addedCount > 0) {
+          await saveData()
+        }
+
+        // 显示通知
+        if (addedCount > 0 || failedCount > 0) {
+          notify.toast(
+            addedCount > 0 ? 'success' : 'warning',
+            addedCount > 0 ? '导入成功' : '导入结果',
+            addedCount > 0 
+              ? `成功导入 ${addedCount} 个资源${failedCount > 0 ? `，${failedCount} 个失败` : ''}`
+              : `没有资源被导入（${failedCount} 个失败）`
+          )
+        }
+
+        // 关闭对话框
+        closeBatchImportDialog()
+      } catch (error: any) {
+        console.error('[GenericResourceView] 批量导入确认失败:', error)
+        notify.toast('error', '导入失败', error.message || '未知错误')
       }
     }
 
     return {
       resourceType, // 返回 computed，保持响应式
       isElectronEnvironment,
+      // 多选模式相关
+      isMultiSelectMode,
+      selectedItems,
+      toggleMultiSelectMode,
+      isItemSelected,
+      toggleSelectItem,
+      // 批量导入对话框相关
+      showBatchImportDialog,
+      batchImportFiles,
+      batchImportFolderPath,
+      batchImportDialogRef,
+      closeBatchImportDialog,
+      handleBatchImportConfirm,
       isResourceRunning,
       handleResourceAction,
       terminateGame,

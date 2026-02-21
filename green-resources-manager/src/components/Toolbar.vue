@@ -28,9 +28,18 @@
     
     <div class="toolbar-right">
       <template v-for="item in rightItems" :key="getItemKey(item)">
+        <!-- 多选模式按钮 -->
+        <fun-button
+          v-if="item.type === 'multi-select'"
+          :type="isMultiSelectMode ? 'secondary' : 'primary'"
+          @click="handleToggleMultiSelect"
+        >
+          {{ isMultiSelectMode ? '退出多选' : '多选模式' }}
+        </fun-button>
+
         <!-- 布局控制 -->
         <LayoutControl
-          v-if="item.type === 'layout'"
+          v-else-if="item.type === 'layout'"
           :scale="scale"
           @update:scale="handleScaleUpdate"
           @scale-changed="handleScaleChanged"
@@ -113,6 +122,10 @@ export default {
     searchPlaceholder: {
       type: String,
       default: ''
+    },
+    isMultiSelectMode: {
+      type: Boolean,
+      default: false
     }
   },
   emits: [
@@ -125,7 +138,8 @@ export default {
     'update:scale',
     'layout-changed',
     'button-click',
-    'search'
+    'search',
+    'toggle-multi-select'
   ],
   computed: {
     leftItems() {
@@ -175,11 +189,12 @@ export default {
     rightItems() {
       if (this.items && this.items.length > 0) {
         return this.items.filter(item => {
-          return item.type === 'layout' || item.type === 'sort'
+          return item.type === 'multi-select' || item.type === 'layout' || item.type === 'sort'
         })
       }
       
       const result = []
+      result.push({ type: 'multi-select' })
       if (this.showLayoutControl) {
         result.push({ type: 'layout' })
       }
@@ -189,22 +204,14 @@ export default {
       return result
     }
   },
-  async mounted() {
-    console.log('🔍 Toolbar mounted, 初始 sortBy:', this.sortBy)
-    if (this.showLayoutControl && this.pageType) {
-      await this.loadLayoutSetting()
-    } else {
-      this.isInitializing = false
+  data() {
+    return {
+      isInitializing: true
     }
   },
   watch: {
     sortBy(newValue, oldValue) {
       console.log('🔍 Toolbar sortBy 变化:', oldValue, '→', newValue)
-    }
-  },
-  data() {
-    return {
-      isInitializing: true
     }
   },
   methods: {
@@ -228,6 +235,9 @@ export default {
       } else if (item.action === 'import-bookmark') {
         this.$emit('import-bookmark')
       }
+    },
+    handleToggleMultiSelect() {
+      this.$emit('toggle-multi-select')
     },
     handleSearchInput(event, item) {
       this.$emit('update:searchQuery', event.target.value)
@@ -272,6 +282,14 @@ export default {
         await this.$nextTick()
         this.isInitializing = false
       }
+    }
+  },
+  async mounted() {
+    console.log('🔍 Toolbar mounted, 初始 sortBy:', this.sortBy)
+    if (this.showLayoutControl && this.pageType) {
+      await this.loadLayoutSetting()
+    } else {
+      this.isInitializing = false
     }
   }
 }

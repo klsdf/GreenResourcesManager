@@ -97,6 +97,7 @@ declare global {
       saveThumbnail: (filePath: string, dataUrl: string) => Promise<{ success: boolean; error?: string }>
       getFileStats: (filePath: string) => Promise<{ success: boolean; size?: number; isFile?: boolean; isDirectory?: boolean; mtime?: Date; ctime?: Date; atime?: Date; birthtime?: Date; error?: string }>
       listFiles: (dirPath: string) => Promise<{ success: boolean; files?: string[]; error?: string }>
+      searchMatchingFiles: (rootDir: string, extensions: string[]) => Promise<{ success: boolean; files?: string[]; error?: string }>
       listImageFiles: (folderPath: string) => Promise<{ success: boolean; files?: string[]; error?: string }>
       listImageFilesInArchive: (archivePath: string) => Promise<{ success: boolean; files?: string[]; error?: string }>
       

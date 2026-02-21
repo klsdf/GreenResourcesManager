@@ -74,9 +74,18 @@ export class GamePage extends BasePage {
 					buttonType: 'primary'
 				},
 				{
+					type: 'button',
+					label: '批量导入本地资源',
+					action: 'showBatchImportDialog',
+					icon: '📥'
+				},
+				{
 					type: 'search',
 					placeholder: '搜索游戏...',
 					action: 'filterBySearch'
+				},
+				{
+					type: 'multi-select'
 				},
 				{
 					type: 'layout'
