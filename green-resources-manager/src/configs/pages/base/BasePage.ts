@@ -7,7 +7,7 @@ import {
 	FormField_Checkbox,
 	FormField as FormFieldType
 } from '../../resources/base/FormField.ts'
-import type { SortOption } from '../../../types/sort'
+import type { SortOption, SortOptionConfig } from '../../../types/sort'
 import type { FilterConfig, FilterItem } from '../../../types/filter'
 
 /**
@@ -80,7 +80,7 @@ export type ToolbarItem = ToolbarButtonItem | ToolbarSearchItem | ToolbarSortIte
 export interface LegacyToolbarConfig {
 	addButtonText: string
 	searchPlaceholder: string
-	sortOptions?: Array<{ value: string; label: string }>
+	sortOptions?: Array<{ id: string; label: string }>
 	pageType?: string
 	scale?: number
 	showLayoutControl?: boolean
@@ -93,7 +93,7 @@ export interface LegacyToolbarConfig {
  */
 export interface FlexibleToolbarConfig {
 	items: ToolbarItem[]
-	sortOptions?: Array<{ value: string; label: string }>
+	sortOptions?: Array<{ id: string; label: string }>
 	pageType?: string
 	scale?: number
 	showLayoutControl?: boolean
@@ -114,6 +114,7 @@ export interface DialogConfig {
 	editButtonText: string
 	enableEngineAutoDetect?: boolean
 	enableScreenshotCover?: boolean
+	enableRandomizeThumbnail?: boolean
 }
 
 /**
@@ -158,19 +159,10 @@ export abstract class BasePage {
 	resourceTypes?: string[]
 	
 	/**
-	 * 获取排序选项配置
-	 * 子类必须实现此方法，返回该页面支持的排序选项
-	 * @returns 排序选项数组
+	 * 排序选项配置
+	 * 子类必须定义此属性，包含该页面支持的排序选项
 	 */
-	abstract getSortOptions(): SortOption[]
-	
-	/**
-	 * 获取排序配置（用于 SQL 排序）
-	 * 子类必须实现此方法，返回该页面支持的排序配置数组
-	 * 每个配置包含：label（显示标签）、dbField（数据库字段名）、order（排序方向）
-	 * @returns 排序配置数组，格式：{ label: string, dbField: string, order: 'asc' | 'desc' }[]
-	 */
-	abstract getSortConfig(): Array<{ label: string, dbField: string, order: 'asc' | 'desc' }>
+	abstract sortOptions: SortOptionConfig[]
 	
 	/**
 	 * 获取空状态配置

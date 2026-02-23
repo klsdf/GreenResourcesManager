@@ -1,19 +1,14 @@
 import { ref, computed, type Ref } from 'vue'
 import type { FilterItem } from '../types/filter'
 import type { FilterConfig } from '../types/filter'
+import type { SortOptionConfig } from '../types/sort'
 import { ResourceField } from '@resources/base/ResourceField.ts'
 import { sortBy as sortByUtil } from '../utils/sortBy'
 import type { SortConfig } from '../utils/sortBy'
 
-/**
- * 页面配置接口，需要提供 getSortConfig 和 getFilterConfig 方法
- */
 export interface PageConfigWithFilter {
-  // 新的方法：用于 SQL 排序，返回排序配置数组
-  getSortConfig(): Array<{ label: string, dbField: string, order: 'asc' | 'desc' }>
-  // 兼容方法：用于前端排序（如果 SQL 排序失败时使用）
+  sortOptions: SortOptionConfig[]
   getSortConfigForFrontend?(sortValue: string): SortConfig<any> | null
-  // 旧方法：保持向后兼容
   getSortConfig?(sortValue: string): SortConfig<any> | null
   getFilterConfig<T = any>(): FilterConfig<T>[]
 }

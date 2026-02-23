@@ -1,5 +1,5 @@
 import { BasePage, type DialogConfig } from './base/BasePage.ts'
-import type { SortOption } from '../../types/sort'
+import type { SortOptionConfig } from '../../types/sort'
 import type { SortConfig } from '../../utils/sortBy'
 import type { FilterConfig, FilterItem } from '../../types/filter'
 import { Game as GameClass } from '@resources/game.ts'
@@ -35,6 +35,17 @@ export class GamePage extends BasePage {
 		minWidth: 80,
 		maxWidth: 400
 	}
+
+	sortOptions: SortOptionConfig[] = [
+		{ id: 'name-asc', label: '按名称排序', field: 'name', order: 'asc' },
+		{ id: 'name-desc', label: '按名称排序（降序）', field: 'name', order: 'desc' },
+		{ id: 'lastPlayed-asc', label: '按最后游玩时间', field: 'lastPlayed', order: 'asc' },
+		{ id: 'lastPlayed-desc', label: '按最后游玩时间（降序）', field: 'lastPlayed', order: 'desc' },
+		{ id: 'playTime-asc', label: '按游戏时长（升序）', field: 'playTime', order: 'asc' },
+		{ id: 'playTime-desc', label: '按游戏时长（降序）', field: 'playTime', order: 'desc' },
+		{ id: 'addedDate-asc', label: '按添加时间（升序）', field: 'addedDate', order: 'asc' },
+		{ id: 'addedDate-desc', label: '按添加时间（降序）', field: 'addedDate', order: 'desc' }
+	]
 
 	/**
 	 * 获取空状态配置
@@ -83,7 +94,7 @@ export class GamePage extends BasePage {
 					type: 'sort'
 				}
 			],
-			sortOptions: this.getSortOptions(),
+			sortOptions: this.sortOptions,
 			pageType: this.id
 		}
 	}
@@ -102,89 +113,15 @@ export class GamePage extends BasePage {
 		}
 	}
 
-	/**
-	 * 获取排序配置（用于 SQL 排序）
-	 * 返回排序配置数组，包含 label、dbField、order
-	 */
-	getSortConfig(): Array<{ label: string, dbField: string, order: 'asc' | 'desc' }> {
-		return [
-			{
-				label: '按名称排序',
-				dbField: 'name',
-				order: 'asc'
-			},
-			{
-				label: '按名称排序（降序）',
-				dbField: 'name',
-				order: 'desc'
-			},
-			{
-				label: '按最后游玩时间',
-				dbField: 'lastPlayed',
-				order: 'asc'
-			},
-			{
-				label: '按最后游玩时间（降序）',
-				dbField: 'lastPlayed',
-				order: 'desc'
-			},
-			{
-				label: '按游戏时长（升序）',
-				dbField: 'playTime',
-				order: 'asc'
-			},
-			{
-				label: '按游戏时长（降序）',
-				dbField: 'playTime',
-				order: 'desc'
-			},
-			{
-				label: '按添加时间（升序）',
-				dbField: 'addedDate',
-				order: 'asc'
-			},
-			{
-				label: '按添加时间（降序）',
-				dbField: 'addedDate',
-				order: 'desc'
-			}
-		]
-	}
-
-	/**
-	 * 获取排序选项配置（用于工具栏显示）
-	 * 从排序配置生成排序选项，格式为 'dbField-order'
-	 */
-	getSortOptions(): SortOption[] {
-		return this.getSortConfig().map(config => ({
-			value: `${config.dbField}-${config.order}`,
-			label: config.label
-		}))
-	}
-
-	/**
-	 * 根据排序值获取排序配置（用于兼容前端排序，如果 SQL 排序失败时使用）
-	 * @param sortValue 排序值，如 'name-asc' 或 'name-desc'
-	 * @returns 排序配置，可直接用于 sortBy 工具函数
-	 */
 	getSortConfigForFrontend(sortValue: string): SortConfig<Game> | null {
-		// 解析排序值，格式：'dbField-order'
-		const parts = sortValue.split('-')
-		if (parts.length !== 2) {
-			return null
-		}
-
-		const [dbField, order] = parts
-		const config = this.getSortConfig().find(c => c.dbField === dbField && c.order === order)
+		const config = this.sortOptions.find(opt => opt.id === sortValue)
 		if (!config) {
 			return null
 		}
 
-		// 根据数据库字段名创建字段访问器
 		const fieldAccessor = (game: Game) => {
-			const value = (game as any)[dbField]?.value
-			// 如果是日期字段，转换为时间戳
-			if (dbField === 'lastPlayed' || dbField === 'addedDate') {
+			const value = (game as any)[config.field]?.value
+			if (config.field === 'lastPlayed' || config.field === 'addedDate') {
 				return value ? new Date(value).getTime() : null
 			}
 			return value != null ? value : null

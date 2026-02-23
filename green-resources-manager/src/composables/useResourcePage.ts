@@ -62,7 +62,7 @@ export type ToolbarItem = ToolbarButtonItem | ToolbarSearchItem | ToolbarSortIte
 
 export interface FlexibleToolbarConfig {
   items: ToolbarItem[]
-  sortOptions?: Array<{ value: string; label: string }>
+  sortOptions?: Array<{ id: string; label: string }>
   pageType?: string
   scale?: number
   showLayoutControl?: boolean
@@ -73,7 +73,7 @@ export interface LegacyToolbarConfig {
   addFolderButtonText?: string
   importBookmarkButtonText?: string
   searchPlaceholder: string
-  sortOptions: Array<{ value: string; label: string }>
+  sortOptions: Array<{ id: string; label: string }>
   pageType: string
 }
 
@@ -231,7 +231,7 @@ export function createToolbarConfig(
   itemType: string,
   addButtonText: string,
   searchPlaceholder: string,
-  sortOptions: Array<{ value: string; label: string }>,
+  sortOptions: Array<{ id: string; label: string }>,
   options?: {
     addFolderButtonText?: string
     importBookmarkButtonText?: string

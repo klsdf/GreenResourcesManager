@@ -39,7 +39,7 @@ export interface ResourcePageOptions<T> {
   toolbar: {
     addButtonText: string
     searchPlaceholder: string
-    sortOptions: Array<{ value: string; label: string }>
+    sortOptions: Array<{ id: string; label: string }>
     addFolderButtonText?: string
     importBookmarkButtonText?: string
   }

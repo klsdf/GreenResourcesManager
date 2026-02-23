@@ -114,12 +114,14 @@
       :available-tags-by-field="availableTagsByField"
       :enable-engine-auto-detect="dialogConfig.enableEngineAutoDetect"
       :enable-screenshot-cover="dialogConfig.enableScreenshotCover"
+      :enable-randomize-thumbnail="dialogConfig.enableRandomizeThumbnail"
       :add-title="dialogConfig.addTitle"
       :edit-title="dialogConfig.editTitle"
       :add-button-text="dialogConfig.addButtonText"
       :edit-button-text="dialogConfig.editButtonText"
       @close="closeAddDialog"
       @confirm="handleAddConfirm"
+      @randomize-thumbnail="handleRandomizeThumbnail"
     />
     
     <!-- 编辑资源对话框 -->
@@ -133,12 +135,14 @@
       :available-tags-by-field="availableTagsByField"
       :enable-engine-auto-detect="dialogConfig.enableEngineAutoDetect"
       :enable-screenshot-cover="dialogConfig.enableScreenshotCover"
+      :enable-randomize-thumbnail="dialogConfig.enableRandomizeThumbnail"
       :add-title="dialogConfig.addTitle"
       :edit-title="dialogConfig.editTitle"
       :add-button-text="dialogConfig.addButtonText"
       :edit-button-text="dialogConfig.editButtonText"
       @close="closeEdit"
       @confirm="handleEditConfirm"
+      @randomize-thumbnail="handleRandomizeThumbnail"
     />
     
     <!-- 漫画/图片查看器（用于 Image/Manga 资源类型） -->
@@ -843,7 +847,7 @@ export default defineComponent({
     isElectronEnvironment.value = !!(window as any).electronAPI
 
     // 获取排序选项
-    const sortOptions = pageConfig.getSortOptions()
+    const sortOptions = pageConfig.sortOptions
 
     // 游戏运行状态管理（使用 store）
     const gameRunningStore = useGameRunningStore()
@@ -1937,7 +1941,7 @@ export default defineComponent({
       toolbar: {
         ...pageConfig.getToolbarConfig(),
         sortOptions: sortOptions.map(option => ({
-          value: option.value,
+          id: option.id,
           label: option.label
         }))
       },
@@ -2758,6 +2762,41 @@ export default defineComponent({
         video.isGeneratingThumbnail = false
       }
     }
+
+    const handleRandomizeThumbnail = async (key: string, formData: any, updateThumbnail: (path: string) => void) => {
+      try {
+        const filePath = formData?.resourcePath
+        if (!filePath) {
+          notify.toast('warning', '提示', '请先选择视频文件')
+          return
+        }
+        
+        const videoName = formData?.name || ''
+        const currentThumbnail = formData?.thumbnail || ''
+        
+        console.log('=== 开始生成随机封面 ===')
+        console.log('视频文件路径:', filePath)
+        console.log('视频名称:', videoName)
+        console.log('当前缩略图:', currentThumbnail)
+        
+        const thumb = await videoThumbnailComposable.generateThumbnail(filePath, videoName, currentThumbnail)
+        console.log('随机封面生成结果:', thumb)
+        
+        if (thumb) {
+          console.log('缩略图生成成功，路径:', thumb)
+          if (updateThumbnail) {
+            updateThumbnail(thumb)
+          }
+          notify.toast('success', '设置成功', '已生成随机封面')
+        } else {
+          console.log('缩略图生成失败')
+          notify.toast('warning', '提示', '生成缩略图失败')
+        }
+      } catch (error: any) {
+        console.error('生成随机缩略图失败:', error)
+        notify.toast('error', '错误', `生成缩略图失败: ${error.message || '未知错误'}`)
+      }
+    }
     
     // 监听详情面板显示，同步 showDetailModal（完全复刻 ImageView.vue）
     watch(
@@ -3215,6 +3254,7 @@ export default defineComponent({
       getThumbnailUrlForFolderVideo,
       handleFolderVideoThumbnailError,
       generateFolderVideoThumbnail,
+      handleRandomizeThumbnail,
       // 详情页图片预览相关（完全复刻 ImageView.vue）
       // 图片缓存相关
       ...imageCacheComposable,

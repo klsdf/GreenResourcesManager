@@ -19,8 +19,13 @@ export interface SortFieldConfig<T> {
  * 排序选项接口（用于工具栏显示）
  */
 export interface SortOption {
-  /** 排序值，用于保存和识别，如 'name-asc' */
-  value: string
-  /** 显示标签，如 '按名称排序（升序）' */
+  id: string
   label: string
+}
+
+export interface SortOptionConfig {
+  id: string
+  label: string
+  field: string
+  order: 'asc' | 'desc'
 }

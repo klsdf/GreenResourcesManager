@@ -49,8 +49,8 @@
         <select v-else-if="item.type === 'sort'" :value="sortBy" @change="handleSortChange" class="sort-select">
           <option 
             v-for="option in sortOptions" 
-            :key="option.value" 
-            :value="option.value"
+            :key="option.id" 
+            :value="option.id"
           >
             {{ option.label }}
           </option>
@@ -85,14 +85,14 @@ export default {
     sortOptions: {
       type: Array,
       default: () => [
-        { value: 'name-asc', label: '按名称排序（升序）' },
-        { value: 'name-desc', label: '按名称排序（降序）' },
-        { value: 'lastPlayed-asc', label: '按最后游玩时间（升序）' },
-        { value: 'lastPlayed-desc', label: '按最后游玩时间（降序）' },
-        { value: 'playTime-asc', label: '按游戏时长（升序）' },
-        { value: 'playTime-desc', label: '按游戏时长（降序）' },
-        { value: 'added-asc', label: '按添加时间（升序）' },
-        { value: 'added-desc', label: '按添加时间（降序）' }
+        { id: 'name-asc', label: '按名称排序（升序）' },
+        { id: 'name-desc', label: '按名称排序（降序）' },
+        { id: 'lastPlayed-asc', label: '按最后游玩时间（升序）' },
+        { id: 'lastPlayed-desc', label: '按最后游玩时间（降序）' },
+        { id: 'playTime-asc', label: '按游戏时长（升序）' },
+        { id: 'playTime-desc', label: '按游戏时长（降序）' },
+        { id: 'added-asc', label: '按添加时间（升序）' },
+        { id: 'added-desc', label: '按添加时间（降序）' }
       ]
     },
     scale: {
