@@ -96,7 +96,7 @@ export class Game extends BaseResources {
 
 	// 文件夹大小（字节）
 	folderSize: ResourceField<number> = new ResourceField<number>({
-		saveable: false,
+		saveable: true,
 		defaultValue: 0
 	})
 
@@ -160,6 +160,7 @@ export class Game extends BaseResources {
 			engine: this.engine.value || '',
 			coverPath: this.coverPath.value || '',
 			resourcePath: this.resourcePath.value || '',
+			folderSize: this.folderSize.value || 0,
 			playTime: this.playTime.value || 0,
 			playCount: this.playCount.value || 0,
 			visitedSessions: Array.isArray(this.visitedSessions.value) ? [...this.visitedSessions.value] : [],

@@ -1435,7 +1435,9 @@ export default defineComponent({
       },
       'update-folder-size': async (item: any) => {
         if (!isElectronEnvironment.value) {
-          notify.toast('error', '操作失败', '当前环境不支持文件夹大小计算功能')
+          const errorMsg = '当前环境不支持文件夹大小计算功能'
+          console.log('[GenericResourceView] 文件夹大小计算失败:', errorMsg)
+          notify.toast('error', '操作失败', errorMsg)
           return
         }
         
@@ -1443,20 +1445,48 @@ export default defineComponent({
                          (typeof item.constructor?.getCardDisplayConfig === 'function' 
                            ? item.constructor.getCardDisplayConfig() 
                            : null)
+        
+        console.log('[GenericResourceView] 检查资源类型配置:', {
+          resourceType: item.constructor?.name,
+          cardConfigExists: !!cardConfig,
+          badgeField: cardConfig?.badge?.field
+        })
+        
         if (cardConfig?.badge?.field !== 'folderSize') {
-          notify.toast('error', '操作失败', '该资源类型不支持文件夹大小计算')
+          const errorMsg = `该资源类型(${item.constructor?.name || '未知'})不支持文件夹大小计算，需要配置badge.field为'folderSize'`
+          console.log('[GenericResourceView] 文件夹大小计算失败:', errorMsg)
+          notify.toast('error', '操作失败', errorMsg)
           return
         }
         
         try {
+          const itemName = BaseResources.extractPrimitiveValue(item.name?.value || item.name) || '未知'
           const oldSize = BaseResources.extractPrimitiveValue(item.folderSize?.value || item.folderSize) || 0
+          
+          console.log('[GenericResourceView] 开始计算文件夹大小:', {
+            itemName,
+            oldSize,
+            resourceType: item.constructor?.name
+          })
+          
           const success = await calculateAndUpdateResourceSize(item, isElectronEnvironment.value)
+          
+          console.log('[GenericResourceView] 文件夹大小计算结果:', {
+            itemName,
+            success,
+            newSize: BaseResources.extractPrimitiveValue(item.folderSize?.value || item.folderSize) || 0
+          })
           
           if (success) {
             const newSize = BaseResources.extractPrimitiveValue(item.folderSize?.value || item.folderSize) || 0
             const oldSizeMB = (oldSize / 1024 / 1024).toFixed(2)
             const newSizeMB = (newSize / 1024 / 1024).toFixed(2)
-            const itemName = BaseResources.extractPrimitiveValue(item.name?.value || item.name) || '未知'
+            
+            console.log('[GenericResourceView] 文件夹大小更新成功:', {
+              itemName,
+              oldSizeMB,
+              newSizeMB
+            })
             
             notify.toast(
               'success',
@@ -1464,12 +1494,15 @@ export default defineComponent({
               `"${itemName}" 文件夹大小已更新\n旧大小: ${oldSizeMB} MB\n新大小: ${newSizeMB} MB`
             )
           } else {
-            notify.toast('error', '更新失败', '无法获取文件夹大小')
+            const errorMsg = `无法获取 "${itemName}" 的文件夹大小`
+            console.log('[GenericResourceView] 文件夹大小计算失败:', errorMsg)
+            notify.toast('error', '更新失败', errorMsg)
           }
         } catch (error: any) {
-          console.error('更新文件夹大小失败:', error)
           const itemName = BaseResources.extractPrimitiveValue(item.name?.value || item.name) || '未知'
-          notify.toast('error', '更新失败', `无法获取 "${itemName}" 的文件夹大小: ${error.message}`)
+          const errorMsg = `无法获取 "${itemName}" 的文件夹大小: ${error.message}`
+          console.error('[GenericResourceView] 文件夹大小计算异常:', error)
+          notify.toast('error', '更新失败', errorMsg)
         }
       }
     }
@@ -2017,7 +2050,7 @@ export default defineComponent({
         return
       }
       
-      // 筛选：有 resourcePath，且 folderSize 为 undefined 或 null 才计算（0 是有效值，不重新计算）
+      // 筛选：有 resourcePath，且 folderSize 为 undefined、null 或 0 才计算
       const resourcesToCalculate = items.value.filter((item: any) => {
         const resourcePath = BaseResources.extractPrimitiveValue(
           item.resourcePath?.value || item.resourcePath || item.executablePath?.value || item.executablePath
@@ -2026,7 +2059,7 @@ export default defineComponent({
           return false
         }
         const folderSize = BaseResources.extractPrimitiveValue(item.folderSize?.value ?? item.folderSize)
-        return folderSize === undefined || folderSize === null
+        return folderSize === undefined || folderSize === null || folderSize === 0
       })
       
       if (resourcesToCalculate.length === 0) {

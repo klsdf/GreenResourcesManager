@@ -20,6 +20,7 @@ export async function calculateResourceSize(
   isElectronEnvironment: boolean
 ): Promise<number | null> {
   if (!isElectronEnvironment || !window.electronAPI) {
+    console.log('[ResourceSizeService] 不支持的环境:', { isElectronEnvironment, hasElectronAPI: !!window.electronAPI })
     return null
   }
 
@@ -29,32 +30,74 @@ export async function calculateResourceSize(
   )
 
   if (!resourcePath || typeof resourcePath !== 'string') {
+    console.log('[ResourceSizeService] 无效的资源路径:', { resourcePath, resourceType: resource.constructor?.name })
     return null
   }
 
   const filePath = resourcePath.trim()
   const isArchive = isArchiveFile(filePath)
+  const resourceName = BaseResources.extractPrimitiveValue(resource.name?.value || resource.name) || '未知'
+  
+  console.log('[ResourceSizeService] 开始计算资源大小:', {
+    resourceName,
+    filePath,
+    isArchive,
+    resourceType: resource.constructor?.name
+  })
 
   try {
     // 如果是压缩包，使用 getFileStats
     if (isArchive && window.electronAPI.getFileStats) {
+      console.log('[ResourceSizeService] 处理压缩包文件:', filePath)
       const result = await window.electronAPI.getFileStats(filePath)
+      console.log('[ResourceSizeService] 压缩包文件统计结果:', { success: result.success, size: result.size })
       if (result.success && result.size) {
         return result.size
       }
+
     }
-    // 如果是文件夹或文件，使用 getFolderSize
+    // 如果是文件夹，使用 getFolderSize
     else if (window.electronAPI.getFolderSize) {
-      const result = await window.electronAPI.getFolderSize(filePath)
-      if (result.success) {
-        return result.size
-      }
+      // 先判断是否为文件夹
+      if (window.electronAPI.getFileStats) {
+          const stats = await window.electronAPI.getFileStats(filePath)
+          console.log('[ResourceSizeService] 文件统计结果:', { success: stats.success, isDirectory: stats.isDirectory, size: stats.size })
+          
+          if (stats.success) {
+            // 处理文件夹
+            if (stats.isDirectory === true) {
+              console.log('[ResourceSizeService] 开始计算文件夹大小:', filePath)
+              const result = await window.electronAPI.getFolderSize(filePath)
+              console.log('[ResourceSizeService] 文件夹大小计算结果:', { success: result.success, size: result.size })
+              
+              if (result.success) {
+                return result.size
+              } else {
+                console.log('[ResourceSizeService] 文件夹大小计算失败:', result.error || '未知错误')
+              }
+            }
+            // 处理文件（包括可执行文件）
+            else if (stats.size !== undefined) {
+              console.log('[ResourceSizeService] 直接返回文件大小:', stats.size)
+              return stats.size
+            }
+            // 未知类型
+            else {
+              console.log('[ResourceSizeService] 无法确定文件类型或获取大小:', filePath)
+            }
+          } else {
+            console.log('[ResourceSizeService] 文件不存在或无法访问:', filePath)
+          }
+        }
+    } else {
+      console.log('[ResourceSizeService] 缺少必要的Electron API: getFolderSize')
     }
   } catch (error) {
     console.error('[ResourceSizeService] 计算资源大小失败:', error)
     return null
   }
 
+  console.log('[ResourceSizeService] 无法计算资源大小:', filePath)
   return null
 }
 

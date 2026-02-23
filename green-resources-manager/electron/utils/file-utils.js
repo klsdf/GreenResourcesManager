@@ -496,16 +496,14 @@ async function getFileStats(filePath) {
     
     return {
       success: true,
-      stats: {
-        size: stats.size,
-        sizeKB: Math.round(stats.size / 1024 * 100) / 100,
-        sizeMB: Math.round(stats.size / (1024 * 1024) * 100) / 100,
-        created: stats.birthtime,
-        modified: stats.mtime,
-        accessed: stats.atime,
-        isFile: stats.isFile(),
-        isDirectory: stats.isDirectory()
-      }
+      size: stats.size,
+      sizeKB: Math.round(stats.size / 1024 * 100) / 100,
+      sizeMB: Math.round(stats.size / (1024 * 1024) * 100) / 100,
+      birthtime: stats.birthtime,
+      mtime: stats.mtime,
+      atime: stats.atime,
+      isFile: stats.isFile(),
+      isDirectory: stats.isDirectory()
     }
   } catch (error) {
     console.error('获取文件统计信息失败:', error)

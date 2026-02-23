@@ -56,6 +56,12 @@ export class Other extends BaseResources {
 		editType: new FormField_SelectGameCover('资源封面', false)
 	})
 
+	// 文件夹大小（字节）
+	folderSize: ResourceField<number> = new ResourceField<number>({
+		saveable: true,
+		defaultValue: 0
+	})
+
 	// 每次访问的时间记录（ISO 字符串数组）
 	visitedSessions: ResourceField<string[]> = new ResourceField<string[]>({
 		saveable: true,
@@ -96,6 +102,7 @@ export class Other extends BaseResources {
 			tags: Array.isArray(this.tags.value) ? [...this.tags.value] : [],
 			resourcePath: this.resourcePath.value || '',
 			coverPath: this.coverPath.value || '',
+			folderSize: this.folderSize.value ?? 0,
 			visitedSessions: Array.isArray(this.visitedSessions.value) ? [...this.visitedSessions.value] : [],
 			addedDate: this.addedDate.value || '',
 			rating: this.rating.value || 0,
@@ -115,6 +122,7 @@ export class Other extends BaseResources {
 		{ key: 'detail', icon: '👁️', label: '查看详情' },
 		{ key: 'launch', icon: '▶️', label: '打开资源' },
 		{ key: 'folder', icon: '📁', label: '打开文件夹' },
+		{ key: 'update-folder-size', icon: '📊', label: '更新文件夹大小' },
 		{ key: 'edit', icon: '✏️', label: '编辑信息' },
 		{ key: 'remove', icon: '🗑️', label: '删除资源' }
 	]

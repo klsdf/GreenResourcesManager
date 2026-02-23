@@ -146,6 +146,7 @@ export class Software extends BaseResources {
 		{ key: 'detail', icon: '👁️', label: '查看详情' },
 		{ key: 'launch', icon: '▶️', label: '启动软件' },
 		{ key: 'folder', icon: '📁', label: '打开文件夹' },
+		{ key: 'update-folder-size', icon: '📊', label: '更新文件夹大小' },
 		{ key: 'edit', icon: '✏️', label: '编辑信息' },
 		{ key: 'remove', icon: '🗑️', label: '删除软件' }
 	]
