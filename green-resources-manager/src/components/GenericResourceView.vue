@@ -263,6 +263,14 @@
       @close="closeBatchDeleteTagDialog"
       @confirm="handleBatchDeleteTagConfirm"
     />
+
+    <!-- 批量删除确认对话框 -->
+    <BatchDeleteConfirmDialog
+      :visible="showBatchDeleteConfirmDialog"
+      :count="selectedItems.size"
+      @close="closeBatchDeleteConfirmDialog"
+      @confirm="handleBatchDeleteConfirm"
+    />
     
     <!-- 强制结束程序确认对话框 -->
     <div v-if="showTerminateConfirmDialog" class="modal-overlay" @click="closeTerminateConfirmDialog">
@@ -311,6 +319,7 @@ import PathUpdateDialog from './PathUpdateDialog.vue'
 import BatchImportDialog from './BatchImportDialog.vue'
 import BatchAddTagDialog from './BatchAddTagDialog.vue'
 import BatchDeleteTagDialog from './BatchDeleteTagDialog.vue'
+import BatchDeleteConfirmDialog from './BatchDeleteConfirmDialog.vue'
 import { createResourcePage } from '../composables/createResourcePage'
 // // import { FunDropZone } from '../fun-ui'  // 临时移除，避免性能问题  // 临时移除，避免性能问题
 import FunGrid from '../fun-ui/layout/Grid/FunGrid.vue'
@@ -442,6 +451,7 @@ export default defineComponent({
     BatchImportDialog,
     BatchAddTagDialog,
     BatchDeleteTagDialog,
+    BatchDeleteConfirmDialog,
     // FunDropZone,  // 临时移除，避免性能问题
     FunGrid
   },
@@ -527,6 +537,9 @@ export default defineComponent({
 
     // 批量删除tag对话框相关
     const showBatchDeleteTagDialog = ref(false)
+
+    // 批量删除确认对话框相关
+    const showBatchDeleteConfirmDialog = ref(false)
 
     const { getVideoDuration } = useVideoDuration()
     const { getAudioDuration } = useAudioDuration()
@@ -985,7 +998,39 @@ export default defineComponent({
     }
 
     const handleBatchDelete = () => {
-      console.log('批量删除文件')
+      if (selectedItems.value.size === 0) {
+        notify.toast('warning', '批量删除文件', '请先选择要操作的项目')
+        return
+      }
+      showBatchDeleteConfirmDialog.value = true
+    }
+
+    const closeBatchDeleteConfirmDialog = () => {
+      showBatchDeleteConfirmDialog.value = false
+    }
+
+    const handleBatchDeleteConfirm = async () => {
+      const deleteCount = selectedItems.value.size
+
+      try {
+        for (const itemId of selectedItems.value) {
+          const index = items.value.findIndex((i: any) => (i.id?.value || i.id) === itemId)
+          if (index > -1) {
+            items.value.splice(index, 1)
+          }
+        }
+
+        await saveData()
+        notify.toast('success', '批量删除文件', `成功删除 ${deleteCount} 个项目`)
+
+        selectedItems.value.clear()
+        isMultiSelectMode.value = false
+      } catch (error) {
+        console.error('[GenericResourceView] 批量删除文件失败:', error)
+        notify.toast('error', '批量删除文件', '删除失败')
+      }
+
+      closeBatchDeleteConfirmDialog()
     }
 
     const contextMenuItems = computed(() => {
@@ -3108,6 +3153,10 @@ export default defineComponent({
       showBatchDeleteTagDialog,
       closeBatchDeleteTagDialog,
       handleBatchDeleteTagConfirm,
+      // 批量删除确认对话框相关
+      showBatchDeleteConfirmDialog,
+      closeBatchDeleteConfirmDialog,
+      handleBatchDeleteConfirm,
       isResourceRunning,
       handleResourceAction,
       terminateGame,
