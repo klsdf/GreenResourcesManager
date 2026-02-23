@@ -1,6 +1,5 @@
-import { BasePage } from './base/BasePage'
+import { BasePage } from './base/BasePage.ts'
 import type { SortOptionConfig } from '../../types/sort'
-import type { SortConfig } from '../../utils/sortBy'
 import type { FilterConfig } from '../../types/filter'
 import { Video as VideoClass } from '@resources/video.ts'
 
@@ -50,27 +49,6 @@ export class VideoPage extends BasePage {
       addButtonText: '添加视频',
       editButtonText: '保存',
       enableRandomizeThumbnail: true
-    }
-  }
-
-  getSortConfigForFrontend(sortValue: string): SortConfig<Video> | null {
-    const config = this.sortOptions.find(opt => opt.id === sortValue)
-    if (!config) {
-      return null
-    }
-    
-    const fieldAccessor = (video: Video) => {
-      const value = (video as any)[config.field]?.value
-      if (config.field === 'addedDate') {
-        return value ? new Date(value).getTime() : null
-      }
-      return value != null ? value : null
-    }
-    
-    return {
-      fieldAccessor,
-      order: config.order,
-      compareFn: undefined
     }
   }
 

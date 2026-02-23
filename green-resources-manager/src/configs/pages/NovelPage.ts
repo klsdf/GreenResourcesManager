@@ -1,6 +1,5 @@
 import { BasePage } from './base/BasePage.ts'
 import type { SortOptionConfig } from '../../types/sort'
-import type { SortConfig } from '../../utils/sortBy'
 import type { FilterConfig } from '../../types/filter'
 import { Novel as NovelClass } from '@resources/novel.ts'
 
@@ -46,27 +45,6 @@ export class NovelPage extends BasePage {
 		return {
 			addButtonText: '添加小说',
 			searchPlaceholder: '搜索小说...'
-		}
-	}
-
-	getSortConfig(sortValue: string): SortConfig<Novel> | null {
-		const config = this.sortOptions.find(opt => opt.id === sortValue)
-		if (!config) {
-			return null
-		}
-		
-		const fieldAccessor = (novel: Novel) => {
-			const value = (novel as any)[config.field]?.value
-			if (config.field === 'addedDate' || config.field === 'lastRead') {
-				return value ? new Date(value).getTime() : null
-			}
-			return value != null ? value : null
-		}
-		
-		return {
-			fieldAccessor,
-			order: config.order,
-			compareFn: undefined
 		}
 	}
 

@@ -1,6 +1,5 @@
-import { BasePage } from './base/BasePage'
+import { BasePage } from './base/BasePage.ts'
 import type { SortOptionConfig } from '../../types/sort'
-import type { SortConfig } from '../../utils/sortBy'
 import type { FilterConfig } from '../../types/filter'
 import { Audio as AudioClass } from '@resources/audio.ts'
 
@@ -40,27 +39,6 @@ export class AudioPage extends BasePage {
     return {
       addButtonText: '添加音频',
       searchPlaceholder: '搜索音频...'
-    }
-  }
-
-  getSortConfigForFrontend(sortValue: string): SortConfig<Audio> | null {
-    const config = this.sortOptions.find(opt => opt.id === sortValue)
-    if (!config) {
-      return null
-    }
-    
-    const fieldAccessor = (audio: Audio) => {
-      const value = (audio as any)[config.field]?.value
-      if (config.field === 'addedDate') {
-        return value ? new Date(value).getTime() : null
-      }
-      return value != null ? value : null
-    }
-    
-    return {
-      fieldAccessor,
-      order: config.order,
-      compareFn: undefined
     }
   }
 

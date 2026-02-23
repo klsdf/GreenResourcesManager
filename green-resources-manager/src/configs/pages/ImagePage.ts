@@ -1,6 +1,5 @@
 import { BasePage } from './base/BasePage.ts'
 import type { SortOptionConfig } from '../../types/sort'
-import type { SortConfig } from '../../utils/sortBy'
 import type { FilterConfig, FilterItem } from '../../types/filter'
 import { Manga as MangaClass } from '@resources/manga.ts'
 
@@ -48,27 +47,6 @@ export class ImagePage extends BasePage {
 		return {
 			addButtonText: '添加漫画',
 			searchPlaceholder: '搜索漫画...'
-		}
-	}
-
-	getSortConfig(sortValue: string): SortConfig<Manga> | null {
-		const config = this.sortOptions.find(opt => opt.id === sortValue)
-		if (!config) {
-			return null
-		}
-		
-		const fieldAccessor = (manga: Manga) => {
-			const value = (manga as any)[config.field]?.value
-			if (config.field === 'addedDate' || config.field === 'lastViewed') {
-				return value ? new Date(value).getTime() : null
-			}
-			return value != null ? value : null
-		}
-		
-		return {
-			fieldAccessor,
-			order: config.order,
-			compareFn: undefined
 		}
 	}
 

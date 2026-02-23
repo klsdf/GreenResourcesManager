@@ -8,9 +8,23 @@ import type { SortConfig } from '../utils/sortBy'
 
 export interface PageConfigWithFilter {
   sortOptions: SortOptionConfig[]
-  getSortConfigForFrontend?(sortValue: string): SortConfig<any> | null
-  getSortConfig?(sortValue: string): SortConfig<any> | null
   getFilterConfig<T = any>(): FilterConfig<T>[]
+}
+
+const DATE_FIELDS = ['addedDate', 'lastRead', 'lastPlayed', 'lastViewed']
+
+function buildSortConfig(config: SortOptionConfig): SortConfig<any> {
+  return {
+    fieldAccessor: (item: any) => {
+      const value = item[config.field]?.value
+      if (DATE_FIELDS.includes(config.field)) {
+        return value ? new Date(value).getTime() : null
+      }
+      return value != null ? value : null
+    },
+    order: config.order,
+    compareFn: undefined
+  }
 }
 
 /**
@@ -253,20 +267,11 @@ export function useResourceFilter<T = any>(
       return true
     })
 
-    // 排序 - 使用 sortBy 工具函数（作为降级方案，如果 SQL 排序失败时使用）
-    // 优先使用 getSortConfigForFrontend，如果没有则使用旧的 getSortConfig
-    let sortConfig: SortConfig<any> | null = null
-    if (typeof pageConfig.getSortConfigForFrontend === 'function') {
-      sortConfig = pageConfig.getSortConfigForFrontend(sortBy.value)
-    } else if (typeof pageConfig.getSortConfig === 'function') {
-      sortConfig = pageConfig.getSortConfig(sortBy.value)
-    }
-    
+    const sortConfig = pageConfig.sortOptions.find(opt => opt.id === sortBy.value)
     if (sortConfig) {
-      return sortByUtil(filtered, sortConfig)
+      return sortByUtil(filtered, buildSortConfig(sortConfig))
     }
     
-    // 如果没有找到对应的排序配置，返回原数组（不排序）
     return filtered
   })
 

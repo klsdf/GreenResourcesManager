@@ -1,6 +1,5 @@
-import { BasePage } from './base/BasePage'
+import { BasePage } from './base/BasePage.ts'
 import type { SortOptionConfig } from '../../types/sort'
-import type { SortConfig } from '../../utils/sortBy'
 import type { FilterConfig } from '../../types/filter'
 import { VideoFolder as VideoFolderClass } from '@resources/videoFolder.ts'
 
@@ -42,27 +41,6 @@ export class AnimePage extends BasePage {
     return {
       addButtonText: '添加番剧',
       searchPlaceholder: '搜索番剧...'
-    }
-  }
-
-  getSortConfigForFrontend(sortValue: string): SortConfig<VideoFolder> | null {
-    const config = this.sortOptions.find(opt => opt.id === sortValue)
-    if (!config) {
-      return null
-    }
-    
-    const fieldAccessor = (anime: VideoFolder) => {
-      const value = (anime as any)[config.field]?.value
-      if (config.field === 'addedDate') {
-        return value ? new Date(value).getTime() : null
-      }
-      return value != null ? value : null
-    }
-    
-    return {
-      fieldAccessor,
-      order: config.order,
-      compareFn: undefined
     }
   }
 

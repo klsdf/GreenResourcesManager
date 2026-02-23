@@ -1,7 +1,6 @@
 import { BasePage, type DialogConfig } from './base/BasePage.ts'
 import type { SortOptionConfig } from '../../types/sort'
-import type { SortConfig } from '../../utils/sortBy'
-import type { FilterConfig, FilterItem } from '../../types/filter'
+import type { FilterConfig } from '../../types/filter'
 import { Game as GameClass } from '@resources/game.ts'
 
 // Game 类型就是 GameClass 的实例类型
@@ -113,32 +112,6 @@ export class GamePage extends BasePage {
 		}
 	}
 
-	getSortConfigForFrontend(sortValue: string): SortConfig<Game> | null {
-		const config = this.sortOptions.find(opt => opt.id === sortValue)
-		if (!config) {
-			return null
-		}
-
-		const fieldAccessor = (game: Game) => {
-			const value = (game as any)[config.field]?.value
-			if (config.field === 'lastPlayed' || config.field === 'addedDate') {
-				return value ? new Date(value).getTime() : null
-			}
-			return value != null ? value : null
-		}
-
-		return {
-			fieldAccessor,
-			order: config.order,
-			compareFn: undefined
-		}
-	}
-
-	/**
-	 * 获取筛选配置
-	 * 定义游戏页面支持的所有筛选器
-	 * 合并基类的"丢失的资源"筛选和游戏特有的筛选器
-	 */
 	getFilterConfig<T = Game>(): FilterConfig<T>[] {
 		// 获取基类的筛选配置（包含"丢失的资源"）
 		const baseFilters = super.getFilterConfig<T>()
