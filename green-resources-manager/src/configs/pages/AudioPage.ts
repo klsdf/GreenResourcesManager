@@ -8,17 +8,6 @@ import { Audio as AudioClass } from '@resources/audio.ts'
 type Audio = InstanceType<typeof AudioClass>
 
 /**
- * 安全获取资源属性值的辅助函数
- * 如果属性是 ResourceField，返回其 value；否则直接返回属性值
- */
-function getFieldValue<T>(field: any): T | undefined {
-	if (field && typeof field === 'object' && 'value' in field) {
-		return field.value as T
-	}
-	return field as T
-}
-
-/**
  * 音频页面配置
  */
 export class AudioPage extends BasePage {
@@ -111,7 +100,7 @@ export class AudioPage extends BasePage {
     
     // 根据数据库字段名创建字段访问器
     const fieldAccessor = (audio: Audio) => {
-      const value = getFieldValue<any>((audio as any)[dbField])
+      const value = (audio as any)[dbField]?.value
       // 如果是日期字段，转换为时间戳
       if (dbField === 'addedDate') {
         return value ? new Date(value).getTime() : null
@@ -141,8 +130,7 @@ export class AudioPage extends BasePage {
         key: 'tags',
         title: '标签筛选',
         fieldAccessor: (audio: any) => {
-          const tags = getFieldValue<string[]>((audio as any).tags)
-          return tags || []
+          return (audio as any).tags?.value || []
         },
         isArray: true
       },
@@ -150,8 +138,7 @@ export class AudioPage extends BasePage {
         key: 'artist',
         title: '艺术家筛选',
         fieldAccessor: (audio: any) => {
-          const artist = getFieldValue<string>((audio as any).artist)
-          return artist || ''
+          return (audio as any).artist?.value || ''
         },
         isArray: false
       },
@@ -159,8 +146,7 @@ export class AudioPage extends BasePage {
         key: 'actors',
         title: '演员筛选',
         fieldAccessor: (audio: any) => {
-          const actors = getFieldValue<string[]>((audio as any).actors)
-          return actors || []
+          return (audio as any).actors?.value || []
         },
         isArray: true
       }

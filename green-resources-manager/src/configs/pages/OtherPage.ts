@@ -8,17 +8,6 @@ import { Other as OtherClass } from '@resources/other.ts'
 type Other = InstanceType<typeof OtherClass>
 
 /**
- * 安全获取资源属性值的辅助函数
- * 如果属性是 ResourceField，返回其 value；否则直接返回属性值
- */
-function getFieldValue<T>(field: any): T | undefined {
-	if (field && typeof field === 'object' && 'value' in field) {
-		return field.value as T
-	}
-	return field as T
-}
-
-/**
  * 其他资源页面配置
  */
 export class OtherPage extends BasePage {
@@ -111,7 +100,7 @@ export class OtherPage extends BasePage {
     
     // 根据数据库字段名创建字段访问器
     const fieldAccessor = (other: Other) => {
-      const value = getFieldValue<any>((other as any)[dbField])
+      const value = (other as any)[dbField]?.value
       // 如果是日期字段，转换为时间戳
       if (dbField === 'addedDate') {
         return value ? new Date(value).getTime() : null
@@ -141,8 +130,7 @@ export class OtherPage extends BasePage {
         key: 'tags',
         title: '标签筛选',
         fieldAccessor: (other: any) => {
-          const tags = getFieldValue<string[]>((other as any).tags)
-          return tags || []
+          return (other as any).tags?.value || []
         },
         isArray: true
       },
@@ -150,8 +138,7 @@ export class OtherPage extends BasePage {
         key: 'category',
         title: '分类筛选',
         fieldAccessor: (other: any) => {
-          const category = getFieldValue<string>((other as any).category)
-          return category || ''
+          return (other as any).category?.value || ''
         },
         isArray: false
       }

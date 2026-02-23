@@ -14,7 +14,6 @@ import { NovelPage } from './NovelPage'
 import { WebsitePage } from './WebsitePage'
 import { AudioPage } from './AudioPage'
 import { OtherPage } from './OtherPage'
-import { TestGamePage } from './TestPage'
 
 /**
  * 页面配置接口
@@ -88,12 +87,6 @@ export const PAGE_CONFIGS: PageConfigMeta[] = [
     pageClass: OtherPage,       // 页面类会提供：id='other', name='其它', icon='📦'
     order: 10,
     isDefault: true
-  },
-  {
-    pageClass: TestGamePage,    // 页面类会提供：id='test-game', name='测试', icon='🧪'
-    order: 100,
-    isDefault: false,
-    isHidden: true  // 测试页面默认隐藏
   }
 ]
 

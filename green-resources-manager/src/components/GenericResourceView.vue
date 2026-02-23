@@ -249,6 +249,20 @@
       @confirm="confirmScraperUpdate"
       @cancel="closeScraperDialog"
     />
+
+    <!-- 批量增加tag对话框 -->
+    <BatchAddTagDialog
+      :visible="showBatchAddTagDialog"
+      @close="closeBatchAddTagDialog"
+      @confirm="handleBatchAddTagConfirm"
+    />
+
+    <!-- 批量删除tag对话框 -->
+    <BatchDeleteTagDialog
+      :visible="showBatchDeleteTagDialog"
+      @close="closeBatchDeleteTagDialog"
+      @confirm="handleBatchDeleteTagConfirm"
+    />
     
     <!-- 强制结束程序确认对话框 -->
     <div v-if="showTerminateConfirmDialog" class="modal-overlay" @click="closeTerminateConfirmDialog">
@@ -295,6 +309,8 @@ import EbookReader from './epub-reader-v2/EbookReader.vue'
 import ContentView from './epub-reader-v2/ContentView.vue'
 import PathUpdateDialog from './PathUpdateDialog.vue'
 import BatchImportDialog from './BatchImportDialog.vue'
+import BatchAddTagDialog from './BatchAddTagDialog.vue'
+import BatchDeleteTagDialog from './BatchDeleteTagDialog.vue'
 import { createResourcePage } from '../composables/createResourcePage'
 // // import { FunDropZone } from '../fun-ui'  // 临时移除，避免性能问题  // 临时移除，避免性能问题
 import FunGrid from '../fun-ui/layout/Grid/FunGrid.vue'
@@ -312,7 +328,6 @@ import { Audio } from '@resources/audio.ts'
 import { Other } from '@resources/other.ts'
 // 页面配置类导入
 import { GamePage } from '../configs/pages/GamePage.ts'
-import { TestGamePage } from '../configs/pages/TestPage.ts'
 import { SoftwarePage } from '../configs/pages/SoftwarePage.ts'
 import { ImagePage } from '../configs/pages/ImagePage.ts'
 import { SingleImagePage } from '../configs/pages/SingleImagePage.ts'
@@ -361,11 +376,10 @@ const RESOURCE_TYPE_TO_SCRAPER_TABLE: Record<string, string> = {
 }
 
 // 资源类型到资源类和页面配置的映射
-const resourceClassMap: Record<string, { resourceClass: any; pageClass: any; testPageClass?: any }> = {
+const resourceClassMap: Record<string, { resourceClass: any; pageClass: any }> = {
   Game: {
     resourceClass: Game,
-    pageClass: GamePage,
-    testPageClass: TestGamePage
+    pageClass: GamePage
   },
   Software: {
     resourceClass: Software,
@@ -426,6 +440,8 @@ export default defineComponent({
     ScraperUpdateDialog,
     FolderVideosGrid,
     BatchImportDialog,
+    BatchAddTagDialog,
+    BatchDeleteTagDialog,
     // FunDropZone,  // 临时移除，避免性能问题
     FunGrid
   },
@@ -472,15 +488,7 @@ export default defineComponent({
     }
 
     const ResourceClass = resourceConfig.resourceClass
-    
-    // 根据页面 ID 选择正确的页面配置类
-    // 只有 'test-game' 页面使用 TestGamePage，其他都使用正常的 pageClass
-    const isTestPage = props.pageConfig?.id === 'test-game'
-    const PageClass = (isTestPage && resourceConfig.testPageClass) 
-      ? resourceConfig.testPageClass 
-      : resourceConfig.pageClass
-    
-    const pageConfig = new PageClass()
+    const pageConfig = new resourceConfig.pageClass()
 
     // 获取对话框配置
     const dialogConfig = pageConfig.getDialogConfig?.() || {
@@ -513,6 +521,12 @@ export default defineComponent({
     const batchImportFiles = ref<string[]>([])
     const batchImportFolderPath = ref<string>('')
     const batchImportDialogRef = ref<any>(null)
+
+    // 批量增加tag对话框相关
+    const showBatchAddTagDialog = ref(false)
+
+    // 批量删除tag对话框相关
+    const showBatchDeleteTagDialog = ref(false)
 
     const { getVideoDuration } = useVideoDuration()
     const { getAudioDuration } = useAudioDuration()
@@ -867,6 +881,124 @@ export default defineComponent({
         selectedItems.value.add(itemId)
       }
     }
+
+    const handleBatchAddTag = () => {
+      if (selectedItems.value.size === 0) {
+        notify.toast('warning', '批量增加tag', '请先选择要操作的项目')
+        return
+      }
+      showBatchAddTagDialog.value = true
+    }
+
+    const closeBatchAddTagDialog = () => {
+      showBatchAddTagDialog.value = false
+    }
+
+    const handleBatchAddTagConfirm = async (tags: string[]) => {
+      if (tags.length === 0) {
+        notify.toast('warning', '批量增加tag', '请至少输入一个标签')
+        return
+      }
+
+      let successCount = 0
+      let failCount = 0
+
+      for (const itemId of selectedItems.value) {
+        const item = items.value.find((i: any) => (i.id?.value || i.id) === itemId)
+        if (item) {
+          try {
+            const currentTags = BaseResources.extractPrimitiveValue(item.tags?.value ?? item.tags) || []
+            const newTags = [...new Set([...currentTags, ...tags])]
+            
+            if (item.tags && typeof item.tags === 'object' && 'value' in item.tags) {
+              item.tags.value = newTags
+            } else {
+              item.tags = newTags
+            }
+            successCount++
+          } catch (error) {
+            console.error(`[GenericResourceView] 批量增加tag失败: ${itemId}`, error)
+            failCount++
+          }
+        }
+      }
+
+      if (successCount > 0) {
+        await saveData()
+        notify.toast('success', '批量增加tag', `成功为 ${successCount} 个项目添加标签${failCount > 0 ? `，${failCount} 个失败` : ''}`)
+      } else {
+        notify.toast('error', '批量增加tag', '添加失败')
+      }
+
+      closeBatchAddTagDialog()
+    }
+
+    const handleBatchDeleteTag = () => {
+      if (selectedItems.value.size === 0) {
+        notify.toast('warning', '批量删除tag', '请先选择要操作的项目')
+        return
+      }
+      showBatchDeleteTagDialog.value = true
+    }
+
+    const closeBatchDeleteTagDialog = () => {
+      showBatchDeleteTagDialog.value = false
+    }
+
+    const handleBatchDeleteTagConfirm = async (tags: string[]) => {
+      if (tags.length === 0) {
+        notify.toast('warning', '批量删除tag', '请至少输入一个标签')
+        return
+      }
+
+      let successCount = 0
+      let failCount = 0
+
+      for (const itemId of selectedItems.value) {
+        const item = items.value.find((i: any) => (i.id?.value || i.id) === itemId)
+        if (item) {
+          try {
+            const currentTags = BaseResources.extractPrimitiveValue(item.tags?.value ?? item.tags) || []
+            const newTags = currentTags.filter((tag: string) => !tags.includes(tag))
+            
+            if (item.tags && typeof item.tags === 'object' && 'value' in item.tags) {
+              item.tags.value = newTags
+            } else {
+              item.tags = newTags
+            }
+            successCount++
+          } catch (error) {
+            console.error(`[GenericResourceView] 批量删除tag失败: ${itemId}`, error)
+            failCount++
+          }
+        }
+      }
+
+      if (successCount > 0) {
+        await saveData()
+        notify.toast('success', '批量删除tag', `成功从 ${successCount} 个项目删除标签${failCount > 0 ? `，${failCount} 个失败` : ''}`)
+      } else {
+        notify.toast('error', '批量删除tag', '删除失败')
+      }
+
+      closeBatchDeleteTagDialog()
+    }
+
+    const handleBatchDelete = () => {
+      console.log('批量删除文件')
+    }
+
+    const contextMenuItems = computed(() => {
+      if (isMultiSelectMode.value) {
+        return [
+          { key: 'batchAddTag', icon: '🏷️', label: '批量增加tag' },
+          { key: 'batchDeleteTag', icon: '🏷️', label: '批量删除tag' },
+          { key: 'batchDelete', icon: '🗑️', label: '批量删除文件' }
+        ]
+      } else {
+        return [...(ResourceClass.contextMenuItems || []), { key: 'scraper', icon: '📥', label: '刮削' }]
+      }
+    })
 
     
     // 使用通用筛选 composable（传入页面配置实例和额外数据）
@@ -1749,7 +1881,6 @@ export default defineComponent({
         getItemName: (item: any) => item.name?.value || item.name,
         itemType: pageConfig.name || '资源'
       },
-      contextMenuItems: [...(ResourceClass.contextMenuItems || []), { key: 'scraper', icon: '📥', label: '刮削' }],
       contextMenuHandlers: contextMenuHandlers,
       emptyState: pageConfig.getEmptyStateConfig ? pageConfig.getEmptyStateConfig() : {
         icon: '📄',
@@ -1964,6 +2095,10 @@ export default defineComponent({
     contextMenuHandlers.terminate = (item: any) => handleDetailActionImpl('terminate', item)
     contextMenuHandlers.edit = (item: any) => handleDetailActionImpl('edit', item)
     contextMenuHandlers.remove = (item: any) => handleDetailActionImpl('remove', item)
+
+    contextMenuHandlers.batchAddTag = () => handleBatchAddTag()
+    contextMenuHandlers.batchDeleteTag = () => handleBatchDeleteTag()
+    contextMenuHandlers.batchDelete = () => handleBatchDelete()
 
     // 通用的文件存在性检查函数
     const checkFileExistence = async (): Promise<void> => {
@@ -2965,6 +3100,14 @@ export default defineComponent({
       batchImportDialogRef,
       closeBatchImportDialog,
       handleBatchImportConfirm,
+      // 批量增加tag对话框相关
+      showBatchAddTagDialog,
+      closeBatchAddTagDialog,
+      handleBatchAddTagConfirm,
+      // 批量删除tag对话框相关
+      showBatchDeleteTagDialog,
+      closeBatchDeleteTagDialog,
+      handleBatchDeleteTagConfirm,
       isResourceRunning,
       handleResourceAction,
       terminateGame,
@@ -3078,6 +3221,11 @@ export default defineComponent({
       // 详情面板操作处理（与右键菜单共用 handleDetailActionImpl）
       handleDetailAction: handleDetailActionImpl,
       ...resourcePage, // 展开所有方法和属性，使模板可以直接访问
+      // 批量操作相关（必须在 ...resourcePage 之后，以覆盖 resourcePage 中的 contextMenuItems）
+      handleBatchAddTag,
+      handleBatchDeleteTag,
+      handleBatchDelete,
+      contextMenuItems,
       // 明确声明方法，确保 TypeScript 能正确识别
       updateScale: resourcePage.updateScale,
       handleEmptyStateAction: resourcePage.handleEmptyStateAction,

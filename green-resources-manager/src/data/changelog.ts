@@ -21,6 +21,10 @@ export const changelogEntries: ChangelogEntry[] = [
     date: '2026-02-22',
     features: [
       "增加从托盘快速打开主窗口的快捷键",
+      "增加多选功能"
+    ],
+    bugfixes: [
+      "修复了文件夹大小更新异常问题",
     ],
   },
   {

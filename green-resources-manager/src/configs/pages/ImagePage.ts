@@ -7,17 +7,6 @@ import { Manga as MangaClass } from '@resources/manga.ts'
 // Manga 类型就是 MangaClass 的实例类型
 type Manga = InstanceType<typeof MangaClass>
 
-/**
- * 安全获取漫画属性值的辅助函数
- * 如果属性是 ResourceField，返回其 value；否则直接返回属性值
- */
-function getFieldValue<T>(field: any): T | undefined {
-	if (field && typeof field === 'object' && 'value' in field) {
-		return field.value as T
-	}
-	return field as T
-}
-
 export class ImagePage extends BasePage {
 	readonly id: string = 'images'
 	readonly name: string = '漫画'
@@ -65,39 +54,37 @@ export class ImagePage extends BasePage {
 		'name-asc': {
 			label: '按名称排序',
 			fieldAccessor: (manga: Manga) => {
-				const name = getFieldValue<string>((manga as any).name)
-				return name || null
+				return (manga as any).name?.value || null
 			},
 			order: 'asc'
 		},
 		'name-desc': {
 			label: '按名称排序（降序）',
 			fieldAccessor: (manga: Manga) => {
-				const name = getFieldValue<string>((manga as any).name)
-				return name || null
+				return (manga as any).name?.value || null
 			},
 			order: 'desc'
 		},
 		'count-asc': {
 			label: '按页数（升序）',
 			fieldAccessor: (manga: Manga) => {
-				const pagesCount = getFieldValue<number>((manga as any).pagesCount)
-				return pagesCount != null ? pagesCount : null
+				const value = (manga as any).pagesCount?.value
+				return value != null ? value : null
 			},
 			order: 'asc'
 		},
 		'count-desc': {
 			label: '按页数（降序）',
 			fieldAccessor: (manga: Manga) => {
-				const pagesCount = getFieldValue<number>((manga as any).pagesCount)
-				return pagesCount != null ? pagesCount : null
+				const value = (manga as any).pagesCount?.value
+				return value != null ? value : null
 			},
 			order: 'desc'
 		},
 		'added-asc': {
 			label: '按添加时间（升序）',
 			fieldAccessor: (manga: Manga) => {
-				const addedDate = getFieldValue<string>((manga as any).addedDate) || (manga as any).addedDate
+				const addedDate = (manga as any).addedDate?.value || (manga as any).addedDate
 				return addedDate ? new Date(addedDate).getTime() : null
 			},
 			order: 'asc'
@@ -105,7 +92,7 @@ export class ImagePage extends BasePage {
 		'added-desc': {
 			label: '按添加时间（降序）',
 			fieldAccessor: (manga: Manga) => {
-				const addedDate = getFieldValue<string>((manga as any).addedDate) || (manga as any).addedDate
+				const addedDate = (manga as any).addedDate?.value || (manga as any).addedDate
 				return addedDate ? new Date(addedDate).getTime() : null
 			},
 			order: 'desc'
@@ -113,7 +100,7 @@ export class ImagePage extends BasePage {
 		'lastViewed-asc': {
 			label: '按最后查看（升序）',
 			fieldAccessor: (manga: Manga) => {
-				const lastViewed = getFieldValue<string | null>((manga as any).lastViewed)
+				const lastViewed = (manga as any).lastViewed?.value
 				return lastViewed ? new Date(lastViewed).getTime() : null
 			},
 			order: 'asc'
@@ -121,7 +108,7 @@ export class ImagePage extends BasePage {
 		'lastViewed-desc': {
 			label: '按最后查看（降序）',
 			fieldAccessor: (manga: Manga) => {
-				const lastViewed = getFieldValue<string | null>((manga as any).lastViewed)
+				const lastViewed = (manga as any).lastViewed?.value
 				return lastViewed ? new Date(lastViewed).getTime() : null
 			},
 			order: 'desc'
@@ -129,32 +116,30 @@ export class ImagePage extends BasePage {
 		'author-asc': {
 			label: '按作者排序',
 			fieldAccessor: (manga: Manga) => {
-				const author = getFieldValue<string>((manga as any).author)
-				return author || null
+				return (manga as any).author?.value || null
 			},
 			order: 'asc'
 		},
 		'author-desc': {
 			label: '按作者排序（降序）',
 			fieldAccessor: (manga: Manga) => {
-				const author = getFieldValue<string>((manga as any).author)
-				return author || null
+				return (manga as any).author?.value || null
 			},
 			order: 'desc'
 		},
 		'viewCount-asc': {
 			label: '按查看次数（升序）',
 			fieldAccessor: (manga: Manga) => {
-				const viewCount = getFieldValue<number>((manga as any).viewCount)
-				return viewCount != null ? viewCount : null
+				const value = (manga as any).viewCount?.value
+				return value != null ? value : null
 			},
 			order: 'asc'
 		},
 		'viewCount-desc': {
 			label: '按查看次数（降序）',
 			fieldAccessor: (manga: Manga) => {
-				const viewCount = getFieldValue<number>((manga as any).viewCount)
-				return viewCount != null ? viewCount : null
+				const value = (manga as any).viewCount?.value
+				return value != null ? value : null
 			},
 			order: 'desc'
 		}
@@ -205,8 +190,7 @@ export class ImagePage extends BasePage {
 				key: 'tags',
 				title: '标签筛选',
 				fieldAccessor: (manga: any) => {
-					const tags = getFieldValue<string[]>((manga as any).tags)
-					return tags || []
+					return (manga as any).tags?.value || []
 				},
 				isArray: true
 			},
@@ -214,8 +198,7 @@ export class ImagePage extends BasePage {
 				key: 'authors',
 				title: '作者筛选',
 				fieldAccessor: (manga: any) => {
-					const author = getFieldValue<string>((manga as any).author)
-					return author || ''
+					return (manga as any).author?.value || ''
 				},
 				isArray: false
 			}

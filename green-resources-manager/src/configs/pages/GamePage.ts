@@ -21,17 +21,6 @@ export type GameSortBy =
 	| 'added-asc'
 	| 'added-desc'
 
-/**
- * 安全获取游戏属性值的辅助函数
- * 如果属性是 ResourceField，返回其 value；否则直接返回属性值
- */
-function getFieldValue<T>(field: any): T | undefined {
-	if (field && typeof field === 'object' && 'value' in field) {
-		return field.value as T
-	}
-	return field as T
-}
-
 export class GamePage extends BasePage {
 	readonly id: string = 'games'
 	readonly name: string = '游戏'
@@ -193,7 +182,7 @@ export class GamePage extends BasePage {
 
 		// 根据数据库字段名创建字段访问器
 		const fieldAccessor = (game: Game) => {
-			const value = getFieldValue<any>((game as any)[dbField])
+			const value = (game as any)[dbField]?.value
 			// 如果是日期字段，转换为时间戳
 			if (dbField === 'lastPlayed' || dbField === 'addedDate') {
 				return value ? new Date(value).getTime() : null
@@ -223,8 +212,7 @@ export class GamePage extends BasePage {
 				key: 'tags',
 				title: '标签筛选',
 				fieldAccessor: (game: any) => {
-					const tags = getFieldValue<string[]>((game as any).tags)
-					return tags || []
+					return (game as any).tags?.value || []
 				},
 				isArray: true
 			},
@@ -232,8 +220,7 @@ export class GamePage extends BasePage {
 				key: 'developers',
 				title: '开发商筛选',
 				fieldAccessor: (game: any) => {
-					const developers = getFieldValue<string[]>((game as any).developers)
-					return developers || []
+					return (game as any).developers?.value || []
 				},
 				isArray: true
 			},
@@ -241,8 +228,7 @@ export class GamePage extends BasePage {
 				key: 'publishers',
 				title: '发行商筛选',
 				fieldAccessor: (game: any) => {
-					const publisher = getFieldValue<string>((game as any).publisher)
-					return publisher || ''
+					return (game as any).publisher?.value || ''
 				},
 				isArray: false
 			},
@@ -250,8 +236,7 @@ export class GamePage extends BasePage {
 				key: 'engines',
 				title: '引擎筛选',
 				fieldAccessor: (game: any) => {
-					const engine = getFieldValue<string>((game as any).engine)
-					return engine || ''
+					return (game as any).engine?.value || ''
 				},
 				isArray: false
 			},

@@ -7,17 +7,6 @@ import { Novel as NovelClass } from '@resources/novel.ts'
 // Novel 类型就是 NovelClass 的实例类型
 type Novel = InstanceType<typeof NovelClass>
 
-/**
- * 安全获取小说属性值的辅助函数
- * 如果属性是 ResourceField，返回其 value；否则直接返回属性值
- */
-function getFieldValue<T>(field: any): T | undefined {
-	if (field && typeof field === 'object' && 'value' in field) {
-		return field.value as T
-	}
-	return field as T
-}
-
 export class NovelPage extends BasePage {
 	readonly id: string = 'novels'
 	readonly name: string = '小说'
@@ -63,55 +52,51 @@ export class NovelPage extends BasePage {
 		'name-asc': {
 			label: '按名称排序',
 			fieldAccessor: (novel: Novel) => {
-				const name = getFieldValue<string>((novel as any).name)
-				return name || null
+				return (novel as any).name?.value || null
 			},
 			order: 'asc'
 		},
 		'name-desc': {
 			label: '按名称排序（降序）',
 			fieldAccessor: (novel: Novel) => {
-				const name = getFieldValue<string>((novel as any).name)
-				return name || null
+				return (novel as any).name?.value || null
 			},
 			order: 'desc'
 		},
 		'author-asc': {
 			label: '按作者排序',
 			fieldAccessor: (novel: Novel) => {
-				const author = getFieldValue<string>((novel as any).author)
-				return author || null
+				return (novel as any).author?.value || null
 			},
 			order: 'asc'
 		},
 		'author-desc': {
 			label: '按作者排序（降序）',
 			fieldAccessor: (novel: Novel) => {
-				const author = getFieldValue<string>((novel as any).author)
-				return author || null
+				return (novel as any).author?.value || null
 			},
 			order: 'desc'
 		},
 		'readProgress-asc': {
 			label: '按阅读进度（升序）',
 			fieldAccessor: (novel: Novel) => {
-				const readProgress = getFieldValue<number>((novel as any).readProgress)
-				return readProgress != null ? readProgress : null
+				const value = (novel as any).readProgress?.value
+				return value != null ? value : null
 			},
 			order: 'asc'
 		},
 		'readProgress-desc': {
 			label: '按阅读进度（降序）',
 			fieldAccessor: (novel: Novel) => {
-				const readProgress = getFieldValue<number>((novel as any).readProgress)
-				return readProgress != null ? readProgress : null
+				const value = (novel as any).readProgress?.value
+				return value != null ? value : null
 			},
 			order: 'desc'
 		},
 		'added-asc': {
 			label: '按添加时间（升序）',
 			fieldAccessor: (novel: Novel) => {
-				const addedDate = getFieldValue<string>((novel as any).addedDate) || (novel as any).addedDate
+				const addedDate = (novel as any).addedDate?.value || (novel as any).addedDate
 				return addedDate ? new Date(addedDate).getTime() : null
 			},
 			order: 'asc'
@@ -119,7 +104,7 @@ export class NovelPage extends BasePage {
 		'added-desc': {
 			label: '按添加时间（降序）',
 			fieldAccessor: (novel: Novel) => {
-				const addedDate = getFieldValue<string>((novel as any).addedDate) || (novel as any).addedDate
+				const addedDate = (novel as any).addedDate?.value || (novel as any).addedDate
 				return addedDate ? new Date(addedDate).getTime() : null
 			},
 			order: 'desc'
@@ -127,7 +112,7 @@ export class NovelPage extends BasePage {
 		'lastRead-asc': {
 			label: '按最后阅读（升序）',
 			fieldAccessor: (novel: Novel) => {
-				const lastRead = getFieldValue<string | null>((novel as any).lastRead)
+				const lastRead = (novel as any).lastRead?.value
 				return lastRead ? new Date(lastRead).getTime() : null
 			},
 			order: 'asc'
@@ -135,7 +120,7 @@ export class NovelPage extends BasePage {
 		'lastRead-desc': {
 			label: '按最后阅读（降序）',
 			fieldAccessor: (novel: Novel) => {
-				const lastRead = getFieldValue<string | null>((novel as any).lastRead)
+				const lastRead = (novel as any).lastRead?.value
 				return lastRead ? new Date(lastRead).getTime() : null
 			},
 			order: 'desc'
@@ -182,8 +167,7 @@ export class NovelPage extends BasePage {
 				key: 'tags',
 				title: '标签筛选',
 				fieldAccessor: (novel: any) => {
-					const tags = getFieldValue<string[]>((novel as any).tags)
-					return tags || []
+					return (novel as any).tags?.value || []
 				},
 				isArray: true
 			},
@@ -191,8 +175,7 @@ export class NovelPage extends BasePage {
 				key: 'authors',
 				title: '作者筛选',
 				fieldAccessor: (novel: any) => {
-					const author = getFieldValue<string>((novel as any).author)
-					return author || ''
+					return (novel as any).author?.value || ''
 				},
 				isArray: false
 			}

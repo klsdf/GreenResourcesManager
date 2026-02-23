@@ -8,17 +8,6 @@ import { VideoFolder as VideoFolderClass } from '@resources/videoFolder.ts'
 type VideoFolder = InstanceType<typeof VideoFolderClass>
 
 /**
- * 安全获取资源属性值的辅助函数
- * 如果属性是 ResourceField，返回其 value；否则直接返回属性值
- */
-function getFieldValue<T>(field: any): T | undefined {
-	if (field && typeof field === 'object' && 'value' in field) {
-		return field.value as T
-	}
-	return field as T
-}
-
-/**
  * 番剧/电视剧页面配置
  * 可替换视频页使用，支持在详情页展示文件夹内的视频列表
  */
@@ -115,7 +104,7 @@ export class AnimePage extends BasePage {
     
     // 根据数据库字段名创建字段访问器
     const fieldAccessor = (anime: VideoFolder) => {
-      const value = getFieldValue<any>((anime as any)[dbField])
+      const value = (anime as any)[dbField]?.value
       // 如果是日期字段，转换为时间戳
       if (dbField === 'addedDate') {
         return value ? new Date(value).getTime() : null
@@ -145,8 +134,7 @@ export class AnimePage extends BasePage {
         key: 'tags',
         title: '标签筛选',
         fieldAccessor: (anime: any) => {
-          const tags = getFieldValue<string[]>((anime as any).tags)
-          return tags || []
+          return (anime as any).tags?.value || []
         },
         isArray: true
       },
@@ -154,8 +142,7 @@ export class AnimePage extends BasePage {
         key: 'actors',
         title: '演员筛选',
         fieldAccessor: (anime: any) => {
-          const actors = getFieldValue<string[]>((anime as any).actors)
-          return actors || []
+          return (anime as any).actors?.value || []
         },
         isArray: true
       },
@@ -163,8 +150,7 @@ export class AnimePage extends BasePage {
         key: 'series',
         title: '系列筛选',
         fieldAccessor: (anime: any) => {
-          const series = getFieldValue<string>((anime as any).series)
-          return series || ''
+          return (anime as any).series?.value || ''
         },
         isArray: false
       },
@@ -172,8 +158,7 @@ export class AnimePage extends BasePage {
         key: 'voiceActors',
         title: '声优筛选',
         fieldAccessor: (anime: any) => {
-          const voiceActors = getFieldValue<string[]>((anime as any).voiceActors)
-          return voiceActors || []
+          return (anime as any).voiceActors?.value || []
         },
         isArray: true
       },
@@ -181,8 +166,7 @@ export class AnimePage extends BasePage {
         key: 'productionTeam',
         title: '制作组筛选',
         fieldAccessor: (anime: any) => {
-          const productionTeam = getFieldValue<string[]>((anime as any).productionTeam)
-          return productionTeam || []
+          return (anime as any).productionTeam?.value || []
         },
         isArray: true
       }

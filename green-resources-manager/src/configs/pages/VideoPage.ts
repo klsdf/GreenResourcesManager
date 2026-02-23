@@ -8,17 +8,6 @@ import { Video as VideoClass } from '@resources/video.ts'
 type Video = InstanceType<typeof VideoClass>
 
 /**
- * 安全获取资源属性值的辅助函数
- * 如果属性是 ResourceField，返回其 value；否则直接返回属性值
- */
-function getFieldValue<T>(field: any): T | undefined {
-	if (field && typeof field === 'object' && 'value' in field) {
-		return field.value as T
-	}
-	return field as T
-}
-
-/**
  * 视频页面配置
  */
 export class VideoPage extends BasePage {
@@ -111,7 +100,7 @@ export class VideoPage extends BasePage {
     
     // 根据数据库字段名创建字段访问器
     const fieldAccessor = (video: Video) => {
-      const value = getFieldValue<any>((video as any)[dbField])
+      const value = (video as any)[dbField]?.value
       // 如果是日期字段，转换为时间戳
       if (dbField === 'addedDate') {
         return value ? new Date(value).getTime() : null
@@ -141,8 +130,7 @@ export class VideoPage extends BasePage {
         key: 'tags',
         title: '标签筛选',
         fieldAccessor: (video: any) => {
-          const tags = getFieldValue<string[]>((video as any).tags)
-          return tags || []
+          return (video as any).tags?.value || []
         },
         isArray: true
       },
@@ -150,8 +138,7 @@ export class VideoPage extends BasePage {
         key: 'actors',
         title: '演员筛选',
         fieldAccessor: (video: any) => {
-          const actors = getFieldValue<string[]>((video as any).actors)
-          return actors || []
+          return (video as any).actors?.value || []
         },
         isArray: true
       },
@@ -159,8 +146,7 @@ export class VideoPage extends BasePage {
         key: 'series',
         title: '系列筛选',
         fieldAccessor: (video: any) => {
-          const series = getFieldValue<string>((video as any).series)
-          return series || ''
+          return (video as any).series?.value || ''
         },
         isArray: false
       }

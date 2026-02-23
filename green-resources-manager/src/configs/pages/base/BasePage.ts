@@ -11,17 +11,6 @@ import type { SortOption } from '../../../types/sort'
 import type { FilterConfig, FilterItem } from '../../../types/filter'
 
 /**
- * 安全获取资源属性值的辅助函数
- * 如果属性是 ResourceField，返回其 value；否则直接返回属性值
- */
-function getFieldValue<T>(field: any): T | undefined {
-	if (field && typeof field === 'object' && 'value' in field) {
-		return field.value as T
-	}
-	return field as T
-}
-
-/**
  * 空状态配置接口
  */
 export interface EmptyStateConfig {
@@ -237,7 +226,7 @@ export abstract class BasePage {
 
 					items.forEach((item: any) => {
 						// 统计丢失的资源
-						const fileExists = getFieldValue<boolean>(item.fileExists)
+						const fileExists = (item as any).fileExists?.value
 						if (fileExists === false) {
 							missingResourcesCount++
 						}
@@ -255,7 +244,7 @@ export abstract class BasePage {
 				matchFn: (item: any, selected: string[], excluded: string[]): boolean => {
 					// 检查排除条件
 					if (excluded.length > 0) {
-						const fileExists = getFieldValue<boolean>(item.fileExists)
+						const fileExists = (item as any).fileExists?.value
 						if (excluded.includes('丢失的资源') && fileExists === false) {
 							return false
 						}
@@ -263,7 +252,7 @@ export abstract class BasePage {
 
 					// 检查选中条件
 					if (selected.length > 0) {
-						const fileExists = getFieldValue<boolean>(item.fileExists)
+						const fileExists = (item as any).fileExists?.value
 						
 						return selected.some(sel => {
 							if (sel === '丢失的资源') {

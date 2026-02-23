@@ -8,17 +8,6 @@ import { SingleImage as SingleImageClass } from '@resources/singleImage.ts'
 type SingleImage = InstanceType<typeof SingleImageClass>
 
 /**
- * 安全获取资源属性值的辅助函数
- * 如果属性是 ResourceField，返回其 value；否则直接返回属性值
- */
-function getFieldValue<T>(field: any): T | undefined {
-	if (field && typeof field === 'object' && 'value' in field) {
-		return field.value as T
-	}
-	return field as T
-}
-
-/**
  * 单图页面配置
  */
 export class SingleImagePage extends BasePage {
@@ -111,7 +100,7 @@ export class SingleImagePage extends BasePage {
     
     // 根据数据库字段名创建字段访问器
     const fieldAccessor = (image: SingleImage) => {
-      const value = getFieldValue<any>((image as any)[dbField])
+      const value = (image as any)[dbField]?.value
       // 如果是日期字段，转换为时间戳
       if (dbField === 'addedDate') {
         return value ? new Date(value).getTime() : null
@@ -141,8 +130,7 @@ export class SingleImagePage extends BasePage {
         key: 'tags',
         title: '标签筛选',
         fieldAccessor: (image: any) => {
-          const tags = getFieldValue<string[]>((image as any).tags)
-          return tags || []
+          return (image as any).tags?.value || []
         },
         isArray: true
       },
@@ -150,8 +138,7 @@ export class SingleImagePage extends BasePage {
         key: 'author',
         title: '作者筛选',
         fieldAccessor: (image: any) => {
-          const author = getFieldValue<string>((image as any).author)
-          return author || ''
+          return (image as any).author?.value || ''
         },
         isArray: false
       }

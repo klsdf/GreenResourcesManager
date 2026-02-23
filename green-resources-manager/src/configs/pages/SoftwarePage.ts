@@ -7,17 +7,6 @@ import { Software as SoftwareClass } from '@resources/soft.ts'
 // Software 类型就是 SoftwareClass 的实例类型
 type Software = InstanceType<typeof SoftwareClass>
 
-/**
- * 安全获取软件属性值的辅助函数
- * 如果属性是 ResourceField，返回其 value；否则直接返回属性值
- */
-function getFieldValue<T>(field: any): T | undefined {
-	if (field && typeof field === 'object' && 'value' in field) {
-		return field.value as T
-	}
-	return field as T
-}
-
 export class SoftwarePage extends BasePage {
 	readonly id: string = 'software'
 	readonly name: string = '软件'
@@ -65,23 +54,21 @@ export class SoftwarePage extends BasePage {
 		'name-asc': {
 			label: '按名称排序',
 			fieldAccessor: (software: Software) => {
-				const name = getFieldValue<string>((software as any).name)
-				return name || null
+				return (software as any).name?.value || null
 			},
 			order: 'asc'
 		},
 		'name-desc': {
 			label: '按名称排序（降序）',
 			fieldAccessor: (software: Software) => {
-				const name = getFieldValue<string>((software as any).name)
-				return name || null
+				return (software as any).name?.value || null
 			},
 			order: 'desc'
 		},
 		'lastPlayed-asc': {
 			label: '按最后运行时间',
 			fieldAccessor: (software: Software) => {
-				const lastPlayed = getFieldValue<string>((software as any).lastPlayed) || (software as any).lastPlayed
+				const lastPlayed = (software as any).lastPlayed?.value || (software as any).lastPlayed
 				return lastPlayed ? new Date(lastPlayed).getTime() : null
 			},
 			order: 'asc'
@@ -89,7 +76,7 @@ export class SoftwarePage extends BasePage {
 		'lastPlayed-desc': {
 			label: '按最后运行时间（降序）',
 			fieldAccessor: (software: Software) => {
-				const lastPlayed = getFieldValue<string>((software as any).lastPlayed) || (software as any).lastPlayed
+				const lastPlayed = (software as any).lastPlayed?.value || (software as any).lastPlayed
 				return lastPlayed ? new Date(lastPlayed).getTime() : null
 			},
 			order: 'desc'
@@ -97,7 +84,7 @@ export class SoftwarePage extends BasePage {
 		'playTime-asc': {
 			label: '按运行时长（升序）',
 			fieldAccessor: (software: Software) => {
-				const playTime = getFieldValue<number>((software as any).playTime) ?? (software as any).playTime
+				const playTime = (software as any).playTime?.value ?? (software as any).playTime
 				return playTime != null ? playTime : null
 			},
 			order: 'asc'
@@ -105,7 +92,7 @@ export class SoftwarePage extends BasePage {
 		'playTime-desc': {
 			label: '按运行时长（降序）',
 			fieldAccessor: (software: Software) => {
-				const playTime = getFieldValue<number>((software as any).playTime) ?? (software as any).playTime
+				const playTime = (software as any).playTime?.value ?? (software as any).playTime
 				return playTime != null ? playTime : null
 			},
 			order: 'desc'
@@ -113,7 +100,7 @@ export class SoftwarePage extends BasePage {
 		'added-asc': {
 			label: '按添加时间（升序）',
 			fieldAccessor: (software: Software) => {
-				const addedDate = getFieldValue<string>((software as any).addedDate) || (software as any).addedDate
+				const addedDate = (software as any).addedDate?.value || (software as any).addedDate
 				return addedDate ? new Date(addedDate).getTime() : null
 			},
 			order: 'asc'
@@ -121,7 +108,7 @@ export class SoftwarePage extends BasePage {
 		'added-desc': {
 			label: '按添加时间（降序）',
 			fieldAccessor: (software: Software) => {
-				const addedDate = getFieldValue<string>((software as any).addedDate) || (software as any).addedDate
+				const addedDate = (software as any).addedDate?.value || (software as any).addedDate
 				return addedDate ? new Date(addedDate).getTime() : null
 			},
 			order: 'desc'
@@ -173,8 +160,7 @@ export class SoftwarePage extends BasePage {
 				key: 'tags',
 				title: '标签筛选',
 				fieldAccessor: (software: any) => {
-					const tags = getFieldValue<string[]>((software as any).tags)
-					return tags || []
+					return (software as any).tags?.value || []
 				},
 				isArray: true
 			},
@@ -182,8 +168,7 @@ export class SoftwarePage extends BasePage {
 				key: 'developers',
 				title: '开发商筛选',
 				fieldAccessor: (software: any) => {
-					const developers = getFieldValue<string[]>((software as any).developers)
-					return developers || []
+					return (software as any).developers?.value || []
 				},
 				isArray: true
 			}

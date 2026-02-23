@@ -8,17 +8,6 @@ import { Website as WebsiteClass } from '@resources/website.ts'
 type Website = InstanceType<typeof WebsiteClass>
 
 /**
- * 安全获取资源属性值的辅助函数
- * 如果属性是 ResourceField，返回其 value；否则直接返回属性值
- */
-function getFieldValue<T>(field: any): T | undefined {
-	if (field && typeof field === 'object' && 'value' in field) {
-		return field.value as T
-	}
-	return field as T
-}
-
-/**
  * 网站页面配置
  */
 export class WebsitePage extends BasePage {
@@ -111,7 +100,7 @@ export class WebsitePage extends BasePage {
     
     // 根据数据库字段名创建字段访问器
     const fieldAccessor = (website: Website) => {
-      const value = getFieldValue<any>((website as any)[dbField])
+      const value = (website as any)[dbField]?.value
       // 如果是日期字段，转换为时间戳
       if (dbField === 'addedDate') {
         return value ? new Date(value).getTime() : null
@@ -141,8 +130,7 @@ export class WebsitePage extends BasePage {
         key: 'tags',
         title: '标签筛选',
         fieldAccessor: (website: any) => {
-          const tags = getFieldValue<string[]>((website as any).tags)
-          return tags || []
+          return (website as any).tags?.value || []
         },
         isArray: true
       }
