@@ -10,6 +10,12 @@ export class NovelPage extends BasePage {
 	readonly name: string = '小说'
 	readonly icon: string = '📚'
 	readonly description: string = '可以管理小说文件，支持 TXT、EPUB、PDF 等格式'
+	
+	// 分页设置键名（用于从设置中读取分页配置）
+	readonly settingsKey: string = 'novel'
+	
+	// 默认每页显示数量
+	readonly defaultPageSize: number = 20
 
 	resourceTypes: string[] = ['Novel']
 
@@ -43,8 +49,37 @@ export class NovelPage extends BasePage {
 	
 	getToolbarConfig() {
 		return {
-			addButtonText: '添加小说',
-			searchPlaceholder: '搜索小说...'
+			items: [
+				{
+					type: 'button',
+					label: '添加小说',
+					action: 'showAddNovelDialog',
+					icon: '➕',
+					buttonType: 'primary'
+				},
+				{
+					type: 'button',
+					label: '批量导入本地资源',
+					action: 'showBatchImportDialog',
+					icon: '📥'
+				},
+				{
+					type: 'search',
+					placeholder: '搜索小说...',
+					action: 'filterBySearch'
+				},
+				{
+					type: 'multi-select'
+				},
+				{
+					type: 'layout'
+				},
+				{
+					type: 'sort'
+				}
+			],
+			sortOptions: this.sortOptions,
+			pageType: this.id
 		}
 	}
 

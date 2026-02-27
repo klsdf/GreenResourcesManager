@@ -2536,7 +2536,23 @@ export default defineComponent({
         isLoadingData.value = false
       }
       
-      // 2. 注册事件监听器
+      // 3. 加载分页设置
+      console.log('[GenericResourceView] 准备加载分页设置', {
+        pageId,
+        resourceType: resourceType.value,
+        currentPageSize: resourcePage.pageSize,
+        totalPages: resourcePage.totalPages
+      })
+      await resourcePage.loadPaginationSettings(pageId)
+      console.log('[GenericResourceView] 分页设置加载完成', {
+        pageId,
+        resourceType: resourceType.value,
+        updatedPageSize: resourcePage.pageSize,
+        totalPages: resourcePage.totalPages,
+        currentPage: resourcePage.currentPage
+      })
+      
+      // 4. 注册事件监听器
       if (isElectronEnvironment.value && window.electronAPI && window.electronAPI.onGameProcessEnded) {
         window.electronAPI.onGameProcessEnded((event: any, data: any) => {
           handleGameProcessEnded(data)

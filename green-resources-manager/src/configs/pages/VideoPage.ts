@@ -11,6 +11,12 @@ export class VideoPage extends BasePage {
   readonly icon = '🎬'
   readonly description = '可以管理电影等单一的视频'
   
+  // 分页设置键名（用于从设置中读取分页配置）
+  readonly settingsKey: string = 'video'
+  
+  // 默认每页显示数量
+  readonly defaultPageSize: number = 20
+  
   resourceTypes = ['Video']
   
   displayLayoutConfig = {
@@ -37,8 +43,37 @@ export class VideoPage extends BasePage {
   
   getToolbarConfig() {
     return {
-      addButtonText: '添加视频',
-      searchPlaceholder: '搜索视频...'
+      items: [
+        {
+          type: 'button',
+          label: '添加视频',
+          action: 'showAddVideoDialog',
+          icon: '➕',
+          buttonType: 'primary'
+        },
+        {
+          type: 'button',
+          label: '批量导入本地资源',
+          action: 'showBatchImportDialog',
+          icon: '📥'
+        },
+        {
+          type: 'search',
+          placeholder: '搜索视频...',
+          action: 'filterBySearch'
+        },
+        {
+          type: 'multi-select'
+        },
+        {
+          type: 'layout'
+        },
+        {
+          type: 'sort'
+        }
+      ],
+      sortOptions: this.sortOptions,
+      pageType: this.id
     }
   }
   

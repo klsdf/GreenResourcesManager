@@ -561,12 +561,7 @@ export default {
     prefetchResourceViews() {
       const run = () => {
         const loaders: Array<() => Promise<any>> = [
-          () => import('./components/ResourceView.vue'),
-          () => import('./pages/resources/ImageView.vue'),
-          () => import('./pages/resources/VideoView.vue'),
-          () => import('./pages/resources/NovelView.vue'),
-          () => import('./pages/resources/WebsiteView.vue'),
-          () => import('./pages/resources/AudioView.vue')
+          () => import('./components/ResourceView.vue')
         ]
 
         for (const loader of loaders) {

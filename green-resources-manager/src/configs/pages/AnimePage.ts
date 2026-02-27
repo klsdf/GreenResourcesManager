@@ -11,6 +11,12 @@ export class AnimePage extends BasePage {
   readonly icon = '📺'
   readonly description = '可以管理番剧和电视剧'
   
+  // 分页设置键名（用于从设置中读取分页配置）
+  readonly settingsKey: string = 'anime'
+  
+  // 默认每页显示数量
+  readonly defaultPageSize: number = 20
+  
   resourceTypes = ['Anime']
 
   readonly showFolderVideosInDetail = true
@@ -39,8 +45,37 @@ export class AnimePage extends BasePage {
   
   getToolbarConfig() {
     return {
-      addButtonText: '添加番剧',
-      searchPlaceholder: '搜索番剧...'
+      items: [
+        {
+          type: 'button',
+          label: '添加番剧',
+          action: 'showAddGameDialog',
+          icon: '➕',
+          buttonType: 'primary'
+        },
+        {
+          type: 'button',
+          label: '批量导入本地资源',
+          action: 'showBatchImportDialog',
+          icon: '📥'
+        },
+        {
+          type: 'search',
+          placeholder: '搜索番剧...',
+          action: 'filterBySearch'
+        },
+        {
+          type: 'multi-select'
+        },
+        {
+          type: 'layout'
+        },
+        {
+          type: 'sort'
+        }
+      ],
+      sortOptions: this.sortOptions,
+      pageType: this.id
     }
   }
 

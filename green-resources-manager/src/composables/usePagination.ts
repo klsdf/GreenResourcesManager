@@ -1,5 +1,6 @@
 import { ref, computed, watch, type Ref } from 'vue'
 import saveManager from '../utils/SaveManager'
+import type { BasePage } from '../configs/pages/base/BasePage'
 
 export interface PaginationConfig {
   currentPage: number
@@ -12,14 +13,16 @@ export interface PaginationConfig {
 /**
  * 通用分页逻辑 composable
  * @param filteredItems - 筛选后的项目列表
- * @param defaultPageSize - 默认每页显示数量
+ * @param pageConfig - 页面配置对象
  * @param itemType - 项目类型（用于配置显示）
  */
 export function usePagination<T>(
   filteredItems: Ref<T[]>,
-  defaultPageSize = 20,
+  pageConfig: BasePage,
   itemType = '项目'
 ) {
+  const defaultPageSize = pageConfig.defaultPageSize || 20
+  
   // 分页状态
   const currentPage = ref(1)
   const pageSize = ref(defaultPageSize)
@@ -86,17 +89,50 @@ export function usePagination<T>(
 
   /**
    * 从设置中加载分页配置
-   * @param pageType - 页面类型（如 'games', 'images'）
+   * @param pageId - 页面 ID（如 'games', 'images'）
    */
-  async function loadPaginationSettings(pageType: string) {
+  async function loadPaginationSettings(pageId: string) {
+    console.log(`[loadPaginationSettings] 开始加载分页设置`, {
+      pageId,
+      itemType,
+      defaultPageSize,
+      currentPageSize: pageSize.value,
+      pageConfigSettingsKey: pageConfig.settingsKey,
+      pageConfigDefaultPageSize: pageConfig.defaultPageSize
+    })
+    
+    // 使用页面配置中的 settingsKey，如果没有则使用 pageId
+    const settingsKey = pageConfig.settingsKey || pageId
+    
+    console.log(`[loadPaginationSettings] settingsKey 确定`, {
+      pageId,
+      settingsKey,
+      source: pageConfig.settingsKey ? 'pageConfig.settingsKey' : 'pageId'
+    })
+    
     try {
       const settings = await saveManager.loadSettings()
+      console.log(`[loadPaginationSettings] 已加载设置`, {
+        settings,
+        settingsPageType: settings?.[settingsKey],
+        settingsPageTypeListPageSize: settings?.[settingsKey]?.listPageSize
+      })
 
-      if (settings && settings[pageType]) {
-        const newPageSize = parseInt(settings[pageType].listPageSize) || defaultPageSize
+      if (settings && settings[settingsKey]) {
+        const newPageSize = parseInt(settings[settingsKey].listPageSize) || defaultPageSize
+        console.log(`[loadPaginationSettings] 解析后的新分页大小`, {
+          newPageSize,
+          parsedFrom: settings[settingsKey].listPageSize,
+          defaultPageSize
+        })
 
         // 更新分页大小
         if (pageSize.value !== newPageSize) {
+          console.log(`[loadPaginationSettings] 分页大小需要更新`, {
+            oldPageSize: pageSize.value,
+            newPageSize
+          })
+          
           pageSize.value = newPageSize
 
           // 重新计算分页
@@ -107,13 +143,30 @@ export function usePagination<T>(
             totalPages: totalPages.value,
             currentPage: currentPage.value
           })
+        } else {
+          console.log(`[loadPaginationSettings] 分页大小无需更新`, {
+            currentPageSize: pageSize.value,
+            newPageSize
+          })
         }
+      } else {
+        console.log(`[loadPaginationSettings] 设置中未找到 settingsKey: ${settingsKey}`, {
+          hasSettings: !!settings,
+          settingsKeys: settings ? Object.keys(settings) : [],
+          settingsKey
+        })
       }
     } catch (error) {
-      console.error(`加载${itemType}分页设置失败:`, error)
+      console.error(`[loadPaginationSettings] 加载${itemType}分页设置失败:`, error)
       // 使用默认值
       pageSize.value = defaultPageSize
     }
+    
+    console.log(`[loadPaginationSettings] 最终分页大小`, {
+      pageId,
+      itemType,
+      finalPageSize: pageSize.value
+    })
   }
 
   // 监听筛选结果变化，更新分页信息

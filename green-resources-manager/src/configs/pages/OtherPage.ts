@@ -11,6 +11,12 @@ export class OtherPage extends BasePage {
   readonly icon = '📦'
   readonly description = '可以管理任何类型的文件和文件夹'
   
+  // 分页设置键名（用于从设置中读取分页配置）
+  readonly settingsKey: string = 'other'
+  
+  // 默认每页显示数量
+  readonly defaultPageSize: number = 20
+  
   resourceTypes = ['Other']
   
   displayLayoutConfig = {
@@ -37,8 +43,37 @@ export class OtherPage extends BasePage {
   
   getToolbarConfig() {
     return {
-      addButtonText: '添加资源',
-      searchPlaceholder: '搜索资源...'
+      items: [
+        {
+          type: 'button',
+          label: '添加资源',
+          action: 'showAddGameDialog',
+          icon: '➕',
+          buttonType: 'primary'
+        },
+        {
+          type: 'button',
+          label: '批量导入本地资源',
+          action: 'showBatchImportDialog',
+          icon: '📥'
+        },
+        {
+          type: 'search',
+          placeholder: '搜索资源...',
+          action: 'filterBySearch'
+        },
+        {
+          type: 'multi-select'
+        },
+        {
+          type: 'layout'
+        },
+        {
+          type: 'sort'
+        }
+      ],
+      sortOptions: this.sortOptions,
+      pageType: this.id
     }
   }
 

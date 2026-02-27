@@ -296,6 +296,13 @@ export default {
     
     // 处理设置更新事件（来自子组件）
     handleSettingUpdate({ key, value }: { key: string; value: any }) {
+      console.log('[SettingsView] handleSettingUpdate 被调用', {
+        key,
+        value,
+        valueType: typeof value,
+        settingsBeforeUpdate: JSON.parse(JSON.stringify(this.settings))
+      })
+      
       // 处理嵌套键（如 'game.listPageSize'）
       const keys = key.split('.')
       if (keys.length === 1) {
@@ -308,6 +315,13 @@ export default {
         }
         this.settings[keys[0]][keys[1]] = value
       }
+      
+      console.log('[SettingsView] handleSettingUpdate 更新完成', {
+        key,
+        value,
+        settingsAfterUpdate: JSON.parse(JSON.stringify(this.settings)),
+        updatedValue: keys.length === 2 ? this.settings[keys[0]][keys[1]] : this.settings[key]
+      })
     },
     
     // 处理主题变化事件
@@ -430,6 +444,15 @@ export default {
         delete cleanSettings.novelShowProgress
         // 保留安全键快捷键设置
         cleanSettings.safetyKeyShortcut = this.settings.safetyKeyShortcut || 'Esc'
+        
+        console.log('[SettingsView] autoSave 准备保存设置', {
+          cleanSettings,
+          gameListPageSize: cleanSettings.game?.listPageSize,
+          imageListPageSize: cleanSettings.image?.listPageSize,
+          videoListPageSize: cleanSettings.video?.listPageSize,
+          audioListPageSize: cleanSettings.audio?.listPageSize,
+          novelListPageSize: cleanSettings.novel?.listPageSize
+        })
         
         // 保存设置
         const success = await saveManager.saveSettings(cleanSettings)

@@ -11,6 +11,12 @@ export class SingleImagePage extends BasePage {
   readonly icon = '🖼️'
   readonly description = '可以管理单一图片文件喵'
   
+  // 分页设置键名（用于从设置中读取分页配置）
+  readonly settingsKey: string = 'singleImage'
+  
+  // 默认每页显示数量
+  readonly defaultPageSize: number = 20
+  
   resourceTypes = ['SingleImage']
   
   displayLayoutConfig = {
@@ -37,8 +43,37 @@ export class SingleImagePage extends BasePage {
   
   getToolbarConfig() {
     return {
-      addButtonText: '添加单图',
-      searchPlaceholder: '搜索单图...'
+      items: [
+        {
+          type: 'button',
+          label: '添加单图',
+          action: 'showAddDialog',
+          icon: '➕',
+          buttonType: 'primary'
+        },
+        {
+          type: 'button',
+          label: '批量导入本地资源',
+          action: 'showBatchImportDialog',
+          icon: '📥'
+        },
+        {
+          type: 'search',
+          placeholder: '搜索单图...',
+          action: 'filterBySearch'
+        },
+        {
+          type: 'multi-select'
+        },
+        {
+          type: 'layout'
+        },
+        {
+          type: 'sort'
+        }
+      ],
+      sortOptions: this.sortOptions,
+      pageType: this.id
     }
   }
 

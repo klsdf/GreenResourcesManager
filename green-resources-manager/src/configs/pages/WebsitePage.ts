@@ -11,6 +11,12 @@ export class WebsitePage extends BasePage {
   readonly icon = '🌐'
   readonly description = '可以管理网站，需要手动传入网址，也可以拖拽收藏夹进来'
   
+  // 分页设置键名（用于从设置中读取分页配置）
+  readonly settingsKey: string = 'website'
+  
+  // 默认每页显示数量
+  readonly defaultPageSize: number = 20
+  
   resourceTypes = ['Website']
   
   displayLayoutConfig = {
@@ -37,8 +43,37 @@ export class WebsitePage extends BasePage {
   
   getToolbarConfig() {
     return {
-      addButtonText: '添加网站',
-      searchPlaceholder: '搜索网站...'
+      items: [
+        {
+          type: 'button',
+          label: '添加网站',
+          action: 'showAddDialog',
+          icon: '➕',
+          buttonType: 'primary'
+        },
+        {
+          type: 'button',
+          label: '批量导入本地资源',
+          action: 'showBatchImportDialog',
+          icon: '📥'
+        },
+        {
+          type: 'search',
+          placeholder: '搜索网站...',
+          action: 'filterBySearch'
+        },
+        {
+          type: 'multi-select'
+        },
+        {
+          type: 'layout'
+        },
+        {
+          type: 'sort'
+        }
+      ],
+      sortOptions: this.sortOptions,
+      pageType: this.id
     }
   }
 

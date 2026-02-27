@@ -81,7 +81,7 @@ export function createResourcePage<T>(options: ResourcePageOptions<T>) {
   const resourcePage = useResourcePage(pageConfig, items, filteredItems, searchQuery, sortBy)
   
   // ========== 分页 ==========
-  const pagination = usePagination(filteredItems, pageConfig.defaultPageSize || 20, pageConfig.itemType)
+  const pagination = usePagination(filteredItems, pageConfig, pageConfig.itemType)
   
   // ========== CRUD操作 ==========
   const crud = useResourceCRUD(crudConfig)

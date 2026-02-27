@@ -6,25 +6,18 @@ import { Game as GameClass } from '@resources/game.ts'
 // Game 类型就是 GameClass 的实例类型
 type Game = InstanceType<typeof GameClass>
 
-/**
- * 游戏排序方式类型
- * 定义在 GamePage 类所在的文件中
- */
-export type GameSortBy =
-	| 'name-asc'
-	| 'name-desc'
-	| 'lastPlayed-asc'
-	| 'lastPlayed-desc'
-	| 'playTime-asc'
-	| 'playTime-desc'
-	| 'added-asc'
-	| 'added-desc'
 
 export class GamePage extends BasePage {
 	readonly id: string = 'games'
 	readonly name: string = '游戏'
 	readonly icon: string = '🎮'
 	readonly description: string = '可以管理游戏、应用等exe文件'
+	
+	// 分页设置键名（用于从设置中读取分页配置）
+	readonly settingsKey: string = 'game'
+	
+	// 默认每页显示数量
+	readonly defaultPageSize: number = 5
 
 	// 接受的资源类型（可以多个）
 	resourceTypes: string[] = ['Game']

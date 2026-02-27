@@ -10,6 +10,12 @@ export class SoftwarePage extends BasePage {
 	readonly name: string = '软件'
 	readonly icon: string = '💾'
 	readonly description: string = '可以管理软件、应用等exe文件'
+	
+	// 分页设置键名（用于从设置中读取分页配置）
+	readonly settingsKey: string = 'software'
+	
+	// 默认每页显示数量
+	readonly defaultPageSize: number = 20
 
 	resourceTypes: string[] = ['Software']
 
@@ -41,8 +47,37 @@ export class SoftwarePage extends BasePage {
 	
 	getToolbarConfig() {
 		return {
-			addButtonText: '添加软件',
-			searchPlaceholder: '搜索软件...'
+			items: [
+				{
+					type: 'button',
+					label: '添加软件',
+					action: 'showAddDialog',
+					icon: '➕',
+					buttonType: 'primary'
+				},
+				{
+					type: 'button',
+					label: '批量导入本地资源',
+					action: 'showBatchImportDialog',
+					icon: '📥'
+				},
+				{
+					type: 'search',
+					placeholder: '搜索软件...',
+					action: 'filterBySearch'
+				},
+				{
+					type: 'multi-select'
+				},
+				{
+					type: 'layout'
+				},
+				{
+					type: 'sort'
+				}
+			],
+			sortOptions: this.sortOptions,
+			pageType: this.id
 		}
 	}
 

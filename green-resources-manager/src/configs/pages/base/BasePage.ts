@@ -165,6 +165,19 @@ export abstract class BasePage {
 	abstract sortOptions: SortOptionConfig[]
 	
 	/**
+	 * 分页设置键名（用于从设置中读取分页配置）
+	 * 子类可以重写此属性，默认值为页面 id 的单数形式
+	 * 例如：games 页面默认使用 'game'，images 页面默认使用 'image'
+	 */
+	readonly settingsKey?: string
+	
+	/**
+	 * 默认每页显示数量
+	 * 子类可以重写此属性，默认值为 20
+	 */
+	readonly defaultPageSize: number = 20
+	
+	/**
 	 * 获取空状态配置
 	 * 子类必须实现此方法，返回该页面的空状态配置
 	 * @returns 空状态配置对象

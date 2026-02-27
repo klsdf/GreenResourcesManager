@@ -11,6 +11,12 @@ export class AudioPage extends BasePage {
   readonly icon = '🎵'
   readonly description = '可以管理mp3、wav等常见音频文件'
   
+  // 分页设置键名（用于从设置中读取分页配置）
+  readonly settingsKey: string = 'audio'
+  
+  // 默认每页显示数量
+  readonly defaultPageSize: number = 20
+  
   resourceTypes = ['Audio']
   
   displayLayoutConfig = {
@@ -37,8 +43,37 @@ export class AudioPage extends BasePage {
   
   getToolbarConfig() {
     return {
-      addButtonText: '添加音频',
-      searchPlaceholder: '搜索音频...'
+      items: [
+        {
+          type: 'button',
+          label: '添加音频',
+          action: 'showAddDialog',
+          icon: '➕',
+          buttonType: 'primary'
+        },
+        {
+          type: 'button',
+          label: '批量导入本地资源',
+          action: 'showBatchImportDialog',
+          icon: '📥'
+        },
+        {
+          type: 'search',
+          placeholder: '搜索音频...',
+          action: 'filterBySearch'
+        },
+        {
+          type: 'multi-select'
+        },
+        {
+          type: 'layout'
+        },
+        {
+          type: 'sort'
+        }
+      ],
+      sortOptions: this.sortOptions,
+      pageType: this.id
     }
   }
 

@@ -10,6 +10,12 @@ export class ImagePage extends BasePage {
 	readonly name: string = '漫画'
 	readonly icon: string = '🖼️'
 	readonly description: string = '可以管理图片文件夹，暂不支持单一图片的管理'
+	
+	// 分页设置键名（用于从设置中读取分页配置）
+	readonly settingsKey: string = 'image'
+	
+	// 默认每页显示数量
+	readonly defaultPageSize: number = 20
 
 	resourceTypes: string[] = ['Image', 'Manga']
 
@@ -45,8 +51,37 @@ export class ImagePage extends BasePage {
 	
 	getToolbarConfig() {
 		return {
-			addButtonText: '添加漫画',
-			searchPlaceholder: '搜索漫画...'
+			items: [
+				{
+					type: 'button',
+					label: '添加漫画',
+					action: 'showAddAlbumDialog',
+					icon: '➕',
+					buttonType: 'primary'
+				},
+				{
+					type: 'button',
+					label: '批量导入本地资源',
+					action: 'showBatchImportDialog',
+					icon: '📥'
+				},
+				{
+					type: 'search',
+					placeholder: '搜索漫画...',
+					action: 'filterBySearch'
+				},
+				{
+					type: 'multi-select'
+				},
+				{
+					type: 'layout'
+				},
+				{
+					type: 'sort'
+				}
+			],
+			sortOptions: this.sortOptions,
+			pageType: this.id
 		}
 	}
 
