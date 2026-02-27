@@ -1947,7 +1947,7 @@ export default defineComponent({
         buttonAction: 'showAddDialog'
       },
       toolbar: {
-        ...pageConfigLoader.getToolbarConfig(resourceType.value),
+        ...pageConfigLoader.getToolbarConfig(resourceTypeToPageIdMap[resourceType.value]),
         sortOptions: sortOptions.map(option => ({
           id: option.id,
           label: option.label
