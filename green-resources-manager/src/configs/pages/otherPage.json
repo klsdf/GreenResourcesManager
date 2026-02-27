@@ -1,0 +1,93 @@
+{
+  "id": "other",
+  "name": "其它",
+  "icon": "📦",
+  "description": "可以管理任何类型的文件和文件夹",
+  "settingsKey": "other",
+  "defaultPageSize": 20,
+  "resourceTypes": ["Other"],
+  "displayLayoutConfig": {
+    "minWidth": 150,
+    "maxWidth": 400
+  },
+  "sortOptions": [
+    { "id": "name-asc", "label": "按名称排序", "field": "name", "order": "asc" },
+    { "id": "name-desc", "label": "按名称排序（降序）", "field": "name", "order": "desc" },
+    { "id": "addedDate-asc", "label": "按添加时间（升序）", "field": "addedDate", "order": "asc" },
+    { "id": "addedDate-desc", "label": "按添加时间（降序）", "field": "addedDate", "order": "desc" }
+  ],
+  "emptyStateConfig": {
+    "icon": "📦",
+    "title": "你的其它资源库是空的",
+    "description": "点击\"添加资源\"按钮来添加你的第一个资源",
+    "buttonText": "添加第一个资源",
+    "buttonAction": "showAddGameDialog"
+  },
+  "toolbarConfig": {
+    "items": [
+      {
+        "type": "button",
+        "label": "添加资源",
+        "action": "showAddGameDialog",
+        "icon": "➕",
+        "buttonType": "primary"
+      },
+      {
+        "type": "button",
+        "label": "批量导入本地资源",
+        "action": "showBatchImportDialog",
+        "icon": "📥"
+      },
+      {
+        "type": "search",
+        "placeholder": "搜索资源...",
+        "action": "filterBySearch"
+      },
+      {
+        "type": "multi-select"
+      },
+      {
+        "type": "layout"
+      },
+      {
+        "type": "sort"
+      }
+    ]
+  },
+  "dialogConfig": {
+    "addTitle": "添加资源",
+    "editTitle": "编辑资源",
+    "addButtonText": "添加资源",
+    "editButtonText": "保存修改"
+  },
+  "filterConfig": [
+    {
+      "key": "missing-resources",
+      "title": "丢失的资源",
+      "filterType": "missingResources",
+      "params": {
+        "missingLabel": "丢失的资源"
+      }
+    },
+    {
+      "key": "tags",
+      "title": "标签筛选",
+      "filterType": "resourceField",
+      "params": {
+        "resource": "other",
+        "field": "tags"
+      },
+      "isArray": true
+    },
+    {
+      "key": "category",
+      "title": "分类筛选",
+      "filterType": "resourceField",
+      "params": {
+        "resource": "other",
+        "field": "category"
+      },
+      "isArray": false
+    }
+  ]
+}

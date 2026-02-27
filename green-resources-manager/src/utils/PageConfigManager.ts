@@ -1,18 +1,18 @@
 /**
- * 页面配置管理器（新版 - 完全基于配置文件）
+ * 页面配置管理器（新版 - 完全基于 JSON 配置）
  * 
  * 设计理念：
- * - 零存档：所有配置直接从 src/configs/pages/index.ts 读取
- * - 配置即代码：页面元数据在配置类中定义
- * - 即插即用：添加页面只需在 index.ts 注册
+ * - 零存档：所有配置直接从 JSON 配置文件读取
+ * - 配置即数据：页面元数据在 JSON 文件中定义
+ * - 即插即用：添加页面只需在 PageConfigLoader 中注册
  * 
  * 与旧版 CustomPageManager 的区别：
  * - CustomPageManager: 依赖 pages.json 存档，需要初始化、保存等操作
- * - PageConfigManager: 直接从配置文件读取，无需任何存档操作
+ * - PageConfigManager: 直接从 JSON 配置文件读取，无需任何存档操作
  */
 
-import { PageConfig, ResourceType, RESOURCE_TYPES } from '../types/page';
-import { PAGE_CONFIGS, type PageConfigMeta } from '../configs/pages/index';
+import { PageConfig, ResourceType } from '../types/page';
+import { pageConfigLoader, type PageConfigMeta } from '../configs/pages/PageConfigLoader';
 
 /**
  * 页面配置管理器（新版）
@@ -24,32 +24,34 @@ class PageConfigManager {
 
   /**
    * 初始化页面配置
-   * 直接从配置文件读取，无需异步操作
+   * 直接从 JSON 配置文件读取，无需异步操作
    */
   init(): void {
     if (this.initialized) return;
 
-    console.log('[PageConfigManager] 从配置文件加载页面...');
+    console.log('[PageConfigManager] 从 JSON 配置文件加载页面...');
     
     const now = Date.now();
     
+    // 从 PageConfigLoader 获取所有页面配置
+    const pageConfigs = pageConfigLoader.getAllPageConfigs();
+    
     // 遍历所有页面配置
-    this.pages = PAGE_CONFIGS.map(meta => {
-      // 实例化页面配置类，获取元数据
-      const pageInstance = new meta.pageClass();
+    this.pages = pageConfigs.map(meta => {
+      const config = meta.config;
       
       // 从 resourceTypes[0] 推导主资源类型
-      const resourceType = (pageInstance.resourceTypes && pageInstance.resourceTypes.length > 0)
-        ? pageInstance.resourceTypes[0] as ResourceType
+      const resourceType = (config.resourceTypes && config.resourceTypes.length > 0)
+        ? config.resourceTypes[0] as ResourceType
         : 'Other' as ResourceType;
       
-      // 从页面实例读取所有配置信息（页面类自己定义）
+      // 从 JSON 配置读取所有配置信息
       const pageConfig: PageConfig = {
-        id: pageInstance.id,                        // 从页面类读取 id
-        name: pageInstance.name,                    // 从页面类读取 name
-        icon: pageInstance.icon,                    // 从页面类读取 icon
+        id: config.id,                        // 从 JSON 配置读取 id
+        name: config.name,                    // 从 JSON 配置读取 name
+        icon: config.icon,                    // 从 JSON 配置读取 icon
         type: resourceType,                         // 从 resourceTypes[0] 推导
-        description: pageInstance.description || '', // 从页面类读取 description
+        description: config.description || '', // 从 JSON 配置读取 description
         isDefault: meta.isDefault !== false,
         isHidden: meta.isHidden || false,
         order: meta.order,
@@ -94,21 +96,11 @@ class PageConfigManager {
   }
 
   /**
-   * 获取页面配置类实例
-   * 这个方法返回实际的页面配置类实例（包含排序、筛选等逻辑）
+   * 获取页面配置（从 JSON 配置）
+   * 这个方法返回 JSON 配置对象
    */
-  getPageInstance(id: string): any {
-    const meta = PAGE_CONFIGS.find(config => {
-      const instance = new config.pageClass();
-      return instance.id === id;
-    });
-    if (!meta) {
-      console.warn(`[PageConfigManager] 未找到页面配置: ${id}`);
-      return null;
-    }
-    
-    // 实例化并返回
-    return new meta.pageClass();
+  getPageConfig(id: string): any {
+    return pageConfigLoader.getPageConfig(id);
   }
 
   /**
@@ -123,25 +115,10 @@ class PageConfigManager {
   }
 
   /**
-   * 获取页面配置类（不实例化）
-   * 返回页面配置的类构造函数
-   */
-  getPageClass(id: string): any {
-    const meta = PAGE_CONFIGS.find(config => {
-      const instance = new config.pageClass();
-      return instance.id === id;
-    });
-    return meta?.pageClass || null;
-  }
-
-  /**
    * 检查页面是否存在
    */
   hasPage(id: string): boolean {
-    return PAGE_CONFIGS.some(config => {
-      const instance = new config.pageClass();
-      return instance.id === id;
-    });
+    return pageConfigLoader.hasPage(id);
   }
 
   /**

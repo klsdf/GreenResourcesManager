@@ -10,7 +10,6 @@
  */
 import { ref, computed, type Ref } from 'vue'
 import saveManager from '../utils/SaveManager'
-import type { BasePage } from '../configs/pages/base/BasePage'
 
 export interface ResourcePageConfig {
   pageType: string
@@ -19,7 +18,7 @@ export interface ResourcePageConfig {
   defaultSortBy?: string
 }
 
-export type ResourcePageConfigOrBase = ResourcePageConfig | BasePage
+export type ResourcePageConfigOrBase = ResourcePageConfig
 
 export interface EmptyStateConfig {
   emptyIcon: string
@@ -90,7 +89,7 @@ export interface PathUpdateInfo {
 
 /**
  * 通用资源页面 Composable
- * @param config - 页面配置对象（可以是 ResourcePageConfig 接口或 BasePage 实例）
+ * @param config - 页面配置对象（ResourcePageConfig 接口）
  * @param items - 资源列表
  * @param filteredItems - 筛选后的资源列表
  * @param searchQuery - 搜索查询
@@ -103,22 +102,11 @@ export function useResourcePage<T>(
   searchQuery: Ref<string>,
   sortBy: Ref<string>
 ) {
-  // 从 config 中提取属性，兼容两种类型
-  const pageType = typeof config === 'object' && 'id' in config 
-    ? (config as BasePage).id 
-    : (config as ResourcePageConfig).pageType
-  
-  const itemType = typeof config === 'object' && 'name' in config 
-    ? (config as BasePage).name 
-    : (config as ResourcePageConfig).itemType
-  
-  const defaultPageSize = typeof config === 'object' && 'defaultPageSize' in config 
-    ? (config as BasePage).defaultPageSize 
-    : (config as ResourcePageConfig).defaultPageSize || 20
-  
-  const defaultSortBy = typeof config === 'object' && 'sortOptions' in config 
-    ? undefined 
-    : (config as ResourcePageConfig).defaultSortBy
+  // 从 config 中提取属性
+  const pageType = (config as ResourcePageConfig).pageType
+  const itemType = (config as ResourcePageConfig).itemType
+  const defaultPageSize = (config as ResourcePageConfig).defaultPageSize || 20
+  const defaultSortBy = (config as ResourcePageConfig).defaultSortBy
   
   const configForInternal: ResourcePageConfig = {
     pageType,

@@ -1,0 +1,124 @@
+{
+  "id": "anime-series",
+  "name": "番剧",
+  "icon": "📺",
+  "description": "可以管理番剧和电视剧",
+  "settingsKey": "anime",
+  "defaultPageSize": 20,
+  "resourceTypes": ["Anime"],
+  "showFolderVideosInDetail": true,
+  "displayLayoutConfig": {
+    "minWidth": 150,
+    "maxWidth": 400
+  },
+  "sortOptions": [
+    { "id": "name-asc", "label": "按名称排序", "field": "name", "order": "asc" },
+    { "id": "name-desc", "label": "按名称排序（降序）", "field": "name", "order": "desc" },
+    { "id": "addedDate-asc", "label": "按添加时间（升序）", "field": "addedDate", "order": "asc" },
+    { "id": "addedDate-desc", "label": "按添加时间（降序）", "field": "addedDate", "order": "desc" }
+  ],
+  "emptyStateConfig": {
+    "icon": "📺",
+    "title": "你的番剧库是空的",
+    "description": "点击\"添加番剧\"按钮来添加你的第一部番剧",
+    "buttonText": "添加第一部番剧",
+    "buttonAction": "showAddGameDialog"
+  },
+  "toolbarConfig": {
+    "items": [
+      {
+        "type": "button",
+        "label": "添加番剧",
+        "action": "showAddGameDialog",
+        "icon": "➕",
+        "buttonType": "primary"
+      },
+      {
+        "type": "button",
+        "label": "批量导入本地资源",
+        "action": "showBatchImportDialog",
+        "icon": "📥"
+      },
+      {
+        "type": "search",
+        "placeholder": "搜索番剧...",
+        "action": "filterBySearch"
+      },
+      {
+        "type": "multi-select"
+      },
+      {
+        "type": "layout"
+      },
+      {
+        "type": "sort"
+      }
+    ]
+  },
+  "dialogConfig": {
+    "addTitle": "添加番剧",
+    "editTitle": "编辑番剧",
+    "addButtonText": "添加番剧",
+    "editButtonText": "保存修改"
+  },
+  "filterConfig": [
+    {
+      "key": "missing-resources",
+      "title": "丢失的资源",
+      "filterType": "missingResources",
+      "params": {
+        "missingLabel": "丢失的资源"
+      }
+    },
+    {
+      "key": "tags",
+      "title": "标签筛选",
+      "filterType": "resourceField",
+      "params": {
+        "resource": "anime",
+        "field": "tags"
+      },
+      "isArray": true
+    },
+    {
+      "key": "actors",
+      "title": "演员筛选",
+      "filterType": "resourceField",
+      "params": {
+        "resource": "anime",
+        "field": "actors"
+      },
+      "isArray": true
+    },
+    {
+      "key": "series",
+      "title": "系列筛选",
+      "filterType": "resourceField",
+      "params": {
+        "resource": "anime",
+        "field": "series"
+      },
+      "isArray": false
+    },
+    {
+      "key": "voiceActors",
+      "title": "声优筛选",
+      "filterType": "resourceField",
+      "params": {
+        "resource": "anime",
+        "field": "voiceActors"
+      },
+      "isArray": true
+    },
+    {
+      "key": "productionTeam",
+      "title": "制作组筛选",
+      "filterType": "resourceField",
+      "params": {
+        "resource": "anime",
+        "field": "productionTeam"
+      },
+      "isArray": true
+    }
+  ]
+}

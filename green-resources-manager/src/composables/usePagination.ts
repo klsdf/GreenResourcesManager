@@ -1,6 +1,5 @@
 import { ref, computed, watch, type Ref } from 'vue'
 import saveManager from '../utils/SaveManager'
-import type { BasePage } from '../configs/pages/base/BasePage'
 
 export interface PaginationConfig {
   currentPage: number
@@ -10,15 +9,19 @@ export interface PaginationConfig {
   itemType: string
 }
 
+export interface PageConfigForPagination {
+  defaultPageSize: number
+}
+
 /**
  * 通用分页逻辑 composable
  * @param filteredItems - 筛选后的项目列表
- * @param pageConfig - 页面配置对象
+ * @param pageConfig - 页面配置对象（包含 defaultPageSize）
  * @param itemType - 项目类型（用于配置显示）
  */
 export function usePagination<T>(
   filteredItems: Ref<T[]>,
-  pageConfig: BasePage,
+  pageConfig: PageConfigForPagination,
   itemType = '项目'
 ) {
   const defaultPageSize = pageConfig.defaultPageSize || 20

@@ -6,11 +6,7 @@ import { ResourceField } from '@resources/base/ResourceField.ts'
 import { sortBy as sortByUtil } from '../utils/sortBy'
 import type { SortConfig } from '../utils/sortBy'
 import { getFilterFunctions } from '../configs/filters/filterLibrary.ts'
-
-export interface PageConfigWithFilter {
-  sortOptions: SortOptionConfig[]
-  getFilterConfig<T = any>(): FilterConfig<T>[]
-}
+import { pageConfigLoader } from '../configs/pages/PageConfigLoader.ts'
 
 const DATE_FIELDS = ['addedDate', 'lastRead', 'lastPlayed', 'lastViewed']
 
@@ -96,7 +92,7 @@ function resolveFilterConfigs<T = any>(filterConfigs: FilterConfig<T>[]): Filter
  * @param items 资源列表的响应式引用
  * @param searchQuery 搜索查询的响应式引用
  * @param sortBy 排序方式的响应式引用
- * @param pageConfig 页面配置对象，必须实现 PageConfigWithFilter 接口
+ * @param pageId 页面 ID（如 'games', 'software' 等）
  * @param additionalData 额外的数据（如 isGameRunning 函数等），可选
  * @returns 筛选器相关的状态和方法
  */
@@ -104,11 +100,25 @@ export function useResourceFilter<T = any>(
   items: Ref<T[]>, 
   searchQuery: Ref<string>, 
   sortBy: Ref<string>,
-  pageConfig: PageConfigWithFilter,
+  pageId: string,
   additionalData?: any
 ) {
+  // 从 PageConfigLoader 获取页面配置
+  const pageConfig = pageConfigLoader.getPageConfig(pageId)
+  
+  if (!pageConfig) {
+    console.error(`[useResourceFilter] 未找到页面配置: ${pageId}`)
+    return {
+      filteredItems: ref([]),
+      filteredGames: ref([]),
+      extractAllFilters: () => {},
+      getFilterData: () => ({ filters: [] }),
+      filterStates: {}
+    }
+  }
+
   // 获取筛选配置
-  let filterConfigs = pageConfig.getFilterConfig<T>()
+  let filterConfigs = pageConfig.filterConfig || []
   
   // 解析 filterType 配置，将 filterType 转换为实际的函数
   filterConfigs = resolveFilterConfigs(filterConfigs)

@@ -1,0 +1,101 @@
+{
+  "id": "images",
+  "name": "漫画",
+  "icon": "🖼️",
+  "description": "可以管理图片文件夹，暂不支持单一图片的管理",
+  "settingsKey": "image",
+  "defaultPageSize": 8,
+  "resourceTypes": ["Image", "Manga"],
+  "displayLayoutConfig": {
+    "minWidth": 150,
+    "maxWidth": 400
+  },
+  "sortOptions": [
+    { "id": "name-asc", "label": "按名称排序", "field": "name", "order": "asc" },
+    { "id": "name-desc", "label": "按名称排序（降序）", "field": "name", "order": "desc" },
+    { "id": "pagesCount-asc", "label": "按页数（升序）", "field": "pagesCount", "order": "asc" },
+    { "id": "pagesCount-desc", "label": "按页数（降序）", "field": "pagesCount", "order": "desc" },
+    { "id": "addedDate-asc", "label": "按添加时间（升序）", "field": "addedDate", "order": "asc" },
+    { "id": "addedDate-desc", "label": "按添加时间（降序）", "field": "addedDate", "order": "desc" },
+    { "id": "lastViewed-asc", "label": "按最后查看（升序）", "field": "lastViewed", "order": "asc" },
+    { "id": "lastViewed-desc", "label": "按最后查看（降序）", "field": "lastViewed", "order": "desc" },
+    { "id": "author-asc", "label": "按作者排序", "field": "author", "order": "asc" },
+    { "id": "author-desc", "label": "按作者排序（降序）", "field": "author", "order": "desc" },
+    { "id": "viewCount-asc", "label": "按查看次数（升序）", "field": "viewCount", "order": "asc" },
+    { "id": "viewCount-desc", "label": "按查看次数（降序）", "field": "viewCount", "order": "desc" }
+  ],
+  "emptyStateConfig": {
+    "icon": "🖼️",
+    "title": "你的图片库是空的",
+    "description": "点击\"添加图片\"按钮来添加你的第一个图片文件夹",
+    "buttonText": "添加第一个图片",
+    "buttonAction": "showAddAlbumDialog"
+  },
+  "toolbarConfig": {
+    "items": [
+      {
+        "type": "button",
+        "label": "添加漫画",
+        "action": "showAddAlbumDialog",
+        "icon": "➕",
+        "buttonType": "primary"
+      },
+      {
+        "type": "button",
+        "label": "批量导入本地资源",
+        "action": "showBatchImportDialog",
+        "icon": "📥"
+      },
+      {
+        "type": "search",
+        "placeholder": "搜索漫画...",
+        "action": "filterBySearch"
+      },
+      {
+        "type": "multi-select"
+      },
+      {
+        "type": "layout"
+      },
+      {
+        "type": "sort"
+      }
+    ]
+  },
+  "dialogConfig": {
+    "addTitle": "添加漫画",
+    "editTitle": "编辑漫画",
+    "addButtonText": "添加漫画",
+    "editButtonText": "保存修改"
+  },
+  "filterConfig": [
+    {
+      "key": "missing-resources",
+      "title": "丢失的资源",
+      "filterType": "missingResources",
+      "params": {
+        "missingLabel": "丢失的资源"
+      }
+    },
+    {
+      "key": "tags",
+      "title": "标签筛选",
+      "filterType": "resourceField",
+      "params": {
+        "resource": "manga",
+        "field": "tags"
+      },
+      "isArray": true
+    },
+    {
+      "key": "authors",
+      "title": "作者筛选",
+      "filterType": "resourceField",
+      "params": {
+        "resource": "manga",
+        "field": "author"
+      },
+      "isArray": false
+    }
+  ]
+}

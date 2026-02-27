@@ -1,0 +1,99 @@
+{
+  "id": "novels",
+  "name": "小说",
+  "icon": "📚",
+  "description": "可以管理小说文件，支持 TXT、EPUB、PDF 等格式",
+  "settingsKey": "novel",
+  "defaultPageSize": 8,
+  "resourceTypes": ["Novel"],
+  "displayLayoutConfig": {
+    "minWidth": 150,
+    "maxWidth": 400
+  },
+  "sortOptions": [
+    { "id": "name-asc", "label": "按名称排序", "field": "name", "order": "asc" },
+    { "id": "name-desc", "label": "按名称排序（降序）", "field": "name", "order": "desc" },
+    { "id": "author-asc", "label": "按作者排序", "field": "author", "order": "asc" },
+    { "id": "author-desc", "label": "按作者排序（降序）", "field": "author", "order": "desc" },
+    { "id": "readProgress-asc", "label": "按阅读进度（升序）", "field": "readProgress", "order": "asc" },
+    { "id": "readProgress-desc", "label": "按阅读进度（降序）", "field": "readProgress", "order": "desc" },
+    { "id": "addedDate-asc", "label": "按添加时间（升序）", "field": "addedDate", "order": "asc" },
+    { "id": "addedDate-desc", "label": "按添加时间（降序）", "field": "addedDate", "order": "desc" },
+    { "id": "lastRead-asc", "label": "按最后阅读（升序）", "field": "lastRead", "order": "asc" },
+    { "id": "lastRead-desc", "label": "按最后阅读（降序）", "field": "lastRead", "order": "desc" }
+  ],
+  "emptyStateConfig": {
+    "icon": "📚",
+    "title": "你的小说库是空的",
+    "description": "点击\"添加小说\"按钮来添加你的第一本小说",
+    "buttonText": "添加第一本小说",
+    "buttonAction": "showAddNovelDialog"
+  },
+  "toolbarConfig": {
+    "items": [
+      {
+        "type": "button",
+        "label": "添加小说",
+        "action": "showAddNovelDialog",
+        "icon": "➕",
+        "buttonType": "primary"
+      },
+      {
+        "type": "button",
+        "label": "批量导入本地资源",
+        "action": "showBatchImportDialog",
+        "icon": "📥"
+      },
+      {
+        "type": "search",
+        "placeholder": "搜索小说...",
+        "action": "filterBySearch"
+      },
+      {
+        "type": "multi-select"
+      },
+      {
+        "type": "layout"
+      },
+      {
+        "type": "sort"
+      }
+    ]
+  },
+  "dialogConfig": {
+    "addTitle": "添加小说",
+    "editTitle": "编辑小说",
+    "addButtonText": "添加小说",
+    "editButtonText": "保存修改"
+  },
+  "filterConfig": [
+    {
+      "key": "missing-resources",
+      "title": "丢失的资源",
+      "filterType": "missingResources",
+      "params": {
+        "missingLabel": "丢失的资源"
+      }
+    },
+    {
+      "key": "tags",
+      "title": "标签筛选",
+      "filterType": "resourceField",
+      "params": {
+        "resource": "novel",
+        "field": "tags"
+      },
+      "isArray": true
+    },
+    {
+      "key": "authors",
+      "title": "作者筛选",
+      "filterType": "resourceField",
+      "params": {
+        "resource": "novel",
+        "field": "author"
+      },
+      "isArray": false
+    }
+  ]
+}

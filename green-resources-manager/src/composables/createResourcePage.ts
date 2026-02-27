@@ -77,14 +77,9 @@ export function createResourcePage<T>(options: ResourcePageOptions<T>) {
     getActions
   } = options
 
-  // 从 pageConfig 中提取属性，兼容两种类型
-  const pageType = typeof pageConfig === 'object' && 'id' in pageConfig 
-    ? (pageConfig as any).id 
-    : (pageConfig as any).pageType
-  
-  const itemType = typeof pageConfig === 'object' && 'name' in pageConfig 
-    ? (pageConfig as any).name 
-    : (pageConfig as any).itemType
+  // 从 pageConfig 中提取属性
+  const pageType = (pageConfig as any).pageType || (pageConfig as any).id
+  const itemType = (pageConfig as any).itemType || (pageConfig as any).name
 
   // ========== 通用页面逻辑 ==========
   const resourcePage = useResourcePage(pageConfig, items, filteredItems, searchQuery, sortBy)

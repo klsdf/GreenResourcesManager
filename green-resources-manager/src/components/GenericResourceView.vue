@@ -339,17 +339,7 @@ import { Novel } from '@resources/novel.ts'
 import { Website } from '@resources/website.ts'
 import { Audio } from '@resources/audio.ts'
 import { Other } from '@resources/other.ts'
-// 页面配置类导入
-import { GamePage } from '../configs/pages/GamePage.ts'
-import { SoftwarePage } from '../configs/pages/SoftwarePage.ts'
-import { ImagePage } from '../configs/pages/ImagePage.ts'
-import { SingleImagePage } from '../configs/pages/SingleImagePage.ts'
-import { VideoPage } from '../configs/pages/VideoPage.ts'
-import { AnimePage } from '../configs/pages/AnimePage.ts'
-import { NovelPage } from '../configs/pages/NovelPage.ts'
-import { WebsitePage } from '../configs/pages/WebsitePage.ts'
-import { AudioPage } from '../configs/pages/AudioPage.ts'
-import { OtherPage } from '../configs/pages/OtherPage.ts'
+import { pageConfigLoader, type PageConfig } from '../configs/pages/PageConfigLoader.ts'
 import { executeActionHandler, getActionHandler, type ActionHandlerContext } from '../utils/ResourceActionHandlers'
 import { useGameRunningStore } from '../stores/game-running'
 import { BaseResources } from '@resources/base/ResourcesDataBase.ts'
@@ -388,51 +378,40 @@ const RESOURCE_TYPE_TO_SCRAPER_TABLE: Record<string, string> = {
   Other: 'other'
 }
 
-// 资源类型到资源类和页面配置的映射
-const resourceClassMap: Record<string, { resourceClass: any; pageClass: any }> = {
+// 资源类型到资源类的映射
+const resourceClassMap: Record<string, { resourceClass: any }> = {
   Game: {
-    resourceClass: Game,
-    pageClass: GamePage
+    resourceClass: Game
   },
   Software: {
-    resourceClass: Software,
-    pageClass: SoftwarePage
+    resourceClass: Software
   },
   Image: {
-    resourceClass: Manga,
-    pageClass: ImagePage
+    resourceClass: Manga
   },
   Manga: {
-    resourceClass: Manga,
-    pageClass: ImagePage
+    resourceClass: Manga
   },
   SingleImage: {
-    resourceClass: SingleImage,
-    pageClass: SingleImagePage
+    resourceClass: SingleImage
   },
   Video: {
-    resourceClass: Video,
-    pageClass: VideoPage
+    resourceClass: Video
   },
   Anime: {
-    resourceClass: VideoFolder, // 番剧使用文件夹结构
-    pageClass: AnimePage
+    resourceClass: VideoFolder // 番剧使用文件夹结构
   },
   Novel: {
-    resourceClass: Novel,
-    pageClass: NovelPage
+    resourceClass: Novel
   },
   Website: {
-    resourceClass: Website,
-    pageClass: WebsitePage
+    resourceClass: Website
   },
   Audio: {
-    resourceClass: Audio,
-    pageClass: AudioPage
+    resourceClass: Audio
   },
   Other: {
-    resourceClass: Other, // Other 类型使用独立的 Other 资源类
-    pageClass: OtherPage
+    resourceClass: Other // Other 类型使用独立的 Other 资源类
   }
 }
 
@@ -482,7 +461,7 @@ export default defineComponent({
       return props.pageConfig?.type || props.resourceType || 'Game'
     })
     
-    // 获取资源类和页面配置类
+    // 获取资源类
     const resourceConfig = resourceClassMap[resourceType.value]
     if (!resourceConfig) {
       console.error(`未找到资源类型 ${resourceType.value} 的配置`)
@@ -502,15 +481,45 @@ export default defineComponent({
     }
 
     const ResourceClass = resourceConfig.resourceClass
-    const pageConfig = new resourceConfig.pageClass()
+
+    // 资源类型到页面配置 ID 的映射
+    const resourceTypeToPageIdMap: Record<string, string> = {
+      Game: 'games',
+      Software: 'software',
+      Image: 'images',
+      Manga: 'images',
+      SingleImage: 'single-image',
+      Video: 'videos',
+      Anime: 'anime-series',
+      Novel: 'novels',
+      Website: 'websites',
+      Audio: 'audio',
+      Other: 'other'
+    }
+
+    // 获取页面配置（从 JSON 配置加载器）
+    const pageConfig = computed(() => {
+      const pageId = resourceTypeToPageIdMap[resourceType.value]
+      if (!pageId) {
+        console.error(`未找到资源类型 ${resourceType.value} 对应的页面配置 ID`)
+        return undefined
+      }
+      const config = pageConfigLoader.getPageConfig(pageId)
+      if (!config) {
+        console.error(`未找到页面配置 ID ${pageId} 的配置`)
+      }
+      return config
+    })
 
     // 获取对话框配置
-    const dialogConfig = pageConfig.getDialogConfig?.() || {
-      addTitle: '添加资源',
-      editTitle: '编辑资源',
-      addButtonText: '添加',
-      editButtonText: '保存修改'
-    }
+    const dialogConfig = computed(() => {
+      return pageConfig.value?.dialogConfig || {
+        addTitle: '添加资源',
+        editTitle: '编辑资源',
+        addButtonText: '添加',
+        editButtonText: '保存修改'
+      }
+    })
 
     // 当前资源类型是否使用 launchExecutable（游戏、软件等可执行程序），用于运行状态与时长追踪
     const supportsRunningTracking = computed(() =>
@@ -549,7 +558,7 @@ export default defineComponent({
     const { getAudioDuration } = useAudioDuration()
 
     // 番剧页面：文件夹视频列表、播放、缩略图（用于替换视频页时展示集数列表）
-    const videoFolderComposable = useVideoFolder(pageConfig.id)
+    const videoFolderComposable = useVideoFolder(pageConfig.value?.id || '')
     const videoPlaybackComposable = useVideoPlayback()
     const videoThumbnailComposable = useVideoThumbnail()
     
@@ -772,7 +781,7 @@ export default defineComponent({
      * 保存页面数据到文件
      */
     const saveData = async () => {
-      const pageId = pageConfig.id
+      const pageId = pageConfig.value?.id
       if (!pageId) {
         throw new Error('无法保存数据：pageId 不存在')
       }
@@ -847,7 +856,7 @@ export default defineComponent({
     isElectronEnvironment.value = !!(window as any).electronAPI
 
     // 获取排序选项
-    const sortOptions = pageConfig.sortOptions
+    const sortOptions = pageConfig.value?.sortOptions || []
 
     // 游戏运行状态管理（使用 store）
     const gameRunningStore = useGameRunningStore()
@@ -1050,12 +1059,12 @@ export default defineComponent({
     })
 
     
-    // 使用通用筛选 composable（传入页面配置实例和额外数据）
+    // 使用通用筛选 composable（传入页面配置 ID 和额外数据）
     const filterComposable = useResourceFilter(
       items, 
       searchQuery, 
       sortBy, 
-      pageConfig, 
+      pageConfig.value?.id || '',
       { isGameRunning: isGameRunningForFilter }
     )
     
@@ -1783,17 +1792,17 @@ export default defineComponent({
 
     // 路径更新对话框的计算属性（根据资源类型动态生成）
     const pathUpdateDialogTitle = computed(() => {
-      const itemType = pageConfig.name || '资源'
+      const itemType = pageConfig.value?.name || '资源'
       return `更新${itemType}路径`
     })
 
     const pathUpdateDialogDescription = computed(() => {
-      const itemType = pageConfig.name || '资源'
+      const itemType = pageConfig.value?.name || '资源'
       return `发现同名但路径不同的${itemType}文件：`
     })
 
     const pathUpdateItemNameLabel = computed(() => {
-      const itemType = pageConfig.name || '资源'
+      const itemType = pageConfig.value?.name || '资源'
       return `${itemType}名称`
     })
 
@@ -1833,7 +1842,11 @@ export default defineComponent({
     })
     
     const resourcePage = createResourcePage({
-      pageConfig: pageConfig,
+      pageConfig: {
+        pageType: pageConfig.value?.id || 'games',
+        itemType: pageConfig.value?.name || '资源',
+        defaultPageSize: pageConfig.value?.defaultPageSize || 20
+      },
       items: items,
       filteredItems: filteredItems,
       searchQuery: searchQuery,
@@ -1923,10 +1936,10 @@ export default defineComponent({
           await saveData()
         },
         getItemName: (item: any) => item.name?.value || item.name,
-        itemType: pageConfig.name || '资源'
+        itemType: pageConfig.value?.name || '资源'
       },
       contextMenuHandlers: contextMenuHandlers,
-      emptyState: pageConfig.getEmptyStateConfig ? pageConfig.getEmptyStateConfig() : {
+      emptyState: pageConfig.value?.emptyStateConfig || {
         icon: '📄',
         title: '暂无数据',
         description: '点击"添加"按钮添加新项目',
@@ -1934,13 +1947,13 @@ export default defineComponent({
         buttonAction: 'showAddDialog'
       },
       toolbar: {
-        ...pageConfig.getToolbarConfig(),
+        ...pageConfigLoader.getToolbarConfig(resourceType.value),
         sortOptions: sortOptions.map(option => ({
           id: option.id,
           label: option.label
         }))
       },
-      displayLayout: pageConfig.displayLayoutConfig,
+      displayLayout: pageConfig.value?.displayLayoutConfig,
       // 不提供 getStats，让 DetailPanel 使用配置生成的数据记录
       // getStats: (item: any) => {
       //   // 简化版统计信息
@@ -2484,7 +2497,7 @@ export default defineComponent({
     // 监听游戏进程结束事件
     onMounted(async () => {
       // 1. 加载页面数据（仅从数据库读取）
-      const pageId = pageConfig.id
+      const pageId = pageConfig.value?.id
       if (!pageId) {
         throw new Error('[GenericResourceView] 没有 pageId，无法加载数据')
       }
@@ -2616,7 +2629,7 @@ export default defineComponent({
           refreshUnknownVideoDurations()
         }
         // 音频页：首次进入时刷新所有未知时长的音频（已有时长的不刷新）
-        if (resourceType.value === 'Audio' || pageConfig.id === 'audio') {
+        if (resourceType.value === 'Audio' || pageConfig.value?.id === 'audio') {
           refreshUnknownAudioDurations()
         }
       }
@@ -2655,7 +2668,7 @@ export default defineComponent({
           if (resourceType.value === 'Video') {
             refreshUnknownVideoDurations()
           }
-          if (resourceType.value === 'Audio' || pageConfig.id === 'audio') {
+          if (resourceType.value === 'Audio' || pageConfig.value?.id === 'audio') {
             refreshUnknownAudioDurations()
           }
         }
@@ -2955,7 +2968,7 @@ export default defineComponent({
     }
 
     // FunGrid 布局相关计算属性
-    const displayLayoutConfig = pageConfig.displayLayoutConfig || { minWidth: 200, maxWidth: 400 }
+    const displayLayoutConfig = pageConfig.value?.displayLayoutConfig || { minWidth: 200, maxWidth: 400 }
 
     const displayLayoutBaseWidth = computed(() => {
       // 使用 maxWidth 作为基础宽度，如果没有则使用默认值
@@ -3012,7 +3025,7 @@ export default defineComponent({
           }
 
           // 获取当前页面支持的资源类型
-          const pageResourceTypes = pageConfig.resourceTypes || [resourceType.value]
+          const pageResourceTypes = pageConfig.value?.resourceTypes || [resourceType.value]
 
           // 收集所有匹配的扩展名
           let allAcceptedExtensions: string[] = []
@@ -3065,7 +3078,7 @@ export default defineComponent({
         let failedCount = 0
 
         // 获取当前页面支持的资源类型
-        const pageResourceTypes = pageConfig.resourceTypes || [resourceType.value]
+        const pageResourceTypes = pageConfig.value?.resourceTypes || [resourceType.value]
 
         for (const relativeFilePath of selectedFiles) {
           // 拼接完整路径
