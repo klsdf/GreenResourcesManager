@@ -15,7 +15,7 @@ export class SoftwarePage extends BasePage {
 	readonly settingsKey: string = 'software'
 	
 	// 默认每页显示数量
-	readonly defaultPageSize: number = 20
+	readonly defaultPageSize: number = 2
 
 	resourceTypes: string[] = ['Software']
 
@@ -88,16 +88,20 @@ export class SoftwarePage extends BasePage {
 			{
 				key: 'tags',
 				title: '标签筛选',
-				fieldAccessor: (software: any) => {
-					return (software as any).tags?.value || []
+				filterType: 'resourceField',
+				params: {
+					resource: 'software',
+					field: 'tags'
 				},
 				isArray: true
 			},
 			{
 				key: 'developers',
 				title: '开发商筛选',
-				fieldAccessor: (software: any) => {
-					return (software as any).developers?.value || []
+				filterType: 'resourceField',
+				params: {
+					resource: 'software',
+					field: 'developers'
 				},
 				isArray: true
 			}

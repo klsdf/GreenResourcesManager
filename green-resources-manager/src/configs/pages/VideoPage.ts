@@ -94,24 +94,30 @@ export class VideoPage extends BasePage {
       {
         key: 'tags',
         title: '标签筛选',
-        fieldAccessor: (video: any) => {
-          return (video as any).tags?.value || []
+        filterType: 'resourceField',
+        params: {
+          resource: 'video',
+          field: 'tags'
         },
         isArray: true
       },
       {
         key: 'actors',
         title: '演员筛选',
-        fieldAccessor: (video: any) => {
-          return (video as any).actors?.value || []
+        filterType: 'resourceField',
+        params: {
+          resource: 'video',
+          field: 'actors'
         },
         isArray: true
       },
       {
         key: 'series',
         title: '系列筛选',
-        fieldAccessor: (video: any) => {
-          return (video as any).series?.value || ''
+        filterType: 'resourceField',
+        params: {
+          resource: 'video',
+          field: 'series'
         },
         isArray: false
       }

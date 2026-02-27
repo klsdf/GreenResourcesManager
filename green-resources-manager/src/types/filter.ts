@@ -2,6 +2,8 @@
  * 通用筛选配置类型定义
  */
 
+import type { FilterType } from '../configs/filters/filterLibrary'
+
 /**
  * 筛选项接口
  */
@@ -26,10 +28,11 @@ export interface FilterConfig<T = any> {
   title: string
   
   /**
-   * 从资源项中提取字段值的函数
-   * 返回单个值或数组，用于统计和匹配
+   * 从资源项中提取字段值的函数或字段名字符串
+   * 如果是函数：返回单个值或数组，用于统计和匹配
+   * 如果是字符串：字段名，自动从资源项中提取该字段的值
    */
-  fieldAccessor: (item: T) => any
+  fieldAccessor?: ((item: T) => any) | string
   
   /**
    * 字段是否为数组类型
@@ -57,4 +60,16 @@ export interface FilterConfig<T = any> {
    * @returns 筛选项列表
    */
   extractFn?: (items: T[], additionalData?: any) => FilterItem[]
+  
+  /**
+   * 预定义 filter 类型（可选）
+   * 用于从 filterLibrary 中获取对应的 extractFn 和 matchFn
+   * 当提供此字段时，fieldAccessor 可以为空
+   */
+  filterType?: FilterType
+  
+  /**
+   * 传递给 filterType 对应函数的参数
+   */
+  params?: Record<string, any>
 }

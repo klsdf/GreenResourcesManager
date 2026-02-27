@@ -84,16 +84,20 @@ export class OtherPage extends BasePage {
       {
         key: 'tags',
         title: '标签筛选',
-        fieldAccessor: (other: any) => {
-          return (other as any).tags?.value || []
+        filterType: 'resourceField',
+        params: {
+          resource: 'other',
+          field: 'tags'
         },
         isArray: true
       },
       {
         key: 'category',
         title: '分类筛选',
-        fieldAccessor: (other: any) => {
-          return (other as any).category?.value || ''
+        filterType: 'resourceField',
+        params: {
+          resource: 'other',
+          field: 'category'
         },
         isArray: false
       }

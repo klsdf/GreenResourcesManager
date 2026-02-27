@@ -84,16 +84,20 @@ export class SingleImagePage extends BasePage {
       {
         key: 'tags',
         title: '标签筛选',
-        fieldAccessor: (image: any) => {
-          return (image as any).tags?.value || []
+        filterType: 'resourceField',
+        params: {
+          resource: 'singleImage',
+          field: 'tags'
         },
         isArray: true
       },
       {
         key: 'author',
         title: '作者筛选',
-        fieldAccessor: (image: any) => {
-          return (image as any).author?.value || ''
+        filterType: 'resourceField',
+        params: {
+          resource: 'singleImage',
+          field: 'author'
         },
         isArray: false
       }

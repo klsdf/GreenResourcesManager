@@ -90,16 +90,20 @@ export class NovelPage extends BasePage {
 			{
 				key: 'tags',
 				title: '标签筛选',
-				fieldAccessor: (novel: any) => {
-					return (novel as any).tags?.value || []
+				filterType: 'resourceField',
+				params: {
+					resource: 'novel',
+					field: 'tags'
 				},
 				isArray: true
 			},
 			{
 				key: 'authors',
 				title: '作者筛选',
-				fieldAccessor: (novel: any) => {
-					return (novel as any).author?.value || ''
+				filterType: 'resourceField',
+				params: {
+					resource: 'novel',
+					field: 'author'
 				},
 				isArray: false
 			}

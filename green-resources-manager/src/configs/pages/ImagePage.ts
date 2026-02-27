@@ -92,16 +92,20 @@ export class ImagePage extends BasePage {
 			{
 				key: 'tags',
 				title: '标签筛选',
-				fieldAccessor: (manga: any) => {
-					return (manga as any).tags?.value || []
+				filterType: 'resourceField',
+				params: {
+					resource: 'manga',
+					field: 'tags'
 				},
 				isArray: true
 			},
 			{
 				key: 'authors',
 				title: '作者筛选',
-				fieldAccessor: (manga: any) => {
-					return (manga as any).author?.value || ''
+				filterType: 'resourceField',
+				params: {
+					resource: 'manga',
+					field: 'author'
 				},
 				isArray: false
 			}

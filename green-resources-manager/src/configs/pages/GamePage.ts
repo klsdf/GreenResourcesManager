@@ -7,7 +7,12 @@ import { Game as GameClass } from '@resources/game.ts'
 type Game = InstanceType<typeof GameClass>
 
 
+
 export class GamePage extends BasePage {
+	/**
+	 * "正在游玩"筛选器的显示文本
+	 * 用户可以通过修改此值来自定义显示文本
+	 */
 	readonly id: string = 'games'
 	readonly name: string = '游戏'
 	readonly icon: string = '🎮'
@@ -17,7 +22,7 @@ export class GamePage extends BasePage {
 	readonly settingsKey: string = 'game'
 	
 	// 默认每页显示数量
-	readonly defaultPageSize: number = 5
+	readonly defaultPageSize: number = 7
 
 	// 接受的资源类型（可以多个）
 	resourceTypes: string[] = ['Game']
@@ -114,85 +119,49 @@ export class GamePage extends BasePage {
 			{
 				key: 'tags',
 				title: '标签筛选',
-				fieldAccessor: (game: any) => {
-					return (game as any).tags?.value || []
+				filterType: 'resourceField',
+				params: {
+					resource: 'game',
+					field: 'tags'
 				},
 				isArray: true
 			},
 			{
 				key: 'developers',
 				title: '开发商筛选',
-				fieldAccessor: (game: any) => {
-					return (game as any).developers?.value || []
+				filterType: 'resourceField',
+				params: {
+					resource: 'game',
+					field: 'developers'
 				},
 				isArray: true
 			},
 			{
 				key: 'publishers',
 				title: '发行商筛选',
-				fieldAccessor: (game: any) => {
-					return (game as any).publisher?.value || ''
+				filterType: 'resourceField',
+				params: {
+					resource: 'game',
+					field: 'publisher'
 				},
 				isArray: false
 			},
 			{
 				key: 'engines',
 				title: '引擎筛选',
-				fieldAccessor: (game: any) => {
-					return (game as any).engine?.value || ''
+				filterType: 'resourceField',
+				params: {
+					resource: 'game',
+					field: 'engine'
 				},
 				isArray: false
 			},
 			{
 				key: 'others',
 				title: '其他筛选',
-				fieldAccessor: (game: any) => {
-					// 这个字段访问器不会被使用，因为使用了 extractFn
-					return null
-				},
-				isArray: false,
-				// 自定义提取函数：提取"正在游玩"（"丢失的资源"已由基类提供）
-				extractFn: (games: any[], additionalData?: any): FilterItem[] => {
-					const items: FilterItem[] = []
-					let runningGamesCount = 0
-
-					games.forEach((game: any) => {
-						// 统计正在游玩的游戏
-						if (additionalData?.isGameRunning && additionalData.isGameRunning(game)) {
-							runningGamesCount++
-						}
-					})
-
-					// "正在游玩"始终显示，即使数量为0
-					items.push({
-						name: '正在游玩',
-						count: runningGamesCount
-					})
-
-					return items
-				},
-				// 自定义匹配函数：处理"正在游玩"（"丢失的资源"已由基类处理）
-				matchFn: (game: any, selected: string[], excluded: string[], additionalData?: any): boolean => {
-					// 检查排除条件
-					if (excluded.length > 0) {
-						if (excluded.includes('正在游玩') && additionalData?.isGameRunning && additionalData.isGameRunning(game)) {
-							return false
-						}
-					}
-
-					// 检查选中条件
-					if (selected.length > 0) {
-						const isRunning = additionalData?.isGameRunning ? additionalData.isGameRunning(game) : false
-
-						return selected.some(sel => {
-							if (sel === '正在游玩') {
-								return isRunning
-							}
-							return false
-						})
-					}
-
-					return true
+				filterType: 'runningStatus',
+				params: {
+					runningLabel: '正在游玩'
 				}
 			}
 		] as FilterConfig<T>[]

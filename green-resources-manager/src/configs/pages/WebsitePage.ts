@@ -84,8 +84,10 @@ export class WebsitePage extends BasePage {
       {
         key: 'tags',
         title: '标签筛选',
-        fieldAccessor: (website: any) => {
-          return (website as any).tags?.value || []
+        filterType: 'resourceField',
+        params: {
+          resource: 'website',
+          field: 'tags'
         },
         isArray: true
       }

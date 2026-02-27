@@ -86,40 +86,50 @@ export class AnimePage extends BasePage {
       {
         key: 'tags',
         title: '标签筛选',
-        fieldAccessor: (anime: any) => {
-          return (anime as any).tags?.value || []
+        filterType: 'resourceField',
+        params: {
+          resource: 'anime',
+          field: 'tags'
         },
         isArray: true
       },
       {
         key: 'actors',
         title: '演员筛选',
-        fieldAccessor: (anime: any) => {
-          return (anime as any).actors?.value || []
+        filterType: 'resourceField',
+        params: {
+          resource: 'anime',
+          field: 'actors'
         },
         isArray: true
       },
       {
         key: 'series',
         title: '系列筛选',
-        fieldAccessor: (anime: any) => {
-          return (anime as any).series?.value || ''
+        filterType: 'resourceField',
+        params: {
+          resource: 'anime',
+          field: 'series'
         },
         isArray: false
       },
       {
         key: 'voiceActors',
         title: '声优筛选',
-        fieldAccessor: (anime: any) => {
-          return (anime as any).voiceActors?.value || []
+        filterType: 'resourceField',
+        params: {
+          resource: 'anime',
+          field: 'voiceActors'
         },
         isArray: true
       },
       {
         key: 'productionTeam',
         title: '制作组筛选',
-        fieldAccessor: (anime: any) => {
-          return (anime as any).productionTeam?.value || []
+        filterType: 'resourceField',
+        params: {
+          resource: 'anime',
+          field: 'productionTeam'
         },
         isArray: true
       }

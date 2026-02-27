@@ -9,6 +9,7 @@ import {
 } from '../../resources/base/FormField.ts'
 import type { SortOption, SortOptionConfig } from '../../../types/sort'
 import type { FilterConfig, FilterItem } from '../../../types/filter'
+import { getFilterFunctions } from '../../filters/filterLibrary.ts'
 
 /**
  * 空状态配置接口
@@ -218,58 +219,29 @@ export abstract class BasePage {
 			{
 				key: 'missing-resources',
 				title: '丢失的资源',
-				fieldAccessor: (item: any) => {
-					// 这个字段访问器不会被使用，因为使用了 extractFn
-					return null
-				},
-				isArray: false,
-				// 自定义提取函数：提取"丢失的资源"
-				// 注意：即使数量为0也返回，确保筛选器始终显示
-				extractFn: (items: any[]): FilterItem[] => {
-					const result: FilterItem[] = []
-					let missingResourcesCount = 0
-
-					items.forEach((item: any) => {
-						// 统计丢失的资源
-						const fileExists = (item as any).fileExists?.value
-						if (fileExists === false) {
-							missingResourcesCount++
-						}
-					})
-
-					// 始终返回，即使数量为0，确保筛选器可以显示
-					result.push({
-						name: '丢失的资源',
-						count: missingResourcesCount
-					})
-
-					return result
-				},
-				// 自定义匹配函数：处理"丢失的资源"
-				matchFn: (item: any, selected: string[], excluded: string[]): boolean => {
-					// 检查排除条件
-					if (excluded.length > 0) {
-						const fileExists = (item as any).fileExists?.value
-						if (excluded.includes('丢失的资源') && fileExists === false) {
-							return false
-						}
-					}
-
-					// 检查选中条件
-					if (selected.length > 0) {
-						const fileExists = (item as any).fileExists?.value
-						
-						return selected.some(sel => {
-							if (sel === '丢失的资源') {
-								return fileExists === false
-							}
-							return false
-						})
-					}
-
-					return true
+				filterType: 'missingResources',
+				params: {
+					missingLabel: '丢失的资源'
 				}
 			}
 		] as FilterConfig<T>[]
+	}
+
+	/**
+	 * 处理 filterConfig，将 filterType 转换为实际的函数
+	 * 在页面使用 filterConfig 前调用此方法
+	 * @param filterConfig 原始筛选配置
+	 * @returns 处理后的筛选配置（包含实际的 extractFn 和 matchFn）
+	 */
+	resolveFilterConfig<T = any>(filterConfig: FilterConfig<T>): FilterConfig<T> {
+		if (filterConfig.filterType && filterConfig.params) {
+			const functions = getFilterFunctions(filterConfig.filterType, filterConfig.params)
+			return {
+				...filterConfig,
+				extractFn: functions.extractFn,
+				matchFn: functions.matchFn
+			}
+		}
+		return filterConfig
 	}
 }

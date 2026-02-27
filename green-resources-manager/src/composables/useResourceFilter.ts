@@ -5,6 +5,7 @@ import type { SortOptionConfig } from '../types/sort'
 import { ResourceField } from '@resources/base/ResourceField.ts'
 import { sortBy as sortByUtil } from '../utils/sortBy'
 import type { SortConfig } from '../utils/sortBy'
+import { getFilterFunctions } from '../configs/filters/filterLibrary.ts'
 
 export interface PageConfigWithFilter {
   sortOptions: SortOptionConfig[]
@@ -42,6 +43,52 @@ function getFieldValue<T>(field: any): T | undefined {
 }
 
 /**
+ * 解析 filterType 配置，将 filterType 转换为实际的函数
+ * @param filterConfigs 原始筛选配置数组
+ * @returns 解析后的筛选配置数组
+ */
+function resolveFilterConfigs<T = any>(filterConfigs: FilterConfig<T>[]): FilterConfig<T>[] {
+  return filterConfigs.map(config => {
+    // 处理 filterType
+    if (config.filterType && config.params) {
+      // 特殊处理 resourceField 类型
+      if (config.filterType === 'resourceField') {
+        const { resource, field } = config.params
+        return {
+          ...config,
+          fieldAccessor: (item: any) => {
+            const fieldValue = item[field]
+            return getFieldValue(fieldValue)
+          }
+        }
+      }
+      
+      // 其他 filterType 使用 filterLibrary
+      const functions = getFilterFunctions(config.filterType, config.params)
+      return {
+        ...config,
+        extractFn: functions.extractFn,
+        matchFn: functions.matchFn
+      }
+    }
+    
+    // 处理 fieldAccessor 字符串
+    if (typeof config.fieldAccessor === 'string') {
+      const fieldName = config.fieldAccessor
+      return {
+        ...config,
+        fieldAccessor: (item: any) => {
+          const field = item[fieldName]
+          return getFieldValue(field)
+        }
+      }
+    }
+    
+    return config
+  })
+}
+
+/**
  * 通用资源筛选和排序的 composable
  * 根据页面配置动态生成筛选器，支持所有资源类型
  * 
@@ -62,6 +109,9 @@ export function useResourceFilter<T = any>(
 ) {
   // 获取筛选配置
   let filterConfigs = pageConfig.getFilterConfig<T>()
+  
+  // 解析 filterType 配置，将 filterType 转换为实际的函数
+  filterConfigs = resolveFilterConfigs(filterConfigs)
   
   // 保护机制：确保"丢失的资源"筛选始终存在
   // 检查是否已经有 missing-resources 筛选器
@@ -151,6 +201,11 @@ export function useResourceFilter<T = any>(
         return
       }
 
+      // 如果没有 fieldAccessor，说明使用了 filterType，应该跳过默认处理
+      if (!config.fieldAccessor) {
+        return
+      }
+
       // 否则使用默认提取逻辑
       const countMap: Record<string, number> = {}
       
@@ -191,6 +246,11 @@ export function useResourceFilter<T = any>(
     selected: string[],
     excluded: string[]
   ): boolean {
+    // 如果没有 fieldAccessor，说明使用了 filterType，应该返回 true（由 matchFn 处理）
+    if (!config.fieldAccessor) {
+      return true
+    }
+
     const fieldValue = config.fieldAccessor(item)
     
     // 检查排除条件
@@ -235,6 +295,10 @@ export function useResourceFilter<T = any>(
       const matchesSearch = name.toLowerCase().includes(searchLower) ||
         // 可以扩展搜索范围，从筛选配置中提取可搜索字段
         filterConfigs.some(config => {
+          // 如果没有 fieldAccessor，跳过这个配置
+          if (!config.fieldAccessor) {
+            return false
+          }
           const fieldValue = config.fieldAccessor(item)
           if (config.isArray) {
             const values = Array.isArray(fieldValue) ? fieldValue.map(v => String(v).toLowerCase()) : []

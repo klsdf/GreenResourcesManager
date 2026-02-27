@@ -84,24 +84,30 @@ export class AudioPage extends BasePage {
       {
         key: 'tags',
         title: '标签筛选',
-        fieldAccessor: (audio: any) => {
-          return (audio as any).tags?.value || []
+        filterType: 'resourceField',
+        params: {
+          resource: 'audio',
+          field: 'tags'
         },
         isArray: true
       },
       {
         key: 'artist',
         title: '艺术家筛选',
-        fieldAccessor: (audio: any) => {
-          return (audio as any).artist?.value || ''
+        filterType: 'resourceField',
+        params: {
+          resource: 'audio',
+          field: 'artist'
         },
         isArray: false
       },
       {
         key: 'actors',
         title: '演员筛选',
-        fieldAccessor: (audio: any) => {
-          return (audio as any).actors?.value || []
+        filterType: 'resourceField',
+        params: {
+          resource: 'audio',
+          field: 'actors'
         },
         isArray: true
       }
