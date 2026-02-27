@@ -15,7 +15,7 @@ export class NovelPage extends BasePage {
 	readonly settingsKey: string = 'novel'
 	
 	// 默认每页显示数量
-	readonly defaultPageSize: number = 20
+	readonly defaultPageSize: number = 8
 
 	resourceTypes: string[] = ['Novel']
 

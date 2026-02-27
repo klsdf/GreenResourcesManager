@@ -10,6 +10,7 @@
  */
 import { ref, computed, type Ref } from 'vue'
 import saveManager from '../utils/SaveManager'
+import type { BasePage } from '../configs/pages/base/BasePage'
 
 export interface ResourcePageConfig {
   pageType: string
@@ -17,6 +18,8 @@ export interface ResourcePageConfig {
   defaultPageSize?: number
   defaultSortBy?: string
 }
+
+export type ResourcePageConfigOrBase = ResourcePageConfig | BasePage
 
 export interface EmptyStateConfig {
   emptyIcon: string
@@ -87,19 +90,43 @@ export interface PathUpdateInfo {
 
 /**
  * 通用资源页面 Composable
- * @param config - 页面配置
+ * @param config - 页面配置对象（可以是 ResourcePageConfig 接口或 BasePage 实例）
  * @param items - 资源列表
  * @param filteredItems - 筛选后的资源列表
  * @param searchQuery - 搜索查询
  * @param sortBy - 排序方式
  */
 export function useResourcePage<T>(
-  config: ResourcePageConfig,
+  config: ResourcePageConfigOrBase,
   items: Ref<T[]>,
   filteredItems: Ref<T[]>,
   searchQuery: Ref<string>,
   sortBy: Ref<string>
 ) {
+  // 从 config 中提取属性，兼容两种类型
+  const pageType = typeof config === 'object' && 'id' in config 
+    ? (config as BasePage).id 
+    : (config as ResourcePageConfig).pageType
+  
+  const itemType = typeof config === 'object' && 'name' in config 
+    ? (config as BasePage).name 
+    : (config as ResourcePageConfig).itemType
+  
+  const defaultPageSize = typeof config === 'object' && 'defaultPageSize' in config 
+    ? (config as BasePage).defaultPageSize 
+    : (config as ResourcePageConfig).defaultPageSize || 20
+  
+  const defaultSortBy = typeof config === 'object' && 'sortOptions' in config 
+    ? undefined 
+    : (config as ResourcePageConfig).defaultSortBy
+  
+  const configForInternal: ResourcePageConfig = {
+    pageType,
+    itemType,
+    defaultPageSize,
+    defaultSortBy
+  }
+  
   // 路径更新对话框状态
   const showPathUpdateDialog = ref(false)
   const pathUpdateInfo = ref<PathUpdateInfo>({
@@ -131,16 +158,16 @@ export function useResourcePage<T>(
    */
   const handleSortByChanged = (newValue: string) => {
     sortBy.value = newValue
-    console.log(`✅ ${config.itemType}页面 排序方式已更新:`, newValue)
+    console.log(`✅ ${itemType}页面 排序方式已更新:`, newValue)
   }
 
   /**
    * 保存排序设置
    */
-  const handleSortChanged = async ({ pageType, sortBy: sortValue }: { pageType: string; sortBy: string }) => {
+  const handleSortChanged = async ({ pageType: pt, sortBy: sortValue }: { pageType: string; sortBy: string }) => {
     try {
-      await saveManager.saveSortSetting(pageType, sortValue)
-      console.log(`✅ 已保存${pageType}页面排序方式:`, sortValue)
+      await saveManager.saveSortSetting(pt, sortValue)
+      console.log(`✅ 已保存${pt}页面排序方式:`, sortValue)
     } catch (error) {
       console.warn('保存排序方式失败:', error)
     }
@@ -151,10 +178,10 @@ export function useResourcePage<T>(
    */
   const loadSortSetting = async () => {
     try {
-      const savedSortBy = await saveManager.getSortSetting(config.pageType)
+      const savedSortBy = await saveManager.getSortSetting(pageType)
       if (savedSortBy && savedSortBy !== sortBy.value) {
         sortBy.value = savedSortBy
-        console.log(`✅ 已加载${config.itemType}页面排序方式:`, savedSortBy)
+        console.log(`✅ 已加载${itemType}页面排序方式:`, savedSortBy)
       }
     } catch (error) {
       console.warn('加载排序方式失败:', error)

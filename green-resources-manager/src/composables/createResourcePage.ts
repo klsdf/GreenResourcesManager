@@ -3,15 +3,15 @@
  * 创建一个完整的资源页面配置，包括所有通用逻辑
  */
 import { ref, computed, type Ref } from 'vue'
-import { useResourcePage, createEmptyStateConfig, createToolbarConfig, type ResourcePageConfig } from './useResourcePage'
+import { useResourcePage, createEmptyStateConfig, createToolbarConfig, type ResourcePageConfig, type ResourcePageConfigOrBase } from './useResourcePage'
 import { useResourceCRUD, type ResourceCRUDConfig } from './useResourceCRUD'
 import { useResourceContextMenu, type ContextMenuItem } from './useResourceContextMenu'
 import { usePagination } from './usePagination'
 import { useDisplayLayout } from './useDisplayLayout'
 
 export interface ResourcePageOptions<T> {
-  // 页面配置
-  pageConfig: ResourcePageConfig
+  // 页面配置（可以是 ResourcePageConfig 接口或 BasePage 实例）
+  pageConfig: ResourcePageConfigOrBase
   
   // 数据源
   items: Ref<T[]>
@@ -77,11 +77,20 @@ export function createResourcePage<T>(options: ResourcePageOptions<T>) {
     getActions
   } = options
 
+  // 从 pageConfig 中提取属性，兼容两种类型
+  const pageType = typeof pageConfig === 'object' && 'id' in pageConfig 
+    ? (pageConfig as any).id 
+    : (pageConfig as any).pageType
+  
+  const itemType = typeof pageConfig === 'object' && 'name' in pageConfig 
+    ? (pageConfig as any).name 
+    : (pageConfig as any).itemType
+
   // ========== 通用页面逻辑 ==========
   const resourcePage = useResourcePage(pageConfig, items, filteredItems, searchQuery, sortBy)
   
   // ========== 分页 ==========
-  const pagination = usePagination(filteredItems, pageConfig, pageConfig.itemType)
+  const pagination = usePagination(filteredItems, pageConfig, itemType)
   
   // ========== CRUD操作 ==========
   const crud = useResourceCRUD(crudConfig)
@@ -97,7 +106,7 @@ export function createResourcePage<T>(options: ResourcePageOptions<T>) {
 
   // ========== 配置 ==========
   const emptyStateConfig = createEmptyStateConfig(
-    pageConfig.itemType,
+    itemType,
     emptyState.icon,
     emptyState.title,
     emptyState.description,
@@ -115,8 +124,8 @@ export function createResourcePage<T>(options: ResourcePageOptions<T>) {
   } else {
     // 使用旧版工具栏配置
     toolbarConfig = createToolbarConfig(
-      pageConfig.pageType,
-      pageConfig.itemType,
+      pageType,
+      itemType,
       toolbar.addButtonText,
       toolbar.searchPlaceholder,
       toolbar.sortOptions,

@@ -1,17 +1,6 @@
 <template>
   <div class="settings-section">
     <div class="settings-grid">
-      <SettingSlider
-        title="音频列表每页显示数量"
-        description="设置音频列表中每页显示的音频数量"
-        :model-value="settings.audio.listPageSize"
-        :min="5"
-        :max="50"
-        :step="1"
-        unit="个"
-        @update:model-value="updateSetting('audio.listPageSize', $event)"
-      />
-      
       <!-- 音频相关设置可以在这里添加 -->
       <div class="empty-state">
         <div class="empty-icon">🎵</div>

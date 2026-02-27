@@ -549,7 +549,7 @@ export default defineComponent({
     const { getAudioDuration } = useAudioDuration()
 
     // 番剧页面：文件夹视频列表、播放、缩略图（用于替换视频页时展示集数列表）
-    const videoFolderComposable = useVideoFolder(props.pageConfig?.id)
+    const videoFolderComposable = useVideoFolder(pageConfig.id)
     const videoPlaybackComposable = useVideoPlayback()
     const videoThumbnailComposable = useVideoThumbnail()
     
@@ -772,7 +772,7 @@ export default defineComponent({
      * 保存页面数据到文件
      */
     const saveData = async () => {
-      const pageId = props.pageConfig?.id
+      const pageId = pageConfig.id
       if (!pageId) {
         throw new Error('无法保存数据：pageId 不存在')
       }
@@ -1833,12 +1833,7 @@ export default defineComponent({
     })
     
     const resourcePage = createResourcePage({
-      pageConfig: {
-        pageType: (resourceType.value || 'game').toLowerCase() + 's',
-        itemType: (pageConfig as any).name || '资源',
-        defaultPageSize: 20,
-        defaultSortBy: 'name-asc'
-      },
+      pageConfig: pageConfig,
       items: items,
       filteredItems: filteredItems,
       searchQuery: searchQuery,
@@ -2489,7 +2484,7 @@ export default defineComponent({
     // 监听游戏进程结束事件
     onMounted(async () => {
       // 1. 加载页面数据（仅从数据库读取）
-      const pageId = props.pageConfig?.id
+      const pageId = pageConfig.id
       if (!pageId) {
         throw new Error('[GenericResourceView] 没有 pageId，无法加载数据')
       }
@@ -2621,7 +2616,7 @@ export default defineComponent({
           refreshUnknownVideoDurations()
         }
         // 音频页：首次进入时刷新所有未知时长的音频（已有时长的不刷新）
-        if (resourceType.value === 'Audio' || props.pageConfig?.id === 'audio') {
+        if (resourceType.value === 'Audio' || pageConfig.id === 'audio') {
           refreshUnknownAudioDurations()
         }
       }
@@ -2660,7 +2655,7 @@ export default defineComponent({
           if (resourceType.value === 'Video') {
             refreshUnknownVideoDurations()
           }
-          if (resourceType.value === 'Audio' || props.pageConfig?.id === 'audio') {
+          if (resourceType.value === 'Audio' || pageConfig.id === 'audio') {
             refreshUnknownAudioDurations()
           }
         }

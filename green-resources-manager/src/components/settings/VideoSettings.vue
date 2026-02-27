@@ -1,17 +1,6 @@
 <template>
   <div class="settings-section">
     <div class="settings-grid">
-      <SettingSlider
-        title="视频列表每页显示数量"
-        description="设置视频列表中每页显示的视频数量"
-        :model-value="settings.video.listPageSize"
-        :min="5"
-        :max="50"
-        :step="1"
-        unit="个"
-        @update:model-value="updateSetting('video.listPageSize', $event)"
-      />
-      
       <SettingSelect
         title="视频播放方式"
         description="选择视频的播放方式"

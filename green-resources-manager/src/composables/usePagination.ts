@@ -88,72 +88,50 @@ export function usePagination<T>(
   }
 
   /**
-   * 从设置中加载分页配置
+   * 从页面配置加载分页配置
+   * 注意：现在只从页面配置读取，不再从设置页读取
    * @param pageId - 页面 ID（如 'games', 'images'）
    */
   async function loadPaginationSettings(pageId: string) {
-    console.log(`[loadPaginationSettings] 开始加载分页设置`, {
+    console.log(`[loadPaginationSettings] 开始加载分页设置（仅从页面配置）`, {
       pageId,
       itemType,
       defaultPageSize,
       currentPageSize: pageSize.value,
-      pageConfigSettingsKey: pageConfig.settingsKey,
       pageConfigDefaultPageSize: pageConfig.defaultPageSize
     })
     
-    // 使用页面配置中的 settingsKey，如果没有则使用 pageId
-    const settingsKey = pageConfig.settingsKey || pageId
-    
-    console.log(`[loadPaginationSettings] settingsKey 确定`, {
-      pageId,
-      settingsKey,
-      source: pageConfig.settingsKey ? 'pageConfig.settingsKey' : 'pageId'
-    })
-    
     try {
-      const settings = await saveManager.loadSettings()
-      console.log(`[loadPaginationSettings] 已加载设置`, {
-        settings,
-        settingsPageType: settings?.[settingsKey],
-        settingsPageTypeListPageSize: settings?.[settingsKey]?.listPageSize
+      // 只使用页面配置中的 defaultPageSize
+      const newPageSize = pageConfig.defaultPageSize || defaultPageSize
+      
+      console.log(`[loadPaginationSettings] 从页面配置读取的分页大小`, {
+        newPageSize,
+        pageConfigDefaultPageSize: pageConfig.defaultPageSize,
+        fallbackDefaultPageSize: defaultPageSize
       })
 
-      if (settings && settings[settingsKey]) {
-        const newPageSize = parseInt(settings[settingsKey].listPageSize) || defaultPageSize
-        console.log(`[loadPaginationSettings] 解析后的新分页大小`, {
-          newPageSize,
-          parsedFrom: settings[settingsKey].listPageSize,
-          defaultPageSize
+      // 更新分页大小
+      if (pageSize.value !== newPageSize) {
+        console.log(`[loadPaginationSettings] 分页大小需要更新`, {
+          oldPageSize: pageSize.value,
+          newPageSize
         })
+        
+        pageSize.value = newPageSize
 
-        // 更新分页大小
-        if (pageSize.value !== newPageSize) {
-          console.log(`[loadPaginationSettings] 分页大小需要更新`, {
-            oldPageSize: pageSize.value,
-            newPageSize
-          })
-          
-          pageSize.value = newPageSize
+        // 重新计算分页
+        updatePagination()
 
-          // 重新计算分页
-          updatePagination()
-
-          console.log(`${itemType}列表分页设置已更新:`, {
-            listPageSize: pageSize.value,
-            totalPages: totalPages.value,
-            currentPage: currentPage.value
-          })
-        } else {
-          console.log(`[loadPaginationSettings] 分页大小无需更新`, {
-            currentPageSize: pageSize.value,
-            newPageSize
-          })
-        }
+        console.log(`${itemType}列表分页设置已更新:`, {
+          listPageSize: pageSize.value,
+          totalPages: totalPages.value,
+          currentPage: currentPage.value
+        })
       } else {
-        console.log(`[loadPaginationSettings] 设置中未找到 settingsKey: ${settingsKey}`, {
-          hasSettings: !!settings,
-          settingsKeys: settings ? Object.keys(settings) : [],
-          settingsKey
+        console.log(`[loadPaginationSettings] 分页大小无需更新`, {
+          currentPageSize: pageSize.value,
+          newPageSize
         })
       }
     } catch (error) {

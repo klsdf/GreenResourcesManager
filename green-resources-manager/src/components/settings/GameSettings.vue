@@ -1,17 +1,6 @@
 <template>
   <div class="settings-section">
     <div class="settings-grid">
-      <SettingSlider
-        title="游戏列表每页显示数量"
-        description="设置游戏列表中每页显示的游戏数量"
-        :model-value="settings.game.listPageSize"
-        :min="5"
-        :max="50"
-        :step="1"
-        unit="个"
-        @update:model-value="updateSetting('game.listPageSize', $event)"
-      />
-      
       <div class="setting-item">
         <label class="setting-label">
           <span class="setting-title">截图快捷键</span>

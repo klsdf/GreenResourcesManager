@@ -2,17 +2,6 @@
   <div class="settings-section">
     <div class="settings-grid">
       <SettingSlider
-        title="图片列表每页显示数量"
-        description="设置图片列表中每页显示的图片数量"
-        :model-value="settings.image.listPageSize"
-        :min="5"
-        :max="50"
-        :step="1"
-        unit="张"
-        @update:model-value="updateSetting('image.listPageSize', $event)"
-      />
-      
-      <SettingSlider
         title="JPEG压缩质量"
         description="设置缩略图生成的JPEG压缩质量 (1-100)"
         :model-value="settings.image.jpegQuality"

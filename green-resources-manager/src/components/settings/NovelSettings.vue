@@ -1,17 +1,6 @@
 <template>
   <div class="settings-section">
     <div class="settings-grid">
-      <SettingSlider
-        title="小说列表每页显示数量"
-        description="设置小说列表中每页显示的小说数量"
-        :model-value="settings.novel.listPageSize"
-        :min="5"
-        :max="50"
-        :step="1"
-        unit="本"
-        @update:model-value="updateSetting('novel.listPageSize', $event)"
-      />
-      
       <SettingSelect
         title="默认打开方式"
         description="选择小说的默认打开方式"

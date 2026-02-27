@@ -15,7 +15,7 @@ export class ImagePage extends BasePage {
 	readonly settingsKey: string = 'image'
 	
 	// 默认每页显示数量
-	readonly defaultPageSize: number = 20
+	readonly defaultPageSize: number = 8
 
 	resourceTypes: string[] = ['Image', 'Manga']
 
