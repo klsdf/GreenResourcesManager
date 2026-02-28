@@ -4,7 +4,7 @@
   "icon": "🎮",
   "description": "可以管理游戏、应用等exe文件",
   "settingsKey": "game",
-  "defaultPageSize": 13,
+  "defaultPageSize": 12,
   "resourceTypes": ["Game"],
   "displayLayoutConfig": {
     "minWidth": 80,

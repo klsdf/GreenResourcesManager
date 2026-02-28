@@ -5,8 +5,8 @@ import { createAppRouter } from './router'
 import { pinia } from './stores'
 import FunUI from './fun-ui'
 
-function initApp() {
-  const router = createAppRouter()
+async function initApp() {
+  const router = await createAppRouter()
   const app = createApp(App)
   
   app.use(pinia)

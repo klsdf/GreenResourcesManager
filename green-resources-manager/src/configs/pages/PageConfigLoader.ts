@@ -1,13 +1,5 @@
-import gamePageConfig from './gamePage.json'
-import softwarePageConfig from './softwarePage.json'
-import imagePageConfig from './imagePage.json'
-import singleImagePageConfig from './singleImagePage.json'
-import videoPageConfig from './videoPage.json'
-import animePageConfig from './animePage.json'
-import novelPageConfig from './novelPage.json'
-import websitePageConfig from './websitePage.json'
-import audioPageConfig from './audioPage.json'
-import otherPageConfig from './otherPage.json'
+// 在Electron中，我们需要通过预加载脚本暴露的API获取配置
+const electronAPI = window.electronAPI
 
 export interface PageConfig {
 	id: string
@@ -77,66 +69,54 @@ export interface PageConfigMeta {
 	isDefault?: boolean
 }
 
-const PAGE_CONFIGS: PageConfigMeta[] = [
-	{
-		config: gamePageConfig as PageConfig,
-		order: 1,
-		isDefault: true
-	},
-	{
-		config: softwarePageConfig as PageConfig,
-		order: 2,
-		isDefault: true
-	},
-	{
-		config: imagePageConfig as PageConfig,
-		order: 3,
-		isDefault: true
-	},
-	{
-		config: singleImagePageConfig as PageConfig,
-		order: 4,
-		isDefault: true
-	},
-	{
-		config: videoPageConfig as PageConfig,
-		order: 5,
-		isDefault: true
-	},
-	{
-		config: animePageConfig as PageConfig,
-		order: 6,
-		isDefault: true
-	},
-	{
-		config: novelPageConfig as PageConfig,
-		order: 7,
-		isDefault: true
-	},
-	{
-		config: websitePageConfig as PageConfig,
-		order: 8,
-		isDefault: true
-	},
-	{
-		config: audioPageConfig as PageConfig,
-		order: 9,
-		isDefault: true
-	},
-	{
-		config: otherPageConfig as PageConfig,
-		order: 10,
-		isDefault: true
-	}
-]
+// 定义页面顺序配置文件类型
+interface PageOrderConfig {
+  fileName: string
+  order: number
+  isDefault: boolean
+}
+
+// 动态读取所有JSON配置文件
+const loadAllPageConfigs = async (): Promise<PageConfigMeta[]> => {
+  try {
+    // 读取页面顺序配置
+    const pageOrderResult = await electronAPI.readJsonFile('configs/pages/pageOrder.json')
+    if (!pageOrderResult.success || !pageOrderResult.data) {
+      throw new Error(`Failed to load page order: ${pageOrderResult.error}`)
+    }
+    const pageOrder = pageOrderResult.data as PageOrderConfig[]
+    
+    // 读取所有页面配置文件
+    const pageConfigs: PageConfigMeta[] = []
+    
+    for (const orderConfig of pageOrder) {
+      const configResult = await electronAPI.readJsonFile(`configs/pages/${orderConfig.fileName}`)
+      if (!configResult.success || !configResult.data) {
+        throw new Error(`Failed to load page config ${orderConfig.fileName}: ${configResult.error}`)
+      }
+      const config = configResult.data as PageConfig
+      pageConfigs.push({
+        config,
+        order: orderConfig.order,
+        isDefault: orderConfig.isDefault
+      })
+    }
+    
+    return pageConfigs
+  } catch (error) {
+    console.error('Failed to load page configs:', error)
+    return []
+  }
+}
 
 export class PageConfigLoader {
 	private static instance: PageConfigLoader
 	private configs: Map<string, PageConfig> = new Map()
 	private metaConfigs: PageConfigMeta[] = []
+	private readyPromise: Promise<void> | null = null
 
 	private constructor() {
-		this.loadConfigs()
+		this.readyPromise = this.loadConfigs()
 	}
 
 	public static getInstance(): PageConfigLoader {
@@ -146,8 +126,8 @@ export class PageConfigLoader {
 		return PageConfigLoader.instance
 	}
 
-	private loadConfigs(): void {
-		this.metaConfigs = [...PAGE_CONFIGS]
+	private async loadConfigs(): Promise<void> {
+		this.metaConfigs = await loadAllPageConfigs()
 		this.metaConfigs.forEach(meta => {
 			this.configs.set(meta.config.id, meta.config)
 		})
@@ -175,6 +155,15 @@ export class PageConfigLoader {
 
 	public hasPage(id: string): boolean {
 		return this.configs.has(id)
+	}
+
+	/**
+	 * 等待配置加载完成
+	 */
+	public async ready(): Promise<void> {
+		if (this.readyPromise) {
+			await this.readyPromise
+		}
 	}
 
 	public getEmptyStateConfig(id: string) {

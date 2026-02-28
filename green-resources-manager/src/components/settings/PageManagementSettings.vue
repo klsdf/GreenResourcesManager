@@ -2,11 +2,15 @@
   <div class="page-management-settings">
     <div class="settings-section">
       <h3>页面管理</h3>
-      <p class="section-desc">管理侧边栏显示的页面，可以添加自定义页面、排序或隐藏不需要的页面。</p>
+      <p class="section-desc">管理侧边栏显示的页面，可以排序或隐藏不需要的页面。</p>
 
       <div class="actions-bar">
-        <button class="btn-primary" @click="showAddPageDialog">
+        <!-- 注释掉添加新页面按钮 -->
+        <!-- <button class="btn-primary" @click="showAddPageDialog">
           <span class="icon">➕</span> 添加新页面
+        </button> -->
+        <button class="btn-primary" @click="openConfigDirectory">
+          <span class="icon">📁</span> 打开配置目录
         </button>
       </div>
 
@@ -62,7 +66,8 @@
             >
               {{ page.isHidden ? '🚫' : '👁️' }}
             </button>
-            <button class="btn-icon" title="编辑" @click="editPage(page)">
+            <!-- 注释掉编辑和删除按钮，因为现在是基于配置文件 -->
+            <!-- <button class="btn-icon" title="编辑" @click="editPage(page)">
               ✏️
             </button>
             <button
@@ -72,13 +77,14 @@
               @click="deletePage(page)"
             >
               🗑️
-            </button>
+            </button> -->
           </div>
         </div>
       </div>
     </div>
 
-    <div v-if="showDialog" class="modal-overlay" @click.self="closeDialog">
+    <!-- 注释掉添加/编辑页面的对话框 -->
+    <!-- <div v-if="showDialog" class="modal-overlay" @click.self="closeDialog">
       <div class="modal-content">
         <div class="modal-header">
           <h3>{{ isEditing ? '编辑页面' : '添加新页面' }}</h3>
@@ -126,15 +132,14 @@
           <button class="btn-primary" @click="savePage" :disabled="!isValidPage">保存</button>
         </div>
       </div>
-    </div>
+    </div> -->
   </div>
 </template>
 
 <script lang="ts">
 import { computed, defineComponent, onMounted, ref } from 'vue'
-import customPageManager from '../../utils/CustomPageManager'
+import pageConfigManager from '../../utils/PageConfigManager'
 import alertService from '../../utils/AlertService.ts'
-import confirmService from '../../utils/ConfirmService.ts'
 import { PageConfig } from '../../types/page'
 
 const TYPE_NAME_MAP: Record<string, string> = {
@@ -150,64 +155,23 @@ const TYPE_NAME_MAP: Record<string, string> = {
   Other: '其它'
 }
 
-const DEFAULT_PAGE_PRESET: Partial<PageConfig> = {
-  type: 'Game',
-  icon: '📁',
-  description: '',
-  isHidden: false
-}
-
 export default defineComponent({
   name: 'PageManagementSettings',
   emits: ['pages-updated'],
   setup(_, { emit }) {
     const pages = ref<PageConfig[]>([])
-    const showDialog = ref(false)
-    const isEditing = ref(false)
-    const editingPage = ref<Partial<PageConfig>>({ ...DEFAULT_PAGE_PRESET, name: '' })
-    const quickIcons = [
-      '🎮', '🖼️', '🎬', '📚', '🎵', '🌐', '⭐', '❤️', '📁', '📦',
-      '📺', '🎨', '🎭', '🎪', '🎯', '🎲', '🎸', '🎹', '🎺', '🎻',
-      '📷', '📹', '💿', '💾', '💽', '📀', '📱', '💻', '🖥️', '⌨️'
-    ]
-
     const isDragging = ref(false)
     const draggedIndex = ref<number | null>(null)
     const dragTargetIndex = ref<number | null>(null)
     const draggingId = ref<string | null>(null)
 
-    const loadPages = () => {
-      pages.value = customPageManager.getPages()
+    const loadPages = async () => {
+      pages.value = await pageConfigManager.getPages()
     }
 
     onMounted(loadPages)
 
     const getTypeName = (type: string) => TYPE_NAME_MAP[type] || type
-
-    const showAddPageDialog = () => {
-      isEditing.value = false
-      editingPage.value = { ...DEFAULT_PAGE_PRESET, name: '' }
-      showDialog.value = true
-    }
-
-    const editPage = (page: PageConfig) => {
-      isEditing.value = true
-      editingPage.value = { ...page }
-      showDialog.value = true
-    }
-
-    const closeDialog = () => {
-      showDialog.value = false
-    }
-
-    const isValidPage = computed(() => Boolean(editingPage.value.name && editingPage.value.name.trim().length > 0))
-
-    const resetDragState = () => {
-      draggedIndex.value = null
-      dragTargetIndex.value = null
-      draggingId.value = null
-      isDragging.value = false
-    }
 
     const previewPages = computed(() => {
       if (draggedIndex.value === null) {
@@ -225,7 +189,8 @@ export default defineComponent({
     const persistOrder = async (newPages: PageConfig[]) => {
       pages.value = newPages
       try {
-        await customPageManager.reorderPages(newPages.map(p => p.id))
+        // 这里需要调用新的 API 来保存排序
+        // await customPageManager.reorderPages(newPages.map(p => p.id))
         emit('pages-updated')
       } catch (error) {
         console.error('排序失败:', error)
@@ -249,55 +214,36 @@ export default defineComponent({
       await persistOrder(newPages)
     }
 
-    const savePage = async () => {
-      if (!isValidPage.value) return
-
-      try {
-        if (isEditing.value && editingPage.value.id) {
-          await customPageManager.updatePage(editingPage.value.id, editingPage.value as PageConfig)
-        } else {
-          await customPageManager.addPage(editingPage.value as Omit<PageConfig, 'id' | 'order' | 'createdAt' | 'updatedAt'>)
-        }
-        loadPages()
-        closeDialog()
-        emit('pages-updated')
-      } catch (error) {
-        console.error('保存页面失败:', error)
-        await alertService.error('保存失败: ' + error, '错误')
-      }
-    }
-
-    const deletePage = async (page: PageConfig) => {
-      if (page.isDefault) {
-        await alertService.warning('系统默认页面无法删除', '提示')
-        return
-      }
-      const confirmed = await confirmService.confirm(
-        `确定要删除页面 "${page.name}" 吗？\n该页面下的数据文件将被保留，但页面入口将被移除。`,
-        '确认删除'
-      )
-      if (!confirmed) {
-        return
-      }
-
-      try {
-        await customPageManager.deletePage(page.id)
-        loadPages()
-        emit('pages-updated')
-      } catch (error) {
-        console.error('删除页面失败:', error)
-        await alertService.error('删除失败: ' + error, '错误')
-      }
-    }
-
     const toggleVisibility = async (page: PageConfig) => {
       try {
-        await customPageManager.updatePage(page.id, { isHidden: !page.isHidden })
-        loadPages()
+        // 这里需要调用新的 API 来切换可见性
+        // await customPageManager.updatePage(page.id, { isHidden: !page.isHidden })
+        await loadPages()
         emit('pages-updated')
       } catch (error) {
         console.error('更新状态失败:', error)
       }
+    }
+
+    const openConfigDirectory = async () => {
+      try {
+        if (window.electronAPI?.openFolder) {
+          // 打开配置目录
+          await window.electronAPI.openFolder('configs/pages')
+        } else {
+          await alertService.warning('无法打开配置目录，请手动导航到 configs/pages 文件夹', '提示')
+        }
+      } catch (error) {
+        console.error('打开配置目录失败:', error)
+        await alertService.error('打开配置目录失败', '错误')
+      }
+    }
+
+    const resetDragState = () => {
+      draggedIndex.value = null
+      dragTargetIndex.value = null
+      draggingId.value = null
+      isDragging.value = false
     }
 
     const onDragStart = (event: DragEvent, index: number) => {
@@ -335,18 +281,7 @@ export default defineComponent({
 
     return {
       pages,
-      showDialog,
-      isEditing,
-      editingPage,
-      quickIcons,
       getTypeName,
-      showAddPageDialog,
-      editPage,
-      closeDialog,
-      savePage,
-      deletePage,
-      toggleVisibility,
-      isValidPage,
       previewPages,
       onDragStart,
       onDragOver,
@@ -356,7 +291,9 @@ export default defineComponent({
       moveDown,
       draggingId,
       getActualIndex,
-      isDragging
+      isDragging,
+      toggleVisibility,
+      openConfigDirectory
     }
   }
 })
@@ -482,109 +419,6 @@ export default defineComponent({
 .btn-icon:disabled {
   opacity: 0.3;
   cursor: not-allowed;
-}
-
-/* Modal Styles */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: var(--bg-secondary);
-  border-radius: 8px;
-  width: 500px;
-  max-width: 90%;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-}
-
-.modal-header {
-  padding: 15px 20px;
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.modal-body {
-  padding: 20px;
-}
-
-.modal-footer {
-  padding: 15px 20px;
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-.form-group {
-  margin-bottom: 15px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 500;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-  width: 100%;
-  padding: 8px 12px;
-  border-radius: 4px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-}
-
-.form-group textarea {
-  height: 80px;
-  resize: vertical;
-}
-
-.icon-selector {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.icon-input {
-  width: 60px !important;
-  text-align: center;
-  font-size: 1.2rem;
-}
-
-.quick-icons {
-  display: flex;
-  gap: 5px;
-  flex-wrap: wrap;
-}
-
-.quick-icons span {
-  cursor: pointer;
-  padding: 5px;
-  border-radius: 4px;
-  transition: background 0.2s;
-}
-
-.quick-icons span:hover {
-  background: var(--bg-tertiary);
-}
-
-.help-text {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  margin-top: 4px;
 }
 
 .btn-primary {

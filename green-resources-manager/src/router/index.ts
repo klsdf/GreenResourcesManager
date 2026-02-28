@@ -209,8 +209,8 @@ function createResourceRoute(pageConfig: PageConfig): RouteRecordRaw {
 /**
  * 从 pageConfigManager 加载动态路由
  */
-export function loadDynamicRoutes(): RouteRecordRaw[] {
-  const pages = pageConfigManager.getPages()
+export async function loadDynamicRoutes(): Promise<RouteRecordRaw[]> {
+  const pages = await pageConfigManager.getPages()
   
   return pages
     .filter(page => !page.isHidden)
@@ -220,9 +220,9 @@ export function loadDynamicRoutes(): RouteRecordRaw[] {
 /**
  * 创建路由实例
  */
-export function createAppRouter() {
+export async function createAppRouter() {
   // 加载动态路由
-  const dynamicRoutes = loadDynamicRoutes()
+  const dynamicRoutes = await loadDynamicRoutes()
   
   // 合并所有路由
   const routes: RouteRecordRaw[] = [
@@ -255,7 +255,7 @@ export function createAppRouter() {
 /**
  * 更新动态路由（当页面配置变化时调用）
  */
-export function updateDynamicRoutes(router: ReturnType<typeof createRouter>) {
+export async function updateDynamicRoutes(router: ReturnType<typeof createRouter>) {
   // 移除旧的动态路由（除了固定路由）
   const routesToRemove = router.getRoutes().filter(route => {
     const meta = route.meta as any
@@ -269,7 +269,7 @@ export function updateDynamicRoutes(router: ReturnType<typeof createRouter>) {
   })
 
   // 添加新的动态路由
-  const newRoutes = loadDynamicRoutes()
+  const newRoutes = await loadDynamicRoutes()
   newRoutes.forEach(route => {
     router.addRoute(route)
   })

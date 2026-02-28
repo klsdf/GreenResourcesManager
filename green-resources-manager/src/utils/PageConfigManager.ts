@@ -24,14 +24,17 @@ class PageConfigManager {
 
   /**
    * 初始化页面配置
-   * 直接从 JSON 配置文件读取，无需异步操作
+   * 直接从 JSON 配置文件读取，需要异步操作
    */
-  init(): void {
+  async init(): Promise<void> {
     if (this.initialized) return;
 
     console.log('[PageConfigManager] 从 JSON 配置文件加载页面...');
     
     const now = Date.now();
+    
+    // 等待配置加载完成
+    await pageConfigLoader.ready();
     
     // 从 PageConfigLoader 获取所有页面配置
     const pageConfigs = pageConfigLoader.getAllPageConfigs();
@@ -71,9 +74,9 @@ class PageConfigManager {
   /**
    * 获取所有页面配置（按顺序排序）
    */
-  getPages(): PageConfig[] {
+  async getPages(): Promise<PageConfig[]> {
     if (!this.initialized) {
-      this.init();
+      await this.init();
     }
     return [...this.pages].sort((a, b) => a.order - b.order);
   }
@@ -81,16 +84,17 @@ class PageConfigManager {
   /**
    * 获取可见页面配置（排除隐藏的页面）
    */
-  getVisiblePages(): PageConfig[] {
-    return this.getPages().filter(p => !p.isHidden);
+  async getVisiblePages(): Promise<PageConfig[]> {
+    const pages = await this.getPages();
+    return pages.filter(p => !p.isHidden);
   }
 
   /**
    * 根据 ID 获取页面配置
    */
-  getPage(id: string): PageConfig | undefined {
+  async getPage(id: string): Promise<PageConfig | undefined> {
     if (!this.initialized) {
-      this.init();
+      await this.init();
     }
     return this.pages.find(p => p.id === id);
   }
@@ -125,16 +129,17 @@ class PageConfigManager {
    * 获取默认页面配置
    * 返回标记为默认的页面列表
    */
-  getDefaultPages(): PageConfig[] {
-    return this.getPages().filter(p => p.isDefault);
+  async getDefaultPages(): Promise<PageConfig[]> {
+    const pages = await this.getPages();
+    return pages.filter(p => p.isDefault);
   }
 
   /**
    * 获取页面统计信息
    */
-  getStats() {
+  async getStats() {
     if (!this.initialized) {
-      this.init();
+      await this.init();
     }
     
     return {

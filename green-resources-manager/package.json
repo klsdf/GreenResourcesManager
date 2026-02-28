@@ -86,6 +86,10 @@
       {
         "from": "src/third-party",
         "to": "third-party"
+      },
+      {
+        "from": "configs",
+        "to": "configs"
       }
     ],
     "publish": {

@@ -1,0 +1,12 @@
+[
+  { "fileName": "gamePage.json", "order": 1, "isDefault": true },
+  { "fileName": "softwarePage.json", "order": 2, "isDefault": true },
+  { "fileName": "imagePage.json", "order": 3, "isDefault": true },
+  { "fileName": "singleImagePage.json", "order": 4, "isDefault": true },
+  { "fileName": "videoPage.json", "order": 5, "isDefault": true },
+  { "fileName": "animePage.json", "order": 6, "isDefault": true },
+  { "fileName": "novelPage.json", "order": 7, "isDefault": true },
+  { "fileName": "websitePage.json", "order": 8, "isDefault": true },
+  { "fileName": "audioPage.json", "order": 9, "isDefault": true },
+  { "fileName": "otherPage.json", "order": 10, "isDefault": true }
+]

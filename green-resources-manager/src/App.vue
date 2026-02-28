@@ -582,11 +582,11 @@ export default {
     },
 
     // 重新加载自定义页面配置并刷新导航（用于"页面管理"修改后即时生效）
-    // ✨ 新版：使用 PageConfigManager（同步操作，无需 async/await）
-    reloadCustomPages() {
+    // ✨ 新版：使用 PageConfigManager（异步操作，需要 async/await）
+    async reloadCustomPages() {
       try {
-        // 直接从配置文件读取页面列表（自动初始化，无需 await）
-        this.pages = pageConfigManager.getPages()
+        // 从配置文件读取页面列表（需要 await）
+        this.pages = await pageConfigManager.getPages()
 
         // 更新 viewConfig
         this.pages.forEach(page => {
@@ -608,7 +608,7 @@ export default {
 
         // 更新动态路由
         if (this.$router) {
-          updateDynamicRoutes(this.$router)
+          await updateDynamicRoutes(this.$router)
         }
 
         // 当前页面如果变为隐藏/已删除（仅资源视图会有 pageConfig）则回退
@@ -631,6 +631,8 @@ export default {
         // 忽略重复导航错误
         if (err.name !== 'NavigationDuplicated') {
           console.error('导航失败:', err)
+          // 如果路由不存在，跳转到主页
+          this.$router.push({ name: 'home' })
         }
       })
     },
@@ -1410,9 +1412,9 @@ export default {
     }
 
     // 初始化自定义页面管理器
-    // ✨ 新版：使用 PageConfigManager（同步操作，立即完成）
+    // ✨ 新版：使用 PageConfigManager（异步操作，需要 await）
     try {
-      this.reloadCustomPages()
+      await this.reloadCustomPages()
       console.log('✅ 页面配置加载成功:', this.pages.length, '个页面')
       console.log('📄 页面列表:', this.pages.map(p => `${p.name}(${p.id})`).join(', '))
     } catch (error) {
@@ -1422,17 +1424,12 @@ export default {
     // 加载最后访问的页面
     try {
       const lastView = await this.loadLastView()
-      // 检查路由是否存在
-      const route = this.$router.resolve({ name: lastView })
-      if (route.name) {
-        this.$router.push({ name: lastView }).catch(() => {
-          // 如果路由不存在，跳转到主页
-          this.$router.push({ name: 'home' })
-        })
-        console.log('🎯 已设置当前页面为:', lastView)
-      } else {
+      // 安全地导航到最后访问的页面
+      this.$router.push({ name: lastView }).catch(() => {
+        // 如果路由不存在，跳转到主页
         this.$router.push({ name: 'home' })
-      }
+      })
+      console.log('🎯 已设置当前页面为:', lastView)
     } catch (error) {
       console.warn('加载最后访问页面失败，使用默认页面:', error)
       this.$router.push({ name: 'home' })
