@@ -709,6 +709,54 @@ export default defineComponent({
               fileExists: true
             }
             
+            // 自动扫描图片并设置封面（仅针对图片/漫画类型）
+            if ((matchedResourceType === 'Image' || matchedResourceType === 'Manga') && isElectronEnvironment.value && window.electronAPI) {
+              console.log('[GenericResourceView] 开始扫描图片并设置封面:', filePath)
+              
+              // 检查是否为压缩包
+              const isArchive = /\.(zip|rar|7z|cbz)$/i.test(filePath.toLowerCase())
+              
+              try {
+                if (isArchive && window.electronAPI.listImageFilesInArchive) {
+                  console.log('[GenericResourceView] 压缩包模式，调用 listImageFilesInArchive')
+                  const resp = await window.electronAPI.listImageFilesInArchive(filePath)
+                  console.log('[GenericResourceView] 压缩包扫描结果:', resp)
+                  if (resp.success && resp.files && resp.files.length > 0) {
+                    // 优先查找名为 cover 的图片
+                    const coverImage = resp.files.find((file: string) => {
+                      const fileName = file.toLowerCase()
+                      return fileName.includes('cover') || fileName.includes('front') || fileName.includes('thumb')
+                    })
+                    const targetImage = coverImage || resp.files[0]
+                    const coverPath = `archive://${encodeURIComponent(filePath)}!/${targetImage}`
+                    resourceData.coverPath = coverPath
+                    console.log('[GenericResourceView] 压缩包封面设置为:', coverPath)
+                    console.log('[GenericResourceView] 使用的图片:', coverImage ? 'cover图片' : '第一张图片')
+                  }
+                } else if (window.electronAPI.listImageFiles) {
+                  console.log('[GenericResourceView] 文件夹模式，调用 listImageFiles')
+                  const resp = await window.electronAPI.listImageFiles(filePath)
+                  console.log('[GenericResourceView] 文件夹扫描结果:', resp)
+                  if (resp.success && resp.files && resp.files.length > 0) {
+                    // 优先查找名为 cover 的图片
+                    const coverImage = resp.files.find((file: string) => {
+                      const fileName = file.toLowerCase()
+                      return fileName.includes('cover') || fileName.includes('front') || fileName.includes('thumb')
+                    })
+                    const targetImage = coverImage || resp.files[0]
+                    resourceData.coverPath = targetImage
+                    console.log('[GenericResourceView] 文件夹封面设置为:', targetImage)
+                    console.log('[GenericResourceView] 使用的图片:', coverImage ? 'cover图片' : '第一张图片')
+                  }
+                }
+              } catch (error) {
+                console.warn('[GenericResourceView] 扫描图片失败:', error)
+                // 扫描失败不影响添加，继续使用空封面
+              }
+              
+              console.log('[GenericResourceView] 封面设置完成')
+            }
+            
             // 获取文件大小（失败则抛出，不静默吞错）
             if (isElectronEnvironment.value && window.electronAPI) {
               if (window.electronAPI.getFileStats) {
