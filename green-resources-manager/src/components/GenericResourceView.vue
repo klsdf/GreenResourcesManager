@@ -306,6 +306,14 @@
     @close="closeBatchImportDialog"
     @confirm="handleBatchImportConfirm"
   />
+  
+  <!-- 书签导入对话框 -->
+  <BookmarkImportDialog
+    ref="bookmarkImportDialogRef"
+    :visible="showBookmarkImportDialog"
+    @close="closeBookmarkImportDialog"
+    @confirm="handleBookmarkImportConfirm"
+  />
 </template>
 
 <script lang="ts">
@@ -324,6 +332,7 @@ import BatchImportDialog from './BatchImportDialog.vue'
 import BatchAddTagDialog from './BatchAddTagDialog.vue'
 import BatchDeleteTagDialog from './BatchDeleteTagDialog.vue'
 import BatchDeleteConfirmDialog from './BatchDeleteConfirmDialog.vue'
+import BookmarkImportDialog from './BookmarkImportDialog.vue'
 import { createResourcePage } from '../composables/createResourcePage'
 // // import { FunDropZone } from '../fun-ui'  // 临时移除，避免性能问题  // 临时移除，避免性能问题
 import FunGrid from '../fun-ui/layout/Grid/FunGrid.vue'
@@ -435,6 +444,7 @@ export default defineComponent({
     BatchAddTagDialog,
     BatchDeleteTagDialog,
     BatchDeleteConfirmDialog,
+    BookmarkImportDialog,
     // FunDropZone,  // 临时移除，避免性能问题
     FunGrid
   },
@@ -544,6 +554,10 @@ export default defineComponent({
     const batchImportFiles = ref<string[]>([])
     const batchImportFolderPath = ref<string>('')
     const batchImportDialogRef = ref<any>(null)
+
+    // 书签导入对话框相关
+    const showBookmarkImportDialog = ref(false)
+    const bookmarkImportDialogRef = ref<any>(null)
 
     // 批量增加tag对话框相关
     const showBatchAddTagDialog = ref(false)
@@ -3117,6 +3131,8 @@ export default defineComponent({
           console.error('[GenericResourceView] 批量导入失败:', error)
           notify.toast('error', '操作失败', error.message || '未知错误')
         }
+      } else if (item.action === 'showBookmarkImportDialog') {
+        showBookmarkImportDialog.value = true
       }
     }
 
@@ -3125,6 +3141,11 @@ export default defineComponent({
       showBatchImportDialog.value = false
       batchImportFiles.value = []
       batchImportFolderPath.value = ''
+    }
+
+    // 关闭书签导入对话框
+    const closeBookmarkImportDialog = () => {
+      showBookmarkImportDialog.value = false
     }
 
     // 处理批量导入确认
@@ -3253,6 +3274,75 @@ export default defineComponent({
       }
     }
 
+    // 处理书签导入确认
+    const handleBookmarkImportConfirm = async (bookmarks: any[]) => {
+      if (bookmarks.length === 0) {
+        notify.toast('warning', '提示', '请至少选择一个书签')
+        return
+      }
+
+      try {
+        let addedCount = 0
+        let failedCount = 0
+
+        for (const bookmark of bookmarks) {
+          // 创建网站资源数据
+          const resourceData: any = {
+            id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            resourceType: 'website',
+            name: bookmark.name || '未命名网站',
+            description: '',
+            resourcePath: bookmark.url,
+            tags: bookmark.tags || [],
+            visitedSessions: [],
+            addedDate: new Date().toISOString()
+          }
+
+          // 使用 Website 类创建实例
+          const resource = Website.fromJSON(resourceData)
+          
+          // 检查是否已存在相同URL
+          const existingItem = items.value.find((item: any) => {
+            const itemUrl = BaseResources.extractPrimitiveValue(
+              item.resourcePath?.value || item.resourcePath
+            )
+            return itemUrl === bookmark.url
+          })
+
+          if (existingItem) {
+            failedCount++
+            continue
+          }
+
+          // 添加到列表
+          items.value.push(resource)
+          addedCount++
+        }
+
+        // 保存数据
+        if (addedCount > 0) {
+          await saveData()
+        }
+
+        // 显示通知
+        if (addedCount > 0 || failedCount > 0) {
+          notify.toast(
+            addedCount > 0 ? 'success' : 'warning',
+            addedCount > 0 ? '导入成功' : '导入结果',
+            addedCount > 0 
+              ? `成功导入 ${addedCount} 个书签${failedCount > 0 ? `，${failedCount} 个失败` : ''}`
+              : `没有书签被导入（${failedCount} 个失败）`
+          )
+        }
+
+        // 关闭对话框
+        closeBookmarkImportDialog()
+      } catch (error) {
+        console.error('[GenericResourceView] 书签导入确认失败:', error)
+        notify.toast('error', '导入失败', (error as any).message || '未知错误')
+      }
+    }
+
     return {
       resourceType, // 返回 computed，保持响应式
       isElectronEnvironment,
@@ -3269,6 +3359,11 @@ export default defineComponent({
       batchImportDialogRef,
       closeBatchImportDialog,
       handleBatchImportConfirm,
+      // 书签导入对话框相关
+      showBookmarkImportDialog,
+      bookmarkImportDialogRef,
+      closeBookmarkImportDialog,
+      handleBookmarkImportConfirm,
       // 批量增加tag对话框相关
       showBatchAddTagDialog,
       closeBatchAddTagDialog,
