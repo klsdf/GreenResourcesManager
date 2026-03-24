@@ -21,14 +21,14 @@
     "title": "你的电影库是空的",
     "description": "点击\"添加电影\"按钮来添加你的第一部电影",
     "buttonText": "添加第一部电影",
-    "buttonAction": "showAddVideoDialog"
+    "buttonAction": "showAddDialog"
   },
   "toolbarConfig": {
     "items": [
       {
         "type": "button",
         "label": "添加视频",
-        "action": "showAddVideoDialog",
+        "action": "showAddDialog",
         "icon": "➕",
         "buttonType": "primary"
       },

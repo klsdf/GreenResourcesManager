@@ -25,14 +25,14 @@
     "title": "你的游戏库是空的",
     "description": "点击\"添加游戏\"按钮来添加你的第一个游戏，或直接拖拽游戏文件到此处",
     "buttonText": "添加第一个游戏",
-    "buttonAction": "showAddGameDialog"
+    "buttonAction": "showAddDialog"
   },
   "toolbarConfig": {
     "items": [
       {
         "type": "button",
         "label": "添加游戏",
-        "action": "showAddGameDialog",
+        "action": "showAddDialog",
         "icon": "➕",
         "buttonType": "primary"
       },

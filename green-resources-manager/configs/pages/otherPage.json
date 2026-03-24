@@ -21,14 +21,14 @@
     "title": "你的其它资源库是空的",
     "description": "点击\"添加资源\"按钮来添加你的第一个资源",
     "buttonText": "添加第一个资源",
-    "buttonAction": "showAddGameDialog"
+    "buttonAction": "showAddDialog"
   },
   "toolbarConfig": {
     "items": [
       {
         "type": "button",
         "label": "添加资源",
-        "action": "showAddGameDialog",
+        "action": "showAddDialog",
         "icon": "➕",
         "buttonType": "primary"
       },

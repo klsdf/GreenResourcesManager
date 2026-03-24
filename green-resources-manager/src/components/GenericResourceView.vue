@@ -3053,7 +3053,7 @@ export default defineComponent({
       console.log('🔘 GenericResourceView 收到按钮点击:', item)
       
       // 支持直接调用 showAddDialogHandler 和其他预设方法
-      if (item.action === 'showAddGameDialog' || item.action === 'showAddDialogHandler') {
+      if (item.action === 'showAddDialog') {
         resourcePage.showAddDialogHandler()
       } else if (item.action === 'filterBySearch') {
         // 搜索操作不需要额外处理，搜索框已经绑定了 searchQuery

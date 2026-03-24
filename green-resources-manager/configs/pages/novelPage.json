@@ -27,14 +27,14 @@
     "title": "你的小说库是空的",
     "description": "点击\"添加小说\"按钮来添加你的第一本小说",
     "buttonText": "添加第一本小说",
-    "buttonAction": "showAddNovelDialog"
+    "buttonAction": "showAddDialog"
   },
   "toolbarConfig": {
     "items": [
       {
         "type": "button",
         "label": "添加小说",
-        "action": "showAddNovelDialog",
+        "action": "showAddDialog",
         "icon": "➕",
         "buttonType": "primary"
       },

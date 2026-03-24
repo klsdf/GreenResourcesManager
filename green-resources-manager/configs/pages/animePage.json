@@ -22,14 +22,14 @@
     "title": "你的番剧库是空的",
     "description": "点击\"添加番剧\"按钮来添加你的第一部番剧",
     "buttonText": "添加第一部番剧",
-    "buttonAction": "showAddGameDialog"
+    "buttonAction": "showAddDialog"
   },
   "toolbarConfig": {
     "items": [
       {
         "type": "button",
         "label": "添加番剧",
-        "action": "showAddGameDialog",
+        "action": "showAddDialog",
         "icon": "➕",
         "buttonType": "primary"
       },
