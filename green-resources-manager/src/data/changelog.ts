@@ -16,6 +16,20 @@ export interface ChangelogEntry {
 }
 
 export const changelogEntries: ChangelogEntry[] = [
+    {
+    version: 'v0.7.3',
+    date: '2026-03-24',
+    experience: [
+      "全选批量导入素材",
+      "f2可以设置是否开启"
+    ],
+    refactor: [
+
+    ],
+    bugfixes: [
+      "确认框被挡住的问题"
+    ],
+  },
   {
     version: 'v0.7.2',
     date: '2026-02-22',
