@@ -21,13 +21,14 @@ export const changelogEntries: ChangelogEntry[] = [
     date: '2026-03-24',
     experience: [
       "全选批量导入素材",
-      "f2可以设置是否开启"
-    ],
-    refactor: [
-
+      "f2可以设置是否开启",
+      "解决漫画导入没有自动设置封面的问题"
     ],
     bugfixes: [
-      "确认框被挡住的问题"
+      "确认框被挡住的问题",
+      "website的书签导入功能不显示问题",
+      "游戏文件夹大小计算bug",
+      "函数调用错误导致很多添加按钮点不了"
     ],
   },
   {
