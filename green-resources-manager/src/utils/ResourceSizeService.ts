@@ -13,11 +13,13 @@ import notify from './NotificationService.ts'
  * 计算资源大小
  * @param resource - 资源实例
  * @param isElectronEnvironment - 是否为 Electron 环境
+ * @param calculateFolderSize - 是否计算文件所在文件夹的大小（如果资源是文件）
  * @returns 计算得到的大小（字节），如果计算失败返回 null
  */
 export async function calculateResourceSize(
   resource: any,
-  isElectronEnvironment: boolean
+  isElectronEnvironment: boolean,
+  calculateFolderSize: boolean = false
 ): Promise<number | null> {
   if (!isElectronEnvironment || !window.electronAPI) {
     console.log('[ResourceSizeService] 不支持的环境:', { isElectronEnvironment, hasElectronAPI: !!window.electronAPI })
@@ -78,6 +80,22 @@ export async function calculateResourceSize(
             }
             // 处理文件（包括可执行文件）
             else if (stats.size !== undefined) {
+              // 如果配置了计算文件夹大小，则计算文件所在文件夹的大小
+              if (calculateFolderSize && window.electronAPI.getFolderSize) {
+                const folderPath = filePath.substring(0, filePath.lastIndexOf('/')) || filePath.substring(0, filePath.lastIndexOf('\\'))
+                if (folderPath && folderPath !== filePath) {
+                  console.log('[ResourceSizeService] 开始计算文件所在文件夹大小:', folderPath)
+                  const result = await window.electronAPI.getFolderSize(folderPath)
+                  console.log('[ResourceSizeService] 文件夹大小计算结果:', { success: result.success, size: result.size })
+                  
+                  if (result.success) {
+                    return result.size
+                  } else {
+                    console.log('[ResourceSizeService] 文件夹大小计算失败，返回文件本身大小:', stats.size)
+                    return stats.size
+                  }
+                }
+              }
               console.log('[ResourceSizeService] 直接返回文件大小:', stats.size)
               return stats.size
             }
@@ -133,13 +151,15 @@ export function updateResourceSize(resource: any, size: number | null): void {
  * 计算并更新资源大小
  * @param resource - 资源实例
  * @param isElectronEnvironment - 是否为 Electron 环境
+ * @param calculateFolderSize - 是否计算文件所在文件夹的大小（如果资源是文件）
  * @returns 是否成功更新
  */
 export async function calculateAndUpdateResourceSize(
   resource: any,
-  isElectronEnvironment: boolean
+  isElectronEnvironment: boolean,
+  calculateFolderSize: boolean = false
 ): Promise<boolean> {
-  const size = await calculateResourceSize(resource, isElectronEnvironment)
+  const size = await calculateResourceSize(resource, isElectronEnvironment, calculateFolderSize)
   if (size !== null) {
     updateResourceSize(resource, size)
     return true
@@ -151,12 +171,14 @@ export async function calculateAndUpdateResourceSize(
  * 批量计算资源大小
  * @param resources - 资源实例数组
  * @param isElectronEnvironment - 是否为 Electron 环境
+ * @param calculateFolderSize - 是否计算文件所在文件夹的大小（如果资源是文件）
  * @param onProgress - 进度回调 (current, total)
  * @returns 成功更新的数量
  */
 export async function calculateResourceSizesBatch(
   resources: any[],
   isElectronEnvironment: boolean,
+  calculateFolderSize: boolean = false,
   onProgress?: (current: number, total: number) => void
 ): Promise<number> {
   if (!isElectronEnvironment || !window.electronAPI) {
@@ -168,7 +190,7 @@ export async function calculateResourceSizesBatch(
 
   for (let i = 0; i < resources.length; i++) {
     const resource = resources[i]
-    const size = await calculateResourceSize(resource, isElectronEnvironment)
+    const size = await calculateResourceSize(resource, isElectronEnvironment, calculateFolderSize)
     if (size !== null) {
       updateResourceSize(resource, size)
       successCount++

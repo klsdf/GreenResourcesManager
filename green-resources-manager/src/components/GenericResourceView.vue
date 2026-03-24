@@ -1706,8 +1706,12 @@ export default defineComponent({
             oldSize,
             resourceType: item.constructor?.name
           })
-          
-          const success = await calculateAndUpdateResourceSize(item, isElectronEnvironment.value)
+         // 计算资源大小
+          const success = await calculateAndUpdateResourceSize(
+            item, 
+            isElectronEnvironment.value, 
+            resourceType.value === 'Game' // 游戏类型计算文件夹大小
+          )
           
           console.log('[GenericResourceView] 文件夹大小计算结果:', {
             itemName,
@@ -1925,7 +1929,11 @@ export default defineComponent({
                              ? newItem.constructor.getCardDisplayConfig() 
                              : null)
           if (cardConfig?.badge?.field === 'folderSize' && isElectronEnvironment.value) {
-            await calculateAndUpdateResourceSize(newItem, isElectronEnvironment.value)
+            await calculateAndUpdateResourceSize(
+              newItem, 
+              isElectronEnvironment.value, 
+              resourceType.value === 'Game' // 游戏类型计算文件夹大小
+            )
           }
           
           items.value.push(newItem)
@@ -1958,7 +1966,11 @@ export default defineComponent({
               if (cardConfig?.badge?.field === 'folderSize') {
                 const folderSize = BaseResources.extractPrimitiveValue(item.folderSize?.value ?? item.folderSize)
                 if (folderSize === undefined || folderSize === null) {
-                  await calculateAndUpdateResourceSize(item, isElectronEnvironment.value)
+                  await calculateAndUpdateResourceSize(
+                    item, 
+                    isElectronEnvironment.value, 
+                    resourceType.value === 'Game' // 游戏类型计算文件夹大小
+                  )
                 }
               }
             }
@@ -2308,7 +2320,8 @@ export default defineComponent({
       
       const updatedCount = await calculateResourceSizesBatch(
         resourcesToCalculate,
-        isElectronEnvironment.value
+        isElectronEnvironment.value,
+        resourceType.value === 'Game' // 游戏类型计算文件夹大小
       )
       if (updatedCount > 0) {
         await saveData()
