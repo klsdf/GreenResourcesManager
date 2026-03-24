@@ -15,20 +15,32 @@
         <div v-if="files.length === 0" class="batch-import__empty">
           没有找到匹配的文件
         </div>
-        <div v-else class="batch-import__file-list">
-          <label 
-            v-for="(file, index) in files" 
-            :key="index"
-            class="batch-import__file-item"
-          >
-            <input 
-              type="checkbox" 
-              v-model="selectedFiles" 
-              :value="file"
-              class="batch-import__checkbox"
-            />
-            <span class="batch-import__filename">{{ file }}</span>
-          </label>
+        <div v-else>
+          <div class="batch-import__header-row">
+            <label class="batch-import__select-all">
+              <input 
+                type="checkbox" 
+                v-model="isAllSelected"
+                class="batch-import__checkbox"
+              />
+              <span class="batch-import__select-all-text">全选</span>
+            </label>
+          </div>
+          <div class="batch-import__file-list">
+            <label 
+              v-for="(file, index) in files" 
+              :key="index"
+              class="batch-import__file-item"
+            >
+              <input 
+                type="checkbox" 
+                v-model="selectedFiles" 
+                :value="file"
+                class="batch-import__checkbox"
+              />
+              <span class="batch-import__filename">{{ file }}</span>
+            </label>
+          </div>
         </div>
       </div>
       <div class="batch-import__footer">
@@ -50,7 +62,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onBeforeUnmount } from 'vue'
+import { ref, watch, computed, onBeforeUnmount } from 'vue'
 import FunButton from '../fun-ui/basic/Button/FunButton.vue'
 
 interface Props {
@@ -72,6 +84,19 @@ const emit = defineEmits<{
 
 const internalVisible = ref(false)
 const selectedFiles = ref<string[]>([])
+
+const isAllSelected = computed({
+  get: () => {
+    return props.files.length > 0 && selectedFiles.value.length === props.files.length
+  },
+  set: (value) => {
+    if (value) {
+      selectedFiles.value = [...props.files]
+    } else {
+      selectedFiles.value = []
+    }
+  }
+})
 
 watch(() => props.visible, (newVal: boolean) => {
   if (newVal) {
@@ -207,6 +232,30 @@ defineExpose({
   text-align: center;
   color: var(--text-secondary);
   padding: var(--spacing-2xl);
+}
+
+.batch-import__header-row {
+  margin-bottom: var(--spacing-md);
+}
+
+.batch-import__select-all {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+  
+  &:hover {
+    background: var(--bg-tertiary);
+  }
+}
+
+.batch-import__select-all-text {
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
+  font-weight: 500;
 }
 
 .batch-import__file-list {

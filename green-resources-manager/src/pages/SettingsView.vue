@@ -185,6 +185,7 @@ export default {
         safetyKeyUrl: 'https://www.bilibili.com/video/BV1jR4y1M78W/?p=17&share_source=copy_web&vd_source=7de8c277f16e8e03b48a5328dddfe2ce&t=466',
         safetyKeyShortcut: 'Esc',
         showWindowShortcut: 'F2',
+        showWindowShortcutEnabled: false,
         // 个性化设置
         customAppTitle: '',
         customAppSubtitle: '',
@@ -519,6 +520,7 @@ export default {
             safetyKeyUrl: 'https://www.bilibili.com/video/BV1jR4y1M78W/?p=17&share_source=copy_web&vd_source=7de8c277f16e8e03b48a5328dddfe2ce&t=466',
             safetyKeyShortcut: 'Esc',
             showWindowShortcut: 'F2',
+            showWindowShortcutEnabled: false,
             // 存档设置
             saveDataLocation: 'default',
             saveDataPath: '',

@@ -50,7 +50,14 @@
         </div>
       </div>
 
-      <div class="setting-item">
+      <SettingToggle
+        title="启用打开软件快捷键"
+        description="开启后，可设置快捷键将软件从托盘恢复显示"
+        :model-value="settings.showWindowShortcutEnabled"
+        @update:model-value="onShowWindowShortcutEnabledChange"
+      />
+
+      <div class="setting-item" v-if="settings.showWindowShortcutEnabled">
         <label class="setting-label">
           <span class="setting-title">打开软件快捷键</span>
           <span class="setting-desc">按下该快捷键可将软件从托盘恢复显示</span>
@@ -417,10 +424,34 @@ export default {
       }
     },
 
+    async onShowWindowShortcutEnabledChange(newValue: boolean) {
+      this.updateSetting('showWindowShortcutEnabled', newValue)
+      // 当打开软件快捷键启用状态变化时，更新全局快捷键
+      if (window.electronAPI && window.electronAPI.updateShowWindowShortcut) {
+        try {
+          const result = await window.electronAPI.updateShowWindowShortcut(newValue ? this.settings.showWindowShortcut : '')
+          if (result.success) {
+            console.log('✅ 打开软件快捷键已', newValue ? '启用' : '禁用')
+            notify.success('快捷键设置已更新', newValue ? '已启用打开软件快捷键功能' : '已禁用打开软件快捷键功能')
+          } else {
+            console.warn('更新打开软件快捷键失败:', result.error)
+            notify.error('设置失败', result.error || '无法注册该快捷键，可能被其他应用占用')
+            // 恢复开关状态
+            this.updateSetting('showWindowShortcutEnabled', !newValue)
+          }
+        } catch (error: any) {
+          console.error('更新打开软件快捷键失败:', error)
+          notify.error('设置失败', error.message)
+          // 恢复开关状态
+          this.updateSetting('showWindowShortcutEnabled', !newValue)
+        }
+      }
+    },
+
     async onShowWindowShortcutChange(newKey: string) {
       this.updateSetting('showWindowShortcut', newKey)
       // 当打开软件快捷键变化时，更新全局快捷键
-      if (window.electronAPI && window.electronAPI.updateShowWindowShortcut) {
+      if (this.settings.showWindowShortcutEnabled && window.electronAPI && window.electronAPI.updateShowWindowShortcut) {
         try {
           const result = await window.electronAPI.updateShowWindowShortcut(newKey)
           if (result.success) {
