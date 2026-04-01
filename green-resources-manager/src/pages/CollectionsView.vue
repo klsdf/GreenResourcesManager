@@ -1,62 +1,61 @@
 <template>
   <div class="collections-view">
     <div class="collections-toolbar">
-      <button class="btn-primary" @click="showAddCollectionDialog">添加合集</button>
+      <button class="btn-primary" @click="showAddCollectionDialog">{{ $t('collections.addCollection') }}</button>
     </div>
 
     <div class="collections-body">
       <div v-if="collections.length === 0" class="placeholder">
         <div class="icon">🗂️</div>
-        <h3>暂无合集</h3>
-        <p>点击上方“添加合集”创建你的第一个合集</p>
+        <h3>{{ $t('collections.noCollections') }}</h3>
+        <p>{{ $t('collections.createFirst') }}</p>
       </div>
       <div v-else class="collections-grid">
         <div class="collection-card" v-for="c in collections" :key="c.id">
           <div class="thumb" v-if="c.thumbnail">
             <img :src="resolveThumbnail(c.thumbnail)" :alt="c.name" />
           </div>
-          <div class="thumb thumb-placeholder" v-else>无缩略图</div>
+          <div class="thumb thumb-placeholder" v-else>{{ $t('collections.noThumbnail') }}</div>
           <div class="meta">
             <div class="title">{{ c.name }}</div>
-            <div class="sub">包含 {{ c.videoIds.length }} 个视频</div>
+            <div class="sub">{{ $t('collections.containsVideos', { count: c.videoIds.length }) }}</div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 添加合集对话框 -->
     <div v-if="showAddDialog" class="modal-overlay" @click="closeAddCollectionDialog">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h3>添加合集</h3>
+          <h3>{{ $t('collections.addCollection') }}</h3>
           <button class="btn-close" @click="closeAddCollectionDialog">✕</button>
         </div>
         <div class="modal-body">
           <form @submit.prevent="addCollection">
             <FormField
-              label="合集名称"
+              :label="$t('collections.collectionName')"
               type="text"
               v-model="newCollection.name"
-              placeholder="如：超级英雄宇宙"
+              :placeholder="$t('collections.collectionNamePlaceholder')"
             />
 
             <FormField
-              label="系列名"
+              :label="$t('collections.seriesName')"
               type="text"
               v-model="newCollection.series"
-              placeholder="可选，如：漫威"
+              :placeholder="$t('collections.seriesNamePlaceholder')"
             />
 
             <FormField
-              label="演员"
+              :label="$t('collections.actors')"
               type="text"
               v-model="actorsInput"
-              placeholder="用逗号分隔多个演员"
+              :placeholder="$t('collections.actorsPlaceholder')"
               @blur="parseActors"
             />
 
             <FormField
-              label="标签"
+              :label="$t('collections.tags')"
               type="tags"
               v-model="newCollection.tags"
               v-model:tagInput="tagsInput"
@@ -65,40 +64,39 @@
             />
 
             <FormField
-              label="描述"
+              :label="$t('collections.description')"
               type="textarea"
               v-model="newCollection.description"
-              placeholder="合集描述..."
+              :placeholder="$t('collections.descriptionPlaceholder')"
               :rows="3"
             />
 
             <div class="form-group">
-              <label>选择视频</label>
+              <label>{{ $t('collections.selectVideos') }}</label>
               <VideoSelector
                 :videos="videos"
                 :selectedVideos="newCollection.videoIds"
-                title="选择要加入合集的视频"
+                :title="$t('collections.selectVideosTitle')"
                 @update:selectedVideos="handleVideoSelection"
               />
             </div>
 
             <FormField
-              label="缩略图"
+              :label="$t('collections.thumbnail')"
               type="file"
               v-model="newCollection.thumbnail"
-              placeholder="选择缩略图..."
+              :placeholder="$t('collections.thumbnailPlaceholder')"
               @browse="selectThumbnailFile"
             />
           </form>
         </div>
         <div class="modal-footer">
-          <button type="button" @click="closeAddCollectionDialog" class="btn-cancel">取消</button>
-          <button type="button" @click="addCollection" class="btn-confirm">创建合集</button>
+          <button type="button" @click="closeAddCollectionDialog" class="btn-cancel">{{ $t('common.cancel') }}</button>
+          <button type="button" @click="addCollection" class="btn-confirm">{{ $t('collections.createCollection') }}</button>
         </div>
       </div>
     </div>
   </div>
-  
 </template>
 
 <script>

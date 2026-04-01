@@ -2,14 +2,14 @@
   <div id="app">
     <!-- 应用缩放提示（菜单/快捷键改变整体缩放时显示） -->
     <div v-if="appZoomHintVisible" class="app-zoom-hint" role="status" aria-live="polite">
-      缩放至 {{ appZoomHintPercent }}%
+      {{ $t('app.zoomTo') }} {{ appZoomHintPercent }}%
     </div>
 
     <!-- 加载中提示 -->
     <div v-if="isLoading" class="loading-overlay">
       <div class="loading-content">
         <h2>Butter Manager</h2>
-        <FunLoading text="正在初始化应用..." />
+        <FunLoading :text="$t('app.initializing')" />
       </div>
     </div>
 
@@ -25,8 +25,8 @@
           class="sidebar-logo"
           @click="onLogoClick"
         >
-        <h1>{{ customAppTitle || '绿色资源管理器' }}</h1>
-        <p>{{ customAppSubtitle || '绿色、全能的资源管理器' }}</p>
+        <h1>{{ customAppTitle || $t('app.appTitle') }}</h1>
+        <p>{{ customAppSubtitle || $t('app.appSubtitle') }}</p>
         <p class="version">v{{ version }}</p>
       </div>
 
@@ -39,7 +39,7 @@
           >
             <div class="nav-item-content" @click="navigateTo('home')">
               <span class="nav-icon">{{ viewConfig.home?.icon || '🏠' }}</span>
-              <span class="nav-text">{{ viewConfig.home?.name || '主页' }}</span>
+              <span class="nav-text">{{ $t('views.home.name') }}</span>
             </div>
             <span 
               class="nav-arrow" 
@@ -79,7 +79,7 @@
             @click="navigateTo('search')"
           >
             <span class="nav-icon">{{ viewConfig.search?.icon || '🔍' }}</span>
-            <span class="nav-text">{{ viewConfig.search?.name || '搜索' }}</span>
+            <span class="nav-text">{{ $t('views.search.name') }}</span>
           </div>
         </li>
 
@@ -94,7 +94,7 @@
             @click="navigateTo('database')"
           >
             <span class="nav-icon">{{ viewConfig.database?.icon || '🗄️' }}</span>
-            <span class="nav-text">{{ viewConfig.database?.name || '本地存档' }}</span>
+            <span class="nav-text">{{ $t('views.database.name') }}</span>
           </div>
         </li>
 
@@ -109,7 +109,7 @@
             @click="navigateTo('scraper-library')"
           >
             <span class="nav-icon">{{ viewConfig['scraper-library']?.icon || '📚' }}</span>
-            <span class="nav-text">{{ viewConfig['scraper-library']?.name || '本地刮削库' }}</span>
+            <span class="nav-text">{{ $t('views.scraper-library.name') }}</span>
           </div>
         </li>
         
@@ -135,7 +135,7 @@
           :class="['nav-item', `${viewId}-item`, { active: $route.name === viewId }]" 
           @click="navigateTo(viewId)">
           <span class="nav-icon">{{ viewConfig[viewId]?.icon || '' }}</span>
-          <span class="nav-text">{{ viewConfig[viewId]?.name || '' }}</span>
+          <span class="nav-text">{{ $t('views.' + viewId + '.name') }}</span>
         </div>
       </div>
     </nav>
@@ -209,7 +209,7 @@
     <!-- 启动时版本更新弹窗（显示全部更新内容 + 开发者配置的注意事项） -->
     <FunModal
       v-model="showVersionModal"
-      title="更新说明"
+      :title="$t('versionModal.title')"
       :max-width="'560px'"
     >
       <div class="version-modal-body">
@@ -221,7 +221,7 @@
         />
       </div>
       <template #footer>
-        <button type="button" class="btn-confirm" @click="onVersionModalClose">知道了</button>
+        <button type="button" class="btn-confirm" @click="onVersionModalClose">{{ $t('versionModal.gotIt') }}</button>
       </template>
     </FunModal>
   </div>
@@ -1076,7 +1076,11 @@ export default {
       if (route.meta?.title) {
         return route.meta.title as string
       }
-      const config = this.viewConfig[route.name as string]
+      const viewId = route.name as string
+      if (this.$te('views.' + viewId + '.name')) {
+        return this.$t('views.' + viewId + '.name')
+      }
+      const config = this.viewConfig[viewId]
       return config?.name || '未知页面'
     },
     getCurrentViewDescription() {
@@ -1084,7 +1088,11 @@ export default {
       if (route.meta?.description) {
         return route.meta.description as string
       }
-      const config = this.viewConfig[route.name as string]
+      const viewId = route.name as string
+      if (this.$te('views.' + viewId + '.description')) {
+        return this.$t('views.' + viewId + '.description')
+      }
+      const config = this.viewConfig[viewId]
       return config?.description || '无描述'
     },
     async applyBackgroundImage(imagePath: string) {

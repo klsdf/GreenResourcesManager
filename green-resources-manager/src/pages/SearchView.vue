@@ -2,8 +2,8 @@
   <div class="search-view">
     <div class="search-content">
       <div class="search-header">
-        <h2>🔍 全局搜索</h2>
-        <p>在所有资源中搜索内容</p>
+        <h2>{{ $t('search.title') }}</h2>
+        <p>{{ $t('search.description') }}</p>
       </div>
       
       <div class="search-box-container">
@@ -13,7 +13,7 @@
             v-model="searchQuery" 
             @input="handleSearch"
             @keyup.enter="performSearch"
-            placeholder="输入关键词搜索..."
+            :placeholder="$t('search.placeholder')"
             class="search-input"
             ref="searchInput"
           >
@@ -22,7 +22,7 @@
             v-if="searchQuery" 
             class="clear-btn" 
             @click="clearSearch"
-            title="清空搜索"
+            :title="$t('search.clearSearch')"
           >
             ✕
           </button>
@@ -31,16 +31,15 @@
 
       <div class="search-results" v-if="hasSearched">
         <div class="results-header">
-          <h3>搜索结果</h3>
-          <span class="results-count">找到 {{ totalResults }} 个结果</span>
+          <h3>{{ $t('search.results') }}</h3>
+          <span class="results-count">{{ $t('search.foundResults', { count: totalResults }) }}</span>
         </div>
         
         <div v-if="searchResults.length === 0" class="no-results">
-          <p>未找到匹配的结果</p>
+          <p>{{ $t('search.noResults') }}</p>
         </div>
         
         <div v-else class="results-list">
-          <!-- 按资源类型分组显示结果 -->
           <div 
             v-for="(results, type) in groupedResults" 
             :key="type"
@@ -69,7 +68,7 @@
       </div>
       
       <div v-else class="search-placeholder">
-        <p>输入关键词开始搜索...</p>
+        <p>{{ $t('search.startSearch') }}</p>
       </div>
     </div>
   </div>

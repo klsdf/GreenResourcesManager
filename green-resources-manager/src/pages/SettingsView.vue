@@ -4,7 +4,7 @@
       <!-- 左侧导航栏 -->
       <div class="settings-sidebar">
         <div class="sidebar-header">
-          <h3>设置</h3>
+          <h3>{{ $t('settings.title') }}</h3>
         </div>
         <nav class="settings-nav">
           <div 
@@ -15,7 +15,7 @@
             @click="selectCategory(category.id)"
           >
             <span class="nav-icon">{{ category.icon }}</span>
-            <span class="nav-label">{{ category.name }}</span>
+            <span class="nav-label">{{ $t(`settings.categories.${category.id}`) }}</span>
           </div>
         </nav>
       </div>
@@ -122,13 +122,13 @@
 </template>
 
 <script lang="ts">
+import { useI18n } from 'vue-i18n'
 import saveManager from '../utils/SaveManager.ts'
 import notify from '../utils/NotificationService.ts'
 import alertService from '../utils/AlertService.ts'
 import confirmService from '../utils/ConfirmService.ts'
 import GeneralSettings from '../components/settings/GeneralSettings.vue'
 
-// 默认设置常量
 const DEFAULT_MAX_BACKUP_COUNT = 5
 const DEFAULT_AUTO_BACKUP_INTERVAL = 5
 import GameSettings from '../components/settings/GameSettings.vue'
@@ -158,6 +158,10 @@ export default {
     PetSettings,
     PersonalizationSettings,
     PageManagementSettings
+  },
+  setup() {
+    const { t } = useI18n()
+    return { t }
   },
   data() {
     return {
@@ -286,13 +290,11 @@ export default {
     },
     
     getCurrentCategoryName() {
-      const category = this.settingsCategories.find(cat => cat.id === this.currentCategory)
-      return category ? category.name : '设置'
+      return this.t(`settings.categories.${this.currentCategory}`)
     },
     
     getCurrentCategoryDescription() {
-      const category = this.settingsCategories.find(cat => cat.id === this.currentCategory)
-      return category ? category.description : ''
+      return this.t(`settings.descriptions.${this.currentCategory}`)
     },
     
     // 处理设置更新事件（来自子组件）

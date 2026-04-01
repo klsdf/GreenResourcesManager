@@ -48,6 +48,7 @@
     "prism-themes": "^1.9.0",
     "prismjs": "^1.30.0",
     "vue": "^3.3.8",
+    "vue-i18n": "^9.14.5",
     "vue-json-pretty": "^2.6.0",
     "vue-router": "^4.6.4"
   },

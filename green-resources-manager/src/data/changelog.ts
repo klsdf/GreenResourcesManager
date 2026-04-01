@@ -16,6 +16,14 @@ export interface ChangelogEntry {
 }
 
 export const changelogEntries: ChangelogEntry[] = [
+  {
+    version: 'v0.7.4',
+    date: '2026-04-01',
+    features: [
+      "本地化功能，新增英文、繁体中文和日文",
+    ],
+
+  },
     {
     version: 'v0.7.3',
     date: '2026-03-24',

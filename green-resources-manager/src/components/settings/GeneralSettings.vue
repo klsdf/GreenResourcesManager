@@ -2,45 +2,53 @@
   <div class="settings-section">
     <div class="settings-grid">
       <SettingSelect
-        title="主题模式"
-        description="选择应用的主题外观"
+        :title="$t('settings.language.title')"
+        :description="$t('settings.language.description')"
+        :model-value="currentLanguage"
+        :options="languageOptions"
+        @update:model-value="onLanguageChange"
+      />
+      
+      <SettingSelect
+        :title="$t('settings.theme.title')"
+        :description="$t('settings.theme.description')"
         :model-value="settings.theme"
         :options="themeOptions"
         @update:model-value="onThemeChange"
       />
       
       <SettingToggle
-        title="开机自启"
-        description="应用启动时自动运行"
+        :title="$t('settings.autoStart.title')"
+        :description="$t('settings.autoStart.description')"
         :model-value="settings.autoStart"
         @update:model-value="onAutoStartChange"
       />
       
       <SettingToggle
-        title="关闭窗口时最小化到系统托盘"
-        description="点击关闭按钮时最小化到系统托盘，普通最小化仍会显示在任务栏"
+        :title="$t('settings.minimizeToTray.title')"
+        :description="$t('settings.minimizeToTray.description')"
         :model-value="settings.minimizeToTray"
         @update:model-value="onMinimizeToTrayChange"
       />
       
       <SettingToggle
-        title="伪装模式"
-        description="开启后，图片封面会随机替换为disguise文件夹中的图片，提供隐私保护"
+        :title="$t('settings.disguiseMode.title')"
+        :description="$t('settings.disguiseMode.description')"
         :model-value="settings.disguiseMode"
         @update:model-value="onDisguiseModeChange"
       />
       
       <SettingToggle
-        title="安全键"
-        description="按下ESC键时快速最小化并打开安全网页"
+        :title="$t('settings.safetyKey.title')"
+        :description="$t('settings.safetyKey.description')"
         :model-value="settings.safetyKeyEnabled"
         @update:model-value="onSafetyKeyChange"
       />
       
       <div class="setting-item" v-if="settings.safetyKeyEnabled">
         <label class="setting-label">
-          <span class="setting-title">安全键快捷键</span>
-          <span class="setting-desc">输入自定义的安全键快捷键（如: Esc, Ctrl+Q）</span>
+          <span class="setting-title">{{ $t('settings.general.safetyKeyShortcut') }}</span>
+          <span class="setting-desc">{{ $t('settings.general.safetyKeyShortcutDesc') }}</span>
         </label>
         <div class="setting-control">
           <FunShortcutInput
@@ -51,16 +59,16 @@
       </div>
 
       <SettingToggle
-        title="启用打开软件快捷键"
-        description="开启后，可设置快捷键将软件从托盘恢复显示"
+        :title="$t('settings.showWindowShortcut.title')"
+        :description="$t('settings.showWindowShortcut.description')"
         :model-value="settings.showWindowShortcutEnabled"
         @update:model-value="onShowWindowShortcutEnabledChange"
       />
 
       <div class="setting-item" v-if="settings.showWindowShortcutEnabled">
         <label class="setting-label">
-          <span class="setting-title">打开软件快捷键</span>
-          <span class="setting-desc">按下该快捷键可将软件从托盘恢复显示</span>
+          <span class="setting-title">{{ $t('settings.showWindowShortcut.shortcutTitle') }}</span>
+          <span class="setting-desc">{{ $t('settings.showWindowShortcut.shortcutDesc') }}</span>
         </label>
         <div class="setting-control">
           <FunShortcutInput
@@ -73,17 +81,17 @@
 
       <SettingInput
         v-if="settings.safetyKeyEnabled"
-        title="安全网页URL"
-        description="按下ESC键时打开的网页地址"
+        :title="$t('settings.general.safetyKeyUrl')"
+        :description="$t('settings.general.safetyKeyUrlDesc')"
         :model-value="settings.safetyKeyUrl"
-        placeholder="输入网页URL"
+        :placeholder="$t('settings.general.safetyKeyUrlPlaceholder')"
         :input-style="{ minWidth: '400px' }"
         @update:model-value="onSafetyKeyUrlChange"
       />
       
       <SettingSelect
-        title="存档文件夹位置"
-        description="选择存档文件夹的保存位置"
+        :title="$t('settings.saveData.title')"
+        :description="$t('settings.saveData.description')"
         :model-value="settings.saveDataLocation"
         :options="saveDataLocationOptions"
         @update:model-value="onSaveDataLocationChange"
@@ -91,68 +99,68 @@
       
       <SettingFilePicker
         v-if="settings.saveDataLocation === 'custom'"
-        title="自定义存档目录"
-        description="选择自定义的存档保存目录"
+        :title="$t('settings.saveData.customPathTitle')"
+        :description="$t('settings.saveData.customPathDesc')"
         :model-value="settings.saveDataPath"
-        placeholder="选择存档保存目录"
+        :placeholder="$t('settings.saveData.customPathPlaceholder')"
         picker-type="saveData"
         @update:model-value="updateSetting('saveDataPath', $event)"
         @browse="handleSaveDataBrowse"
       />
       
       <SettingToggle
-        title="开启自动备份"
-        description="开启后，系统会按设定的时间间隔自动备份整个存档目录"
+        :title="$t('settings.autoBackup.title')"
+        :description="$t('settings.autoBackup.description')"
         :model-value="settings.autoBackupEnabled"
         @update:model-value="onAutoBackupEnabledChange"
       />
       
       <SettingSlider
         v-if="settings.autoBackupEnabled"
-        title="自动备份时间间隔"
-        description="设置自动备份整个存档的时间间隔"
+        :title="$t('settings.autoBackup.intervalTitle')"
+        :description="$t('settings.autoBackup.intervalDesc')"
         :model-value="settings.autoBackupInterval"
         :min="5"
         :max="60"
         :step="5"
-        unit="分钟"
+        :unit="$t('settings.autoBackup.unitMinutes')"
         @update:model-value="onAutoBackupIntervalChange"
       />
       
       <SettingSlider
         v-if="settings.autoBackupEnabled"
-        title="保留备份数量"
-        description="设置自动备份时保留的备份数量，超出数量的旧备份会被自动删除"
+        :title="$t('settings.autoBackup.maxCountTitle')"
+        :description="$t('settings.autoBackup.maxCountDesc')"
         :model-value="maxBackupCountValue"
         :min="3"
         :max="10"
         :step="1"
-        unit="个"
+        :unit="$t('settings.autoBackup.unitCount')"
         @update:model-value="onMaxBackupCountChange"
       />
       
       <div class="setting-item">
         <label class="setting-label">
-          <span class="setting-title">打开存档文件夹</span>
-          <span class="setting-desc">在文件管理器中打开应用存档文件夹</span>
+          <span class="setting-title">{{ $t('settings.saveData.openFolderTitle') }}</span>
+          <span class="setting-desc">{{ $t('settings.saveData.openFolderDesc') }}</span>
         </label>
         <div class="setting-control">
           <button class="btn-open-save-data-folder" @click="openSaveDataFolder">
             <span class="btn-icon">📁</span>
-            打开文件夹
+            {{ $t('settings.saveData.openFolderButton') }}
           </button>
         </div>
       </div>
       
       <div class="setting-item">
         <label class="setting-label">
-          <span class="setting-title">重置所有设置</span>
-          <span class="setting-desc">将所有设置恢复为默认值，此操作不可撤销</span>
+          <span class="setting-title">{{ $t('settings.general.resetSettings') }}</span>
+          <span class="setting-desc">{{ $t('settings.general.resetSettingsDesc') }}</span>
         </label>
         <div class="setting-control">
           <button class="btn-reset-settings" @click="resetSettings">
             <span class="btn-icon">🔄</span>
-            重置设置
+            {{ $t('settings.general.resetButton') }}
           </button>
         </div>
       </div>
@@ -161,6 +169,8 @@
 </template>
 
 <script lang="ts">
+import { useI18n } from 'vue-i18n'
+import { setLanguage, getCurrentLanguage, availableLanguages } from '../../locales'
 import saveManager from '../../utils/SaveManager'
 import notify from '../../utils/NotificationService'
 import alertService from '../../utils/AlertService'
@@ -189,32 +199,46 @@ export default {
     }
   },
   emits: ['update:settings', 'theme-changed', 'action'],
+  setup() {
+    const { t } = useI18n()
+    return { t }
+  },
   data() {
     return {
-      themeOptions: [
-        { value: 'light', label: '亮色模式' },
-        { value: 'dark', label: '暗色模式' },
-        { value: 'ukiyoe', label: '浮世绘主题' },
-        { value: 'chinese', label: '中国古风' },
-        { value: 'forest', label: '森林主题' },
-        { value: 'ocean', label: '海洋主题' },
-        { value: 'auto', label: '跟随系统' }
-      ],
-      saveDataLocationOptions: [
-        { value: 'default', label: '默认目录 (根目录/SaveData)' },
-        { value: 'custom', label: '自定义目录' }
-      ]
+      currentLanguage: getCurrentLanguage(),
+      languageOptions: availableLanguages
     }
   },
   computed: {
     maxBackupCountValue() {
-      // 使用默认值 5（与 SettingsView.vue 中的 DEFAULT_MAX_BACKUP_COUNT 保持一致）
       return this.settings.maxBackupCount ?? 5
+    },
+    themeOptions() {
+      return [
+        { value: 'light', label: this.t('settings.theme.light') },
+        { value: 'dark', label: this.t('settings.theme.dark') },
+        { value: 'ukiyoe', label: this.t('settings.theme.ukiyoe') },
+        { value: 'chinese', label: this.t('settings.theme.chinese') },
+        { value: 'forest', label: this.t('settings.theme.forest') },
+        { value: 'ocean', label: this.t('settings.theme.ocean') },
+        { value: 'auto', label: this.t('settings.theme.auto') }
+      ]
+    },
+    saveDataLocationOptions() {
+      return [
+        { value: 'default', label: this.t('settings.saveData.default') },
+        { value: 'custom', label: this.t('settings.saveData.custom') }
+      ]
     }
   },
 
   
   methods: {
+    onLanguageChange(lang: string) {
+      setLanguage(lang)
+      this.currentLanguage = lang
+      notify.toast('success', this.t('messages.saveSuccess'), this.t('settings.language.description'))
+    },
     
     updateSetting(key: string, value: any) {
       this.$emit('update:settings', { key, value })
@@ -245,74 +269,64 @@ export default {
     
     async onAutoStartChange(newValue: boolean) {
       this.updateSetting('autoStart', newValue)
-      // 实时更新开机自启设置
       try {
         if (window.electronAPI && window.electronAPI.setAutoStart) {
           const result = await window.electronAPI.setAutoStart(newValue)
           if (result.success) {
             console.log('开机自启设置更新成功:', result.enabled)
             this.showNotification(
-              '开机自启设置已更新', 
-              result.enabled ? '应用将在系统启动时自动运行' : '应用已取消开机自启'
+              this.t('settings.general.autoStartUpdated'), 
+              result.enabled ? this.t('settings.general.autoStartEnabled') : this.t('settings.general.autoStartDisabled')
             )
           } else {
             console.error('开机自启设置更新失败:', result.error)
-            alertService.error(`开机自启设置失败: ${result.error}`)
-            // 恢复开关状态
+            alertService.error(this.t('settings.general.autoStartFailed', { error: result.error }))
             this.updateSetting('autoStart', !newValue)
           }
         } else {
           console.warn('当前环境不支持开机自启功能')
-          alertService.warning('当前环境不支持开机自启功能')
-          // 恢复开关状态
+          alertService.warning(this.t('settings.general.autoStartNotSupported'))
           this.updateSetting('autoStart', !newValue)
         }
       } catch (error: any) {
         console.error('更新开机自启设置失败:', error)
-        alertService.error('更新开机自启设置失败: ' + error.message)
-        // 恢复开关状态
+        alertService.error(this.t('settings.general.autoStartUpdateFailed', { error: error.message }))
         this.updateSetting('autoStart', !newValue)
       }
     },
     
     async onMinimizeToTrayChange(newValue: boolean) {
       this.updateSetting('minimizeToTray', newValue)
-      // 实时更新最小化到托盘设置
       try {
         if (window.electronAPI && window.electronAPI.setMinimizeToTray) {
           const result = await window.electronAPI.setMinimizeToTray(newValue)
           if (result.success) {
             console.log('最小化到托盘设置更新成功:', result.enabled)
             this.showNotification(
-              '关闭窗口行为设置已更新', 
-              result.enabled ? '关闭窗口时将最小化到系统托盘，普通最小化仍显示在任务栏' : '关闭窗口时将直接退出应用'
+              this.t('settings.general.minimizeToTrayUpdated'), 
+              result.enabled ? this.t('settings.general.minimizeToTrayEnabled') : this.t('settings.general.minimizeToTrayDisabled')
             )
           } else {
             console.error('最小化到托盘设置更新失败:', result.error)
-            notify.error('设置失败', `最小化到托盘设置失败: ${result.error}`)
-            // 恢复开关状态
+            notify.error(this.t('messages.error'), this.t('settings.general.minimizeToTrayFailed', { error: result.error }))
             this.updateSetting('minimizeToTray', !newValue)
           }
         } else {
           console.warn('当前环境不支持最小化到托盘功能')
-          notify.warning('功能不可用', '当前环境不支持最小化到托盘功能')
-          // 恢复开关状态
+          notify.warning(this.t('common.warning'), this.t('settings.general.minimizeToTrayNotSupported'))
           this.updateSetting('minimizeToTray', !newValue)
         }
       } catch (error: any) {
         console.error('更新最小化到托盘设置失败:', error)
-        notify.error('设置失败', `更新最小化到托盘设置失败: ${error.message}`)
-        // 恢复开关状态
+        notify.error(this.t('messages.error'), this.t('settings.general.minimizeToTrayUpdateFailed', { error: error.message }))
         this.updateSetting('minimizeToTray', !newValue)
       }
     },
     
     async onDisguiseModeChange(newValue: boolean) {
       this.updateSetting('disguiseMode', newValue)
-      // 伪装模式设置变化时的处理
       console.log('伪装模式设置已更新:', newValue)
       
-      // 清除伪装图片缓存
       try {
         const disguiseManager = await import('../../utils/DisguiseManager.js')
         disguiseManager.default.clearCache()
@@ -321,7 +335,6 @@ export default {
         console.error('清除伪装图片缓存失败:', error)
       }
       
-      // 触发自定义事件，通知所有 MediaCard 组件更新状态
       try {
         const event = new CustomEvent('disguise-mode-changed', {
           detail: { enabled: newValue }
@@ -333,17 +346,15 @@ export default {
       }
       
       notify.success(
-        '伪装模式设置已更新', 
-        newValue ? '已开启伪装模式，图片封面和标签将随机替换' : '已关闭伪装模式，显示原始封面和标签'
+        this.t('settings.general.disguiseModeUpdated'), 
+        newValue ? this.t('settings.general.disguiseModeEnabled') : this.t('settings.general.disguiseModeDisabled')
       )
     },
     
     async onSafetyKeyChange(newValue: boolean) {
       this.updateSetting('safetyKeyEnabled', newValue)
-      // 安全键设置变化时的处理
       console.log('安全键设置已更新:', newValue)
       
-      // 直接更新全局快捷键
       if (window.electronAPI && window.electronAPI.setSafetyKey) {
         try {
         const result = await window.electronAPI.setSafetyKey(
@@ -356,23 +367,20 @@ export default {
           } else {
             console.warn('设置安全键失败:', result.error)
             notify.error(
-              '安全键设置失败', 
-              result.error || '无法注册ESC全局快捷键，可能被其他应用占用'
+              this.t('settings.general.safetyKeyFailed'), 
+              result.error || this.t('settings.general.safetyKeyFailedDetail')
             )
-            // 恢复开关状态
             this.updateSetting('safetyKeyEnabled', !newValue)
             return
           }
         } catch (error: any) {
           console.error('设置安全键失败:', error)
-          notify.error('安全键设置失败', error.message)
-          // 恢复开关状态
+          notify.error(this.t('settings.general.safetyKeyFailed'), error.message)
           this.updateSetting('safetyKeyEnabled', !newValue)
           return
         }
       }
       
-      // 触发自定义事件，通知 App.vue 更新安全键设置
       try {
         const event = new CustomEvent('safety-key-changed', {
           detail: { 
@@ -387,8 +395,8 @@ export default {
       }
       
       notify.success(
-        '安全键设置已更新', 
-        newValue ? '已开启安全键功能，按下ESC键将快速最小化应用和游戏窗口并打开安全网页' : '已关闭安全键功能'
+        this.t('settings.general.safetyKeyUpdated'), 
+        newValue ? this.t('settings.general.safetyKeyEnabled') : this.t('settings.general.safetyKeyDisabled')
       )
     },
     
@@ -426,23 +434,20 @@ export default {
 
     async onShowWindowShortcutEnabledChange(newValue: boolean) {
       this.updateSetting('showWindowShortcutEnabled', newValue)
-      // 当打开软件快捷键启用状态变化时，更新全局快捷键
       if (window.electronAPI && window.electronAPI.updateShowWindowShortcut) {
         try {
           const result = await window.electronAPI.updateShowWindowShortcut(newValue ? this.settings.showWindowShortcut : '')
           if (result.success) {
             console.log('✅ 打开软件快捷键已', newValue ? '启用' : '禁用')
-            notify.success('快捷键设置已更新', newValue ? '已启用打开软件快捷键功能' : '已禁用打开软件快捷键功能')
+            notify.success(this.t('settings.general.showWindowShortcutUpdated'), newValue ? this.t('settings.general.showWindowShortcutEnabled') : this.t('settings.general.showWindowShortcutDisabled'))
           } else {
             console.warn('更新打开软件快捷键失败:', result.error)
-            notify.error('设置失败', result.error || '无法注册该快捷键，可能被其他应用占用')
-            // 恢复开关状态
+            notify.error(this.t('messages.error'), result.error || this.t('settings.general.showWindowShortcutUpdateFailed'))
             this.updateSetting('showWindowShortcutEnabled', !newValue)
           }
         } catch (error: any) {
           console.error('更新打开软件快捷键失败:', error)
-          notify.error('设置失败', error.message)
-          // 恢复开关状态
+          notify.error(this.t('messages.error'), error.message)
           this.updateSetting('showWindowShortcutEnabled', !newValue)
         }
       }
@@ -450,23 +455,20 @@ export default {
 
     async onShowWindowShortcutChange(newKey: string) {
       this.updateSetting('showWindowShortcut', newKey)
-      // 当打开软件快捷键变化时，更新全局快捷键
       if (this.settings.showWindowShortcutEnabled && window.electronAPI && window.electronAPI.updateShowWindowShortcut) {
         try {
           const result = await window.electronAPI.updateShowWindowShortcut(newKey)
           if (result.success) {
             console.log('✅ 打开软件快捷键已更新为:', newKey)
-            notify.success('快捷键已更新', `打开软件快捷键已设置为 ${newKey}`)
+            notify.success(this.t('settings.general.showWindowShortcutUpdated'), this.t('settings.general.showWindowShortcutSet', { key: newKey }))
           } else {
             console.warn('更新打开软件快捷键失败:', result.error)
-            notify.error('设置失败', result.error || '无法注册该快捷键，可能被其他应用占用')
-            // 恢复旧的快捷键
+            notify.error(this.t('messages.error'), result.error || this.t('settings.general.showWindowShortcutUpdateFailed'))
             this.updateSetting('showWindowShortcut', this.settings.showWindowShortcut)
           }
         } catch (error: any) {
           console.error('更新打开软件快捷键失败:', error)
-          notify.error('设置失败', error.message)
-          // 恢复旧的快捷键
+          notify.error(this.t('messages.error'), error.message)
           this.updateSetting('showWindowShortcut', this.settings.showWindowShortcut)
         }
       }
@@ -474,29 +476,24 @@ export default {
     
     onSaveDataLocationChange(newLocation: string) {
       this.updateSetting('saveDataLocation', newLocation)
-      // 当选择默认目录时，不清空自定义路径，保留用户之前的设置
       if (newLocation === 'default') {
         console.log('已切换到默认存档目录')
-        notify.success('存档位置已更新', '已切换到默认存档目录 (根目录/SaveData)')
+        notify.success(this.t('settings.general.saveDataLocationUpdated'), this.t('settings.general.saveDataLocationDefault'))
       }
     },
     
     onAutoBackupEnabledChange(newValue: boolean) {
       this.updateSetting('autoBackupEnabled', newValue)
-      // 自动备份开关变化时的处理
       console.log('自动备份开关已更新:', newValue)
       
-      // 如果关闭，将时间间隔设置为0
       if (!newValue) {
         this.updateSetting('autoBackupInterval', 0)
       } else {
-        // 如果开启，确保时间间隔至少为5分钟
         if (this.settings.autoBackupInterval < 5) {
           this.updateSetting('autoBackupInterval', 5)
         }
       }
       
-      // 触发自定义事件，通知 App.vue 更新自动备份定时器
       try {
         const event = new CustomEvent('auto-backup-interval-changed', {
           detail: { 
@@ -510,18 +507,16 @@ export default {
       }
       
       if (newValue) {
-        notify.success('自动备份已开启', `自动备份时间间隔已设置为 ${this.settings.autoBackupInterval} 分钟`)
+        notify.success(this.t('settings.general.autoBackupEnabled'), this.t('settings.general.autoBackupIntervalSet', { interval: this.settings.autoBackupInterval }))
       } else {
-        notify.success('自动备份已禁用', '已禁用自动备份功能')
+        notify.success(this.t('settings.general.autoBackupDisabled'), this.t('settings.general.autoBackupDisabledDetail'))
       }
     },
     
     onAutoBackupIntervalChange(newInterval: number) {
       this.updateSetting('autoBackupInterval', newInterval)
-      // 自动备份时间间隔变化时，通知 App.vue 更新定时器
       console.log('自动备份时间间隔已更新:', newInterval, '分钟')
       
-      // 触发自定义事件，通知 App.vue 更新自动备份定时器
       try {
         const event = new CustomEvent('auto-backup-interval-changed', {
           detail: { 
@@ -534,51 +529,43 @@ export default {
         console.error('触发自动备份时间间隔变化事件失败:', error)
       }
       
-      notify.success('自动备份设置已更新', `自动备份时间间隔已设置为 ${newInterval} 分钟`)
+      notify.success(this.t('settings.general.autoBackupIntervalUpdated'), this.t('settings.general.autoBackupIntervalSet', { interval: newInterval }))
     },
     
     onMaxBackupCountChange(newCount: number) {
       this.updateSetting('maxBackupCount', newCount)
-      // 保留备份数量变化时的处理
       console.log('保留备份数量已更新:', newCount, '个')
-      notify.success('备份设置已更新', `将保留最近的 ${newCount} 个备份`)
+      notify.success(this.t('settings.general.backupCountUpdated'), this.t('settings.general.backupCountSet', { count: newCount }))
     },
     
     async handleSaveDataBrowse({ result }: { result: any }) {
       if (result && result.success) {
-        // 更新设置
         this.updateSetting('saveDataPath', result.directory)
         this.updateSetting('saveDataLocation', 'custom')
         
-        // 更新SaveManager的数据目录
         const newSaveDataPath = result.directory + '/SaveData'
         const saveManagerUpdated = saveManager.setDataDirectory(newSaveDataPath)
         if (saveManagerUpdated) {
           console.log('SaveManager数据目录已更新为:', newSaveDataPath)
         }
         
-        // 手动保存设置（绕过自动保存机制）
         const success = await saveManager.saveSettings(this.settings)
         if (success) {
           console.log('存档目录设置已保存')
         }
         
-        // 显示成功通知
-        const message = result.message || '存档目录已更新'
-        let detailMessage = `已设置自定义存档目录: ${result.directory}`
+        const message = result.message || this.t('settings.general.saveDataDirectoryUpdated')
+        let detailMessage = this.t('settings.general.saveDataDirectorySet', { directory: result.directory })
         
         if (result.copiedFiles && result.copiedFiles > 0) {
-          // 复制数据的情况
-          detailMessage += `\n\n成功复制 ${result.copiedFiles} 个文件`
+          detailMessage += `\n\n${this.t('settings.general.saveDataFilesCopied', { count: result.copiedFiles })}`
           detailMessage += `\n${message}`
         } else {
           detailMessage += `\n\n${message}`
         }
         
-        // 使用 toast 通知显示成功消息
-        notify.success('存档目录设置成功', detailMessage)
+        notify.success(this.t('settings.general.saveDataDirectoryUpdated'), detailMessage)
         
-        // 如果有复制文件，显示更详细的信息
         if (result.copiedFiles && result.copiedFiles > 0) {
           console.log('存档数据复制完成:', {
             directory: result.directory,
@@ -587,9 +574,8 @@ export default {
           })
         }
       } else if (result && !result.success) {
-        // 显示错误通知
-        const errorMessage = result.error || '未知错误'
-        notify.error('存档目录设置失败', errorMessage)
+        const errorMessage = result.error || this.t('settings.general.saveDataUnknownError')
+        notify.error(this.t('settings.general.saveDataFailed'), errorMessage)
         console.error('设置存档目录失败:', result.error)
       }
     },
@@ -597,25 +583,20 @@ export default {
     async openSaveDataFolder() {
       try {
         if (window.electronAPI && window.electronAPI.openFolder) {
-          // 获取存档文件夹路径
           let saveDataPath = ''
           
           if (this.settings.saveDataLocation === 'default') {
-            // 使用默认路径
             saveDataPath = 'SaveData'
           } else if (this.settings.saveDataLocation === 'custom') {
-            // 使用自定义路径
             saveDataPath = this.settings.saveDataPath
           }
           
-          // 如果自定义路径为空，回退到默认路径
           if (!saveDataPath || saveDataPath.trim() === '') {
             saveDataPath = 'SaveData'
           }
           
           console.log('尝试打开存档文件夹:', saveDataPath)
           
-          // 确保目录存在
           try {
             if (window.electronAPI.ensureDirectory) {
               const ensureResult = await window.electronAPI.ensureDirectory(saveDataPath)
@@ -630,32 +611,30 @@ export default {
           const result = await window.electronAPI.openFolder(saveDataPath)
           if (result.success) {
             console.log('存档文件夹已打开')
-            notify.success('文件夹已打开', `已打开存档文件夹: ${saveDataPath}`)
+            notify.success(this.t('settings.general.folderOpened'), this.t('settings.general.folderOpenedDetail', { path: saveDataPath }))
           } else {
             console.error('打开存档文件夹失败:', result.error)
-            notify.error('打开失败', `打开存档文件夹失败: ${result.error}`)
+            notify.error(this.t('settings.general.folderOpenFailed'), this.t('settings.general.folderOpenFailedDetail', { error: result.error }))
           }
         } else {
-          // 降级处理：在浏览器中显示路径信息
           const saveDataPath = this.settings.saveDataLocation === 'default' 
             ? 'SaveData' 
             : (this.settings.saveDataPath || 'SaveData')
-          notify.info('存档文件夹路径', `${saveDataPath}\n\n在浏览器环境中无法直接打开文件夹，请手动导航到该路径`)
+          notify.info(this.t('settings.general.folderPath'), `${saveDataPath}\n\n${this.t('settings.general.browserEnvironmentNote')}`)
         }
       } catch (error: any) {
         console.error('打开存档文件夹失败:', error)
-        notify.error('打开失败', `打开存档文件夹失败: ${error.message}`)
+        notify.error(this.t('settings.general.folderOpenFailed'), this.t('settings.general.folderOpenFailedDetail', { error: error.message }))
       }
     },
     
     async resetSettings() {
-      if (await confirmService.confirm('确定要重置所有设置吗？此操作不可撤销！')) {
+      if (await confirmService.confirm(this.t('settings.general.resetSettingsConfirm'))) {
         try {
-          // 触发重置事件，让父组件处理
           this.$emit('action', { type: 'reset-settings' })
         } catch (error: any) {
           console.error('重置设置失败:', error)
-          notify.error('重置设置失败', '重置设置时发生错误: ' + error.message)
+          notify.error(this.t('settings.general.resetSettingsFailed'), this.t('settings.general.resetSettingsFailedDetail', { error: error.message }))
         }
       }
     },

@@ -2,12 +2,12 @@
   <div class="recent-view">
     <div class="recent-content">
       <div class="page-header">
-        <h2 class="page-title">最近浏览</h2>
-        <p class="page-description">查看您最近访问的资源，最多显示50个条目</p>
+        <h2 class="page-title">{{ $t('recent.title') }}</h2>
+        <p class="page-description">{{ $t('recent.description') }}</p>
       </div>
 
       <div class="resources-container">
-        <FunLoading v-if="isLoading" text="加载中..." />
+        <FunLoading v-if="isLoading" :text="$t('app.loading')" />
         <div v-else-if="recentResources.length > 0" class="resources-grid">
           <ResourceCard
             v-for="resource in recentResources"
@@ -17,7 +17,7 @@
           />
         </div>
         <div v-else class="empty-state">
-          <p>暂无最近浏览记录</p>
+          <p>{{ $t('recent.noRecent') }}</p>
         </div>
       </div>
     </div>

@@ -2,42 +2,42 @@
   <div class="settings-section">
     <div class="settings-grid">
       <SettingInput
-        title="自定义软件标题"
-        description="设置软件在侧边栏显示的标题"
+        :title="$t('settings.personalization.customAppTitle')"
+        :description="$t('settings.personalization.customAppTitleDesc')"
         :model-value="localCustomAppTitle"
-        placeholder="例如：绿色资源管理器"
+        :placeholder="$t('settings.personalization.customAppTitlePlaceholder')"
         @update:model-value="onCustomAppTitleInput"
         @blur="onCustomAppTitleBlur"
       />
       
       <SettingInput
-        title="自定义软件副标题"
-        description="设置软件在侧边栏显示的副标题"
+        :title="$t('settings.personalization.customAppSubtitle')"
+        :description="$t('settings.personalization.customAppSubtitleDesc')"
         :model-value="localCustomAppSubtitle"
-        placeholder="例如：绿色、全能的资源管理器"
+        :placeholder="$t('settings.personalization.customAppSubtitlePlaceholder')"
         @update:model-value="onCustomAppSubtitleInput"
         @blur="onCustomAppSubtitleBlur"
       />
       
       <SettingFilePicker
-        title="页面背景图片"
-        description="为所有页面设置自定义背景图片"
+        :title="$t('settings.personalization.backgroundImage')"
+        :description="$t('settings.personalization.backgroundImageDesc')"
         :model-value="settings.backgroundImagePath"
-        placeholder="选择背景图片..."
+        :placeholder="$t('settings.personalization.backgroundImagePlaceholder')"
         picker-type="image"
-        browse-button-text="选择图片"
+        :browse-button-text="$t('settings.personalization.selectImageButton')"
         @update:model-value="onBackgroundImageChange"
       />
       
       <div v-if="settings.backgroundImagePath" class="setting-item">
         <label class="setting-label">
-          <span class="setting-title">清除背景图片</span>
-          <span class="setting-desc">移除当前设置的背景图片</span>
+          <span class="setting-title">{{ $t('settings.personalization.clearBackgroundTitle') }}</span>
+          <span class="setting-desc">{{ $t('settings.personalization.clearBackgroundDesc') }}</span>
         </label>
         <div class="setting-control">
           <button class="btn-clear-background" @click="clearBackgroundImage">
             <span class="btn-icon">🗑️</span>
-            清除
+            {{ $t('settings.personalization.clearButton') }}
           </button>
         </div>
       </div>
@@ -46,6 +46,7 @@
 </template>
 
 <script lang="ts">
+import { useI18n } from 'vue-i18n'
 import notify from '../../utils/NotificationService'
 import SettingFilePicker from './SettingFilePicker.vue'
 import SettingInput from './SettingInput.vue'
@@ -63,6 +64,10 @@ export default {
     }
   },
   emits: ['update:settings'],
+  setup() {
+    const { t } = useI18n()
+    return { t }
+  },
   data() {
     return {
       localCustomAppTitle: '',
@@ -98,7 +103,6 @@ export default {
     onCustomAppTitleBlur() {
       const newTitle = this.localCustomAppTitle || ''
       this.updateSetting('customAppTitle', newTitle)
-      // 触发自定义事件，通知 App.vue 更新标题
       try {
         const event = new CustomEvent('custom-app-title-changed', {
           detail: { title: newTitle }
@@ -108,13 +112,12 @@ export default {
       } catch (error) {
         console.error('触发标题变化事件失败:', error)
       }
-      notify.success('软件标题已更新', '标题已设置为: ' + (newTitle || '默认标题'))
+      notify.success(this.t('settings.personalization.titleUpdated'), this.t('settings.personalization.titleSetTo', { title: newTitle || this.t('app.appTitle') }))
     },
     
     onCustomAppSubtitleBlur() {
       const newSubtitle = this.localCustomAppSubtitle || ''
       this.updateSetting('customAppSubtitle', newSubtitle)
-      // 触发自定义事件，通知 App.vue 更新副标题
       try {
         const event = new CustomEvent('custom-app-subtitle-changed', {
           detail: { subtitle: newSubtitle }
@@ -124,12 +127,11 @@ export default {
       } catch (error) {
         console.error('触发副标题变化事件失败:', error)
       }
-      notify.success('软件副标题已更新', '副标题已设置为: ' + (newSubtitle || '默认副标题'))
+      notify.success(this.t('settings.personalization.subtitleUpdated'), this.t('settings.personalization.subtitleSetTo', { subtitle: newSubtitle || this.t('app.appSubtitle') }))
     },
     
     onBackgroundImageChange(newPath: string) {
       this.updateSetting('backgroundImagePath', newPath)
-      // 触发自定义事件，通知 App.vue 更新背景图片
       try {
         const event = new CustomEvent('background-image-changed', {
           detail: { path: newPath }
@@ -139,12 +141,11 @@ export default {
       } catch (error) {
         console.error('触发背景图片变化事件失败:', error)
       }
-      notify.success('背景图片已更新', '页面背景图片已设置为: ' + newPath)
+      notify.success(this.t('settings.personalization.backgroundUpdated'), this.t('settings.personalization.backgroundSetTo', { path: newPath }))
     },
     
     clearBackgroundImage() {
       this.updateSetting('backgroundImagePath', '')
-      // 触发自定义事件，通知 App.vue 清除背景图片
       try {
         const event = new CustomEvent('background-image-changed', {
           detail: { path: '' }
@@ -154,7 +155,7 @@ export default {
       } catch (error) {
         console.error('触发背景图片清除事件失败:', error)
       }
-      notify.success('背景图片已清除', '已移除页面背景图片')
+      notify.success(this.t('settings.personalization.backgroundCleared'), this.t('settings.personalization.backgroundRemoved'))
     }
   }
 }

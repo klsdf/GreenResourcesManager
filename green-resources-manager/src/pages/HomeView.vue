@@ -1,11 +1,10 @@
 <template>
   <div class="home-view">
     <div class="home-content">
-      <!-- 为您推荐 -->
       <div class="recommended-section">
         <div class="section-header">
-          <h2 class="section-title">为您推荐</h2>
-          <button class="refresh-btn" @click="refreshRecommendations">再来一批！</button>
+          <h2 class="section-title">{{ $t('home.recommended') }}</h2>
+          <button class="refresh-btn" @click="refreshRecommendations">{{ $t('home.refreshBatch') }}</button>
         </div>
         <div class="resources-grid" v-if="recommendedResources.length > 0">
           <ResourceCard
@@ -16,15 +15,14 @@
           />
         </div>
         <div v-else class="empty-state">
-          <p>暂无推荐资源</p>
+          <p>{{ $t('home.noRecommendations') }}</p>
         </div>
       </div>
 
-      <!-- 最近浏览 -->
       <div class="recent-section">
         <div class="section-header">
-          <h2 class="section-title">最近浏览</h2>
-          <a href="#" class="view-more-link" @click.prevent="navigateToRecent">查看全部</a>
+          <h2 class="section-title">{{ $t('home.recentBrowsing') }}</h2>
+          <a href="#" class="view-more-link" @click.prevent="navigateToRecent">{{ $t('home.viewAll') }}</a>
         </div>
         <div class="resources-grid" v-if="recentResources.length > 0">
           <ResourceCard
@@ -35,7 +33,7 @@
           />
         </div>
         <div v-else class="empty-state">
-          <p>暂无最近浏览记录</p>
+          <p>{{ $t('home.noRecentBrowsing') }}</p>
         </div>
       </div>
     </div>
