@@ -1,0 +1,16 @@
+{
+  "saveSuccess": "儲存成功",
+  "saveFailed": "儲存失敗",
+  "deleteConfirm": "確定要刪除嗎？",
+  "deleteSuccess": "刪除成功",
+  "deleteFailed": "刪除失敗",
+  "copySuccess": "複製成功",
+  "copyFailed": "複製失敗",
+  "updateSuccess": "更新成功",
+  "updateFailed": "更新失敗",
+  "loadFailed": "載入失敗",
+  "operationSuccess": "操作成功",
+  "operationFailed": "操作失敗",
+  "autoSaveSuccess": "設定已自動儲存",
+  "autoSaveFailed": "設定自動儲存失敗"
+}

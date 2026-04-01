@@ -1,0 +1,54 @@
+{
+  "home": {
+    "name": "ホーム",
+    "description": "ようこそページ、すべてのモジュールへのクイックアクセス"
+  },
+  "search": {
+    "name": "検索",
+    "description": "すべてのリソースでコンテンツを検索"
+  },
+  "debug": {
+    "name": "Debug",
+    "description": "デバッグとテスト用"
+  },
+  "database": {
+    "name": "ローカルセーブ",
+    "description": "セーブデータを表示"
+  },
+  "scraper-library": {
+    "name": "ローカルスクレイパーライブラリ",
+    "description": "ローカルスクレイパーライブラリ（まだ利用不可）"
+  },
+  "workshop": {
+    "name": "ワークショップ",
+    "description": "コミュニティの作品を共有・発見"
+  },
+  "users": {
+    "name": "ユーザー",
+    "description": "個人データとソフトウェアの各種データを記録"
+  },
+  "messages": {
+    "name": "メッセージ",
+    "description": "システム通知と操作履歴を表示"
+  },
+  "help": {
+    "name": "ヘルプ",
+    "description": "アプリの機能と使用方法を学ぶ"
+  },
+  "changelog": {
+    "name": "更新履歴",
+    "description": "バージョン更新と機能変更"
+  },
+  "sponsor": {
+    "name": "スポンサー",
+    "description": "プロジェクトの継続開発をサポート"
+  },
+  "settings": {
+    "name": "設定",
+    "description": "アプリの設定と環境設定を管理"
+  },
+  "collections": {
+    "name": "コレクション",
+    "description": "コレクションを管理"
+  }
+}

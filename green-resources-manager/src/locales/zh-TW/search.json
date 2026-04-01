@@ -1,0 +1,10 @@
+{
+  "title": "🔍 全域搜尋",
+  "description": "在所有資源中搜尋內容",
+  "placeholder": "輸入關鍵字搜尋...",
+  "clearSearch": "清空搜尋",
+  "results": "搜尋結果",
+  "foundResults": "找到 {count} 個結果",
+  "noResults": "未找到匹配的結果",
+  "startSearch": "輸入關鍵字開始搜尋..."
+}

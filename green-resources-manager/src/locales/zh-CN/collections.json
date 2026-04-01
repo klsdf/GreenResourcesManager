@@ -1,0 +1,21 @@
+{
+  "addCollection": "添加合集",
+  "noCollections": "暂无合集",
+  "createFirst": "点击上方「添加合集」创建你的第一个合集",
+  "noThumbnail": "无缩略图",
+  "containsVideos": "包含 {count} 个视频",
+  "collectionName": "合集名称",
+  "collectionNamePlaceholder": "如：超级英雄宇宙",
+  "seriesName": "系列名",
+  "seriesNamePlaceholder": "可选，如：漫威",
+  "actors": "演员",
+  "actorsPlaceholder": "用逗号分隔多个演员",
+  "tags": "标签",
+  "description": "描述",
+  "descriptionPlaceholder": "合集描述...",
+  "selectVideos": "选择视频",
+  "selectVideosTitle": "选择要加入合集的视频",
+  "thumbnail": "缩略图",
+  "thumbnailPlaceholder": "选择缩略图...",
+  "createCollection": "创建合集"
+}

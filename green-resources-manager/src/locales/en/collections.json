@@ -1,0 +1,21 @@
+{
+  "addCollection": "Add Collection",
+  "noCollections": "No collections",
+  "createFirst": "Click \"Add Collection\" above to create your first collection",
+  "noThumbnail": "No thumbnail",
+  "containsVideos": "Contains {count} videos",
+  "collectionName": "Collection Name",
+  "collectionNamePlaceholder": "e.g., Superhero Universe",
+  "seriesName": "Series Name",
+  "seriesNamePlaceholder": "Optional, e.g., Marvel",
+  "actors": "Actors",
+  "actorsPlaceholder": "Separate multiple actors with commas",
+  "tags": "Tags",
+  "description": "Description",
+  "descriptionPlaceholder": "Collection description...",
+  "selectVideos": "Select Videos",
+  "selectVideosTitle": "Select videos to add to collection",
+  "thumbnail": "Thumbnail",
+  "thumbnailPlaceholder": "Select thumbnail...",
+  "createCollection": "Create Collection"
+}

@@ -1,0 +1,54 @@
+{
+  "home": {
+    "name": "主页",
+    "description": "欢迎页面，快速访问各个功能模块"
+  },
+  "search": {
+    "name": "搜索",
+    "description": "在所有资源中搜索内容"
+  },
+  "debug": {
+    "name": "Debug",
+    "description": "用于各种调试和测试"
+  },
+  "database": {
+    "name": "本地存档",
+    "description": "展示存档的数据"
+  },
+  "scraper-library": {
+    "name": "本地刮削库",
+    "description": "本地刮削库（暂未开放）"
+  },
+  "workshop": {
+    "name": "创意工坊",
+    "description": "分享和发现社区创作内容"
+  },
+  "users": {
+    "name": "用户",
+    "description": "记录您的个人数据已经本软件的各种数据"
+  },
+  "messages": {
+    "name": "信息中心",
+    "description": "查看系统通知和操作历史"
+  },
+  "help": {
+    "name": "帮助",
+    "description": "了解应用功能和使用方法"
+  },
+  "changelog": {
+    "name": "更新记录",
+    "description": "版本更新与功能变更记录"
+  },
+  "sponsor": {
+    "name": "赞助产品",
+    "description": "支持项目持续开发"
+  },
+  "settings": {
+    "name": "设置",
+    "description": "管理应用设置和偏好"
+  },
+  "collections": {
+    "name": "合集",
+    "description": "管理你的合集"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "title": "🔍 Global Search",
+  "description": "Search across all resources",
+  "placeholder": "Enter keywords to search...",
+  "clearSearch": "Clear search",
+  "results": "Search Results",
+  "foundResults": "Found {count} results",
+  "noResults": "No matching results found",
+  "startSearch": "Enter keywords to start searching..."
+}

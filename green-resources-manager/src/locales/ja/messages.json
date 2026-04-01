@@ -1,0 +1,16 @@
+{
+  "saveSuccess": "保存に成功しました",
+  "saveFailed": "保存に失敗しました",
+  "deleteConfirm": "削除してもよろしいですか？",
+  "deleteSuccess": "削除に成功しました",
+  "deleteFailed": "削除に失敗しました",
+  "copySuccess": "コピーに成功しました",
+  "copyFailed": "コピーに失敗しました",
+  "updateSuccess": "更新に成功しました",
+  "updateFailed": "更新に失敗しました",
+  "loadFailed": "読み込みに失敗しました",
+  "operationSuccess": "操作に成功しました",
+  "operationFailed": "操作に失敗しました",
+  "autoSaveSuccess": "設定が自動保存されました",
+  "autoSaveFailed": "設定の自動保存に失敗しました"
+}

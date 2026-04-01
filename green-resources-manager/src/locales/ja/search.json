@@ -1,0 +1,10 @@
+{
+  "title": "🔍 全体検索",
+  "description": "すべてのリソースを検索",
+  "placeholder": "キーワードを入力して検索...",
+  "clearSearch": "検索をクリア",
+  "results": "検索結果",
+  "foundResults": "{count}件の結果が見つかりました",
+  "noResults": "一致する結果が見つかりません",
+  "startSearch": "キーワードを入力して検索を開始..."
+}

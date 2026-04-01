@@ -1,0 +1,10 @@
+{
+  "title": "帮助中心",
+  "searchPlaceholder": "搜索帮助内容...",
+  "categories": {
+    "gettingStarted": "入门指南",
+    "features": "功能介绍",
+    "faq": "常见问题",
+    "shortcuts": "快捷键"
+  }
+}

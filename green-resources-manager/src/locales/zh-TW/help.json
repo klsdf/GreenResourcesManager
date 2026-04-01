@@ -1,0 +1,10 @@
+{
+  "title": "說明中心",
+  "searchPlaceholder": "搜尋說明內容...",
+  "categories": {
+    "gettingStarted": "入門指南",
+    "features": "功能介紹",
+    "faq": "常見問題",
+    "shortcuts": "快速鍵"
+  }
+}

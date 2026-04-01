@@ -1,0 +1,21 @@
+{
+  "addCollection": "コレクションを追加",
+  "noCollections": "コレクションがありません",
+  "createFirst": "上の「コレクションを追加」をクリックして最初のコレクションを作成",
+  "noThumbnail": "サムネイルなし",
+  "containsVideos": "{count}件の動画を含む",
+  "collectionName": "コレクション名",
+  "collectionNamePlaceholder": "例：スーパーヒーローユニバース",
+  "seriesName": "シリーズ名",
+  "seriesNamePlaceholder": "オプション、例：マーベル",
+  "actors": "俳優",
+  "actorsPlaceholder": "複数の俳優をカンマで区切る",
+  "tags": "タグ",
+  "description": "説明",
+  "descriptionPlaceholder": "コレクションの説明...",
+  "selectVideos": "動画を選択",
+  "selectVideosTitle": "コレクションに追加する動画を選択",
+  "thumbnail": "サムネイル",
+  "thumbnailPlaceholder": "サムネイルを選択...",
+  "createCollection": "コレクションを作成"
+}

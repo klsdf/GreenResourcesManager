@@ -1,0 +1,54 @@
+{
+  "home": {
+    "name": "Home",
+    "description": "Welcome page, quick access to all modules"
+  },
+  "search": {
+    "name": "Search",
+    "description": "Search content in all resources"
+  },
+  "debug": {
+    "name": "Debug",
+    "description": "For debugging and testing"
+  },
+  "database": {
+    "name": "Local Save",
+    "description": "Show save data"
+  },
+  "scraper-library": {
+    "name": "Local Scraper Library",
+    "description": "Local scraper library (not yet available)"
+  },
+  "workshop": {
+    "name": "Workshop",
+    "description": "Share and discover community creations"
+  },
+  "users": {
+    "name": "Users",
+    "description": "Record your personal data and various software data"
+  },
+  "messages": {
+    "name": "Messages",
+    "description": "View system notifications and operation history"
+  },
+  "help": {
+    "name": "Help",
+    "description": "Learn about app features and usage"
+  },
+  "changelog": {
+    "name": "Changelog",
+    "description": "Version updates and feature changes"
+  },
+  "sponsor": {
+    "name": "Sponsor",
+    "description": "Support the project's continued development"
+  },
+  "settings": {
+    "name": "Settings",
+    "description": "Manage app settings and preferences"
+  },
+  "collections": {
+    "name": "Collections",
+    "description": "Manage your collections"
+  }
+}

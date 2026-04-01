@@ -1,0 +1,10 @@
+{
+  "title": "Help Center",
+  "searchPlaceholder": "Search help content...",
+  "categories": {
+    "gettingStarted": "Getting Started",
+    "features": "Features",
+    "faq": "FAQ",
+    "shortcuts": "Shortcuts"
+  }
+}

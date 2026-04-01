@@ -1,0 +1,16 @@
+{
+  "saveSuccess": "Saved successfully",
+  "saveFailed": "Save failed",
+  "deleteConfirm": "Are you sure you want to delete?",
+  "deleteSuccess": "Deleted successfully",
+  "deleteFailed": "Delete failed",
+  "copySuccess": "Copied successfully",
+  "copyFailed": "Copy failed",
+  "updateSuccess": "Updated successfully",
+  "updateFailed": "Update failed",
+  "loadFailed": "Load failed",
+  "operationSuccess": "Operation successful",
+  "operationFailed": "Operation failed",
+  "autoSaveSuccess": "Settings auto-saved",
+  "autoSaveFailed": "Settings auto-save failed"
+}

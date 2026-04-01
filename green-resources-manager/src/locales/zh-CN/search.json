@@ -1,0 +1,10 @@
+{
+  "title": "🔍 全局搜索",
+  "description": "在所有资源中搜索内容",
+  "placeholder": "输入关键词搜索...",
+  "clearSearch": "清空搜索",
+  "results": "搜索结果",
+  "foundResults": "找到 {count} 个结果",
+  "noResults": "未找到匹配的结果",
+  "startSearch": "输入关键词开始搜索..."
+}

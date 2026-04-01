@@ -1,0 +1,54 @@
+{
+  "home": {
+    "name": "首頁",
+    "description": "歡迎頁面，快速存取各個功能模組"
+  },
+  "search": {
+    "name": "搜尋",
+    "description": "在所有資源中搜尋內容"
+  },
+  "debug": {
+    "name": "Debug",
+    "description": "用於各種除錯和測試"
+  },
+  "database": {
+    "name": "本地存檔",
+    "description": "展示存檔的資料"
+  },
+  "scraper-library": {
+    "name": "本地刮削庫",
+    "description": "本地刮削庫（暫未開放）"
+  },
+  "workshop": {
+    "name": "創意工坊",
+    "description": "分享和發現社區創作內容"
+  },
+  "users": {
+    "name": "用戶",
+    "description": "記錄您的個人資料已經本軟體的各種資料"
+  },
+  "messages": {
+    "name": "資訊中心",
+    "description": "檢視系統通知和操作歷史"
+  },
+  "help": {
+    "name": "說明",
+    "description": "了解應用功能和使用方法"
+  },
+  "changelog": {
+    "name": "更新記錄",
+    "description": "版本更新與功能變更記錄"
+  },
+  "sponsor": {
+    "name": "贊助產品",
+    "description": "支持專案持續開發"
+  },
+  "settings": {
+    "name": "設定",
+    "description": "管理應用設定和偏好"
+  },
+  "collections": {
+    "name": "合集",
+    "description": "管理你的合集"
+  }
+}

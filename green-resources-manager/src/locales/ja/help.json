@@ -1,0 +1,10 @@
+{
+  "title": "ヘルプセンター",
+  "searchPlaceholder": "ヘルプコンテンツを検索...",
+  "categories": {
+    "gettingStarted": "はじめに",
+    "features": "機能",
+    "faq": "よくある質問",
+    "shortcuts": "ショートカット"
+  }
+}
