@@ -150,6 +150,31 @@ class PageConfigManager {
       custom: this.pages.filter(p => !p.isDefault).length
     };
   }
+
+  /**
+   * 保存页面顺序和可见性
+   * @param pages 按新顺序排列的页面配置数组
+   */
+  async savePageOrder(pages: PageConfig[]): Promise<boolean> {
+    try {
+      const pageIds = pages.map(p => p.id);
+      const hiddenPageIds = pages.filter(p => p.isHidden).map(p => p.id);
+      
+      const success = await pageConfigLoader.savePageOrder(pageIds, hiddenPageIds);
+      
+      if (success) {
+        // 重新加载配置
+        this.initialized = false;
+        this.pages = [];
+        await this.init();
+      }
+      
+      return success;
+    } catch (error) {
+      console.error('[PageConfigManager] Failed to save page order:', error);
+      return false;
+    }
+  }
 }
 
 // 导出单例实例

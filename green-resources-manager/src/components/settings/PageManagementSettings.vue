@@ -189,12 +189,16 @@ export default defineComponent({
     const persistOrder = async (newPages: PageConfig[]) => {
       pages.value = newPages
       try {
-        // 这里需要调用新的 API 来保存排序
-        // await customPageManager.reorderPages(newPages.map(p => p.id))
-        emit('pages-updated')
+        // 调用新的 API 来保存排序和可见性
+        const success = await pageConfigManager.savePageOrder(newPages)
+        if (success) {
+          emit('pages-updated')
+        } else {
+          throw new Error('保存失败')
+        }
       } catch (error) {
         console.error('排序失败:', error)
-        loadPages()
+        await loadPages()
       }
     }
 
@@ -216,10 +220,11 @@ export default defineComponent({
 
     const toggleVisibility = async (page: PageConfig) => {
       try {
-        // 这里需要调用新的 API 来切换可见性
-        // await customPageManager.updatePage(page.id, { isHidden: !page.isHidden })
-        await loadPages()
-        emit('pages-updated')
+        // 切换可见性
+        const newPages = pages.value.map(p => 
+          p.id === page.id ? { ...p, isHidden: !p.isHidden } : p
+        )
+        await persistOrder(newPages)
       } catch (error) {
         console.error('更新状态失败:', error)
       }

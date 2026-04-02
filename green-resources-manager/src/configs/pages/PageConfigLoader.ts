@@ -77,7 +77,7 @@ interface PageOrderConfig {
 }
 
 // 动态读取所有JSON配置文件
-const loadAllPageConfigs = async (): Promise<PageConfigMeta[]> => {
+const loadAllPageConfigs = async (): Promise<{ metaConfigs: PageConfigMeta[], fileNameMap: Map<string, string> }> => {
   try {
     // 读取页面顺序配置
     const pageOrderResult = await electronAPI.readJsonFile('configs/pages/pageOrder.json')
@@ -88,6 +88,7 @@ const loadAllPageConfigs = async (): Promise<PageConfigMeta[]> => {
     
     // 读取所有页面配置文件
     const pageConfigs: PageConfigMeta[] = []
+    const fileNameMap = new Map<string, string>()
     
     for (const orderConfig of pageOrder) {
       const configResult = await electronAPI.readJsonFile(`configs/pages/${orderConfig.fileName}`)
@@ -98,15 +99,25 @@ const loadAllPageConfigs = async (): Promise<PageConfigMeta[]> => {
       pageConfigs.push({
         config,
         order: orderConfig.order,
-        isDefault: orderConfig.isDefault
+        isDefault: orderConfig.isDefault,
+        isHidden: (orderConfig as any).isHidden
       })
+      fileNameMap.set(config.id, orderConfig.fileName)
     }
     
-    return pageConfigs
+    return { metaConfigs: pageConfigs, fileNameMap }
   } catch (error) {
     console.error('Failed to load page configs:', error)
-    return []
+    return { metaConfigs: [], fileNameMap: new Map() }
   }
+}
+
+// 定义保存页面顺序时的类型
+interface SavePageOrderItem {
+  fileName: string
+  order: number
+  isDefault: boolean
+  isHidden?: boolean
 }
 
 export class PageConfigLoader {
@@ -114,6 +125,8 @@ export class PageConfigLoader {
 	private configs: Map<string, PageConfig> = new Map()
 	private metaConfigs: PageConfigMeta[] = []
 	private readyPromise: Promise<void> | null = null
+	// 存储文件名和配置ID的映射关系
+	private fileNameToIdMap: Map<string, string> = new Map()
 
 	private constructor() {
 		this.readyPromise = this.loadConfigs()
@@ -127,10 +140,52 @@ export class PageConfigLoader {
 	}
 
 	private async loadConfigs(): Promise<void> {
-		this.metaConfigs = await loadAllPageConfigs()
+		const { metaConfigs, fileNameMap } = await loadAllPageConfigs()
+		this.metaConfigs = metaConfigs
+		this.fileNameToIdMap = fileNameMap
 		this.metaConfigs.forEach(meta => {
 			this.configs.set(meta.config.id, meta.config)
 		})
+	}
+
+	/**
+	 * 保存页面顺序和可见性
+	 * @param pageIds 按新顺序排列的页面ID数组
+	 * @param hiddenPageIds 隐藏页面的ID数组
+	 */
+	public async savePageOrder(pageIds: string[], hiddenPageIds: string[] = []): Promise<boolean> {
+		try {
+			// 创建新的页面顺序配置
+			const newPageOrder: SavePageOrderItem[] = pageIds.map((pageId, index) => {
+				const fileName = this.fileNameToIdMap.get(pageId)
+				if (!fileName) {
+					throw new Error(`Could not find file name for page ID: ${pageId}`)
+				}
+				const metaConfig = this.metaConfigs.find(m => m.config.id === pageId)
+				return {
+					fileName,
+					order: index + 1,
+					isDefault: metaConfig?.isDefault !== false,
+					isHidden: hiddenPageIds.includes(pageId)
+				}
+			})
+
+			// 写入pageOrder.json文件
+			const result = await electronAPI.writeJsonFile('configs/pages/pageOrder.json', newPageOrder)
+			if (!result.success) {
+				throw new Error(`Failed to save page order: ${result.error}`)
+			}
+
+			// 重新加载配置
+			this.readyPromise = this.loadConfigs()
+			await this.readyPromise
+
+			console.log('[PageConfigLoader] Page order saved successfully')
+			return true
+		} catch (error) {
+			console.error('[PageConfigLoader] Failed to save page order:', error)
+			return false
+		}
 	}
 
 	public getPageConfig(id: string): PageConfig | undefined {
