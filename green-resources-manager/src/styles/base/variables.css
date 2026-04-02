@@ -77,8 +77,8 @@
   --bg-primary: #1b2838;
   --bg-secondary: #2a475e;
   --bg-tertiary: #3c4b5c;
-  --text-primary: #c7d5e0;
-  --text-secondary: #8f98a0;
+  --text-primary: #c9d0d6;
+  --text-secondary: #9daebe;
   --text-tertiary: #6b7280;
   --border-color: #4a5568;
   --shadow-light: rgba(0, 0, 0, 0.3);
@@ -148,5 +148,22 @@
   --shadow-medium: rgba(25, 118, 210, 0.25);
   --accent-color: #2196f3;
   --accent-hover: #1976d2;
+}
+
+/* 仓鼠娘主题 (深黄色/黄油配色) */
+[data-theme="light"] {
+  --bg-primary: #fffcf7;
+  --bg-secondary: #FFFFFF;
+  --bg-tertiary: #FFEFC4;
+  --text-primary: #2e140c;
+  --text-secondary: #8D6E63;
+  --text-tertiary: #A1887F;
+  --border-color: #FFCC80;
+  --shadow-light: rgba(93, 64, 55, 0.1);
+  --shadow-medium: rgba(93, 64, 55, 0.15);
+  --shadow-dark: rgba(93, 64, 55, 0.2);
+  --accent-color: #F2AB39;
+  --accent-hover: #D4912B;
+  --accent-color-20: rgba(242, 171, 57, 0.2);
 }
 

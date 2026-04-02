@@ -74,45 +74,12 @@
       </div>
     </div>
 
-    <!-- 编辑页面对话框 -->
-    <div v-if="showDialog" class="modal-overlay" @click.self="closeDialog">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>编辑页面</h3>
-          <button class="close-btn" @click="closeDialog">×</button>
-        </div>
-        <div class="modal-body">
-          <FormField
-            label="页面名称"
-            type="text"
-            v-model="editingPage.name"
-            placeholder="例如：我的收藏"
-          />
-          <FormField
-            label="图标"
-            type="text"
-            v-model="editingPage.icon"
-            placeholder="输入 emoji"
-          />
-          <FormField
-            label="页面描述"
-            type="text"
-            v-model="editingPage.description"
-            placeholder="例如：管理我喜欢的资源"
-          />
-          <FormField
-            label="默认每页显示数量"
-            type="number"
-            v-model.number="editingPage.defaultPageSize"
-            placeholder="例如：12"
-          />
-        </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" @click="closeDialog">取消</button>
-          <button class="btn-primary" @click="savePage">保存</button>
-        </div>
-      </div>
-    </div>
+    <PageConfigEditor
+      :visible="showEditor"
+      :page-id="editingPageId"
+      @close="handleEditorClose"
+      @save="handleEditorSave"
+    />
   </div>
 </template>
 
@@ -121,8 +88,7 @@ import { computed, defineComponent, onMounted, ref } from 'vue'
 import pageConfigManager from '../../utils/PageConfigManager'
 import alertService from '../../utils/AlertService.ts'
 import { PageConfig } from '../../types/page'
-import FormField from '../FormField.vue'
-import { pageConfigLoader } from '../../configs/pages/PageConfigLoader'
+import PageConfigEditor from '../PageConfigEditor.vue'
 
 const TYPE_NAME_MAP: Record<string, string> = {
   Game: '游戏',
@@ -137,16 +103,9 @@ const TYPE_NAME_MAP: Record<string, string> = {
   Other: '其它'
 }
 
-interface EditingPage {
-  name: string
-  icon: string
-  description: string
-  defaultPageSize: number
-}
-
 export default defineComponent({
   name: 'PageManagementSettings',
-  components: { FormField },
+  components: { PageConfigEditor },
   emits: ['pages-updated'],
   setup(_, { emit }) {
     const pages = ref<PageConfig[]>([])
@@ -154,14 +113,8 @@ export default defineComponent({
     const draggedIndex = ref<number | null>(null)
     const dragTargetIndex = ref<number | null>(null)
     const draggingId = ref<string | null>(null)
-    const showDialog = ref(false)
+    const showEditor = ref(false)
     const editingPageId = ref<string>('')
-    const editingPage = ref<EditingPage>({
-      name: '',
-      icon: '',
-      description: '',
-      defaultPageSize: 12
-    })
 
     const loadPages = async () => {
       pages.value = await pageConfigManager.getPages()
@@ -187,7 +140,6 @@ export default defineComponent({
     const persistOrder = async (newPages: PageConfig[]) => {
       pages.value = newPages
       try {
-        // 调用新的 API 来保存排序和可见性
         const success = await pageConfigManager.savePageOrder(newPages)
         if (success) {
           emit('pages-updated')
@@ -218,7 +170,6 @@ export default defineComponent({
 
     const toggleVisibility = async (page: PageConfig) => {
       try {
-        // 切换可见性
         const newPages = pages.value.map(p => 
           p.id === page.id ? { ...p, isHidden: !p.isHidden } : p
         )
@@ -231,7 +182,6 @@ export default defineComponent({
     const openConfigDirectory = async () => {
       try {
         if (window.electronAPI?.openFolder) {
-          // 打开配置目录
           await window.electronAPI.openFolder('configs/pages')
         } else {
           await alertService.warning('无法打开配置目录，请手动导航到 configs/pages 文件夹', '提示')
@@ -242,96 +192,20 @@ export default defineComponent({
       }
     }
 
-    const closeDialog = () => {
-      showDialog.value = false
+    const editPage = (page: PageConfig) => {
+      editingPageId.value = page.id
+      showEditor.value = true
+    }
+
+    const handleEditorClose = () => {
+      showEditor.value = false
       editingPageId.value = ''
     }
 
-    const editPage = async (page: PageConfig) => {
-      try {
-        editingPageId.value = page.id
-        
-        // 获取配置文件的文件名
-        const fileName = pageConfigLoader.getFileNameByPageId(page.id)
-        if (!fileName) {
-          await alertService.error('找不到配置文件名', '错误')
-          return
-        }
-
-        const configResult = await window.electronAPI?.readJsonFile(`configs/pages/${fileName}`)
-        if (configResult?.success && configResult.data) {
-          const config = configResult.data
-          editingPage.value = {
-            name: config.name || page.name,
-            icon: config.icon || page.icon,
-            description: config.description || page.description || '',
-            defaultPageSize: config.defaultPageSize || 12
-          }
-        } else {
-          // 如果读取失败，使用页面配置中的数据
-          editingPage.value = {
-            name: page.name,
-            icon: page.icon,
-            description: page.description || '',
-            defaultPageSize: 12
-          }
-        }
-        
-        showDialog.value = true
-      } catch (error) {
-        console.error('打开编辑对话框失败:', error)
-        await alertService.error('打开编辑对话框失败', '错误')
-      }
-    }
-
-    const savePage = async () => {
-      try {
-        // 获取配置文件的文件名
-        const fileName = pageConfigLoader.getFileNameByPageId(editingPageId.value)
-        if (!fileName) {
-          await alertService.error('找不到配置文件名', '错误')
-          return
-        }
-
-        // 读取原有的配置
-        const readResult = await window.electronAPI?.readJsonFile(`configs/pages/${fileName}`)
-        if (!readResult?.success || !readResult.data) {
-          await alertService.error('读取配置失败', '错误')
-          return
-        }
-
-        // 更新配置
-        const updatedConfig = {
-          ...readResult.data,
-          name: editingPage.value.name,
-          icon: editingPage.value.icon,
-          description: editingPage.value.description,
-          defaultPageSize: editingPage.value.defaultPageSize
-        }
-
-        // 保存配置
-        const writeResult = await window.electronAPI?.writeJsonFile(`configs/pages/${fileName}`, updatedConfig)
-        if (!writeResult?.success) {
-          await alertService.error('保存配置失败', '错误')
-          return
-        }
-
-        // 重新加载配置
-        (pageConfigLoader as any).readyPromise = (pageConfigLoader as any).loadConfigs()
-        await (pageConfigLoader as any).readyPromise
-        await pageConfigManager.reloadAsync()
-        
-        // 刷新页面列表
-        await loadPages()
-        emit('pages-updated')
-        
-        // 关闭对话框
-        closeDialog()
-        await alertService.success('保存成功', '提示')
-      } catch (error) {
-        console.error('保存配置失败:', error)
-        await alertService.error('保存配置失败', '错误')
-      }
+    const handleEditorSave = async () => {
+      await pageConfigManager.reloadAsync()
+      await loadPages()
+      emit('pages-updated')
     }
 
     const resetDragState = () => {
@@ -389,11 +263,11 @@ export default defineComponent({
       isDragging,
       toggleVisibility,
       openConfigDirectory,
-      showDialog,
-      editingPage,
+      showEditor,
+      editingPageId,
       editPage,
-      savePage,
-      closeDialog
+      handleEditorClose,
+      handleEditorSave
     }
   }
 })

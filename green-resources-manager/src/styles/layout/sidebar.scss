@@ -39,6 +39,11 @@
   box-shadow: 2px 0 10px var(--shadow-medium);
 }
 
+[data-theme="light"] .sidebar {
+  background: linear-gradient(135deg, #d7901e 0%, #E4B660 100%);
+  box-shadow: 2px 0 10px var(--shadow-medium);
+}
+
 .sidebar-header {
   padding: 20px 15px 15px 15px;
   text-align: center;
