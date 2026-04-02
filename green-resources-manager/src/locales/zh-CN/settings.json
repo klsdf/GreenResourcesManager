@@ -40,11 +40,12 @@
     "title": "主题模式",
     "description": "选择应用的主题外观",
     "light": "仓鼠娘",
-    "dark": "暗色模式",
-    "ukiyoe": "浮世绘主题",
+    "dark": "暗色",
+    "ukiyoe": "浮世绘",
     "chinese": "中国古风",
-    "forest": "森林主题",
-    "ocean": "海洋主题",
+    "forest": "护眼森林",
+    "ocean": "蓝色海洋",
+    "cream": "奶油冰淇淋",
     "auto": "跟随系统"
   },
   "autoStart": {

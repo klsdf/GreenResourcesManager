@@ -221,6 +221,7 @@ export default {
         { value: 'chinese', label: this.t('settings.theme.chinese') },
         { value: 'forest', label: this.t('settings.theme.forest') },
         { value: 'ocean', label: this.t('settings.theme.ocean') },
+        { value: 'cream', label: this.t('settings.theme.cream') },
         { value: 'auto', label: this.t('settings.theme.auto') }
       ]
     },

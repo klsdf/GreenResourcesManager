@@ -5,7 +5,7 @@
 import { ref, watch } from 'vue'
 import saveManager from '../utils/SaveManager'
 
-export type Theme = 'light' | 'dark' | 'auto'
+export type Theme = 'light' | 'dark' | 'ukiyoe' | 'chinese' | 'forest' | 'ocean' | 'cream' | 'auto'
 
 export function useTheme() {
   const theme = ref<Theme>('auto')
@@ -13,12 +13,12 @@ export function useTheme() {
   /**
    * 获取实际应用的主题（如果是 auto，则根据系统偏好返回 light 或 dark）
    */
-  function getActualTheme(): 'light' | 'dark' {
+  function getActualTheme(): Exclude<Theme, 'auto'> {
     if (theme.value === 'auto') {
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
       return prefersDark ? 'dark' : 'light'
     }
-    return theme.value
+    return theme.value as Exclude<Theme, 'auto'>
   }
 
   /**

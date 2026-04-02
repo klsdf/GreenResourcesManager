@@ -167,3 +167,20 @@
   --accent-color-20: rgba(242, 171, 57, 0.2);
 }
 
+/* 奶油冰淇淋主题 */
+[data-theme="cream"] {
+  --bg-primary: #F7F6F5;
+  --bg-secondary: #FFFFFF;
+  --bg-tertiary: #F0DFEA;
+  --text-primary: #5D5063;
+  --text-secondary: #8B7D94;
+  --text-tertiary: #A495AE;
+  --border-color: #DDD1E9;
+  --shadow-light: rgba(164, 181, 213, 0.15);
+  --shadow-medium: rgba(164, 181, 213, 0.25);
+  --shadow-dark: rgba(164, 181, 213, 0.35);
+  --accent-color: #EABCDD;
+  --accent-hover: #D8A9CC;
+  --accent-color-20: rgba(234, 188, 221, 0.2);
+}
+

@@ -44,6 +44,11 @@
   box-shadow: 2px 0 10px var(--shadow-medium);
 }
 
+[data-theme="cream"] .sidebar {
+  background: linear-gradient(135deg, #EABCDD 0%, #A4B5D5 100%);
+  box-shadow: 2px 0 10px var(--shadow-medium);
+}
+
 .sidebar-header {
   padding: 20px 15px 15px 15px;
   text-align: center;
