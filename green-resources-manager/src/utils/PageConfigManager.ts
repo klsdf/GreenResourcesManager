@@ -119,6 +119,16 @@ class PageConfigManager {
   }
 
   /**
+   * 异步重新加载配置并等待完成
+   */
+  async reloadAsync(): Promise<void> {
+    this.initialized = false;
+    this.pages = [];
+    await this.init();
+    console.log('[PageConfigManager] 配置已重新加载');
+  }
+
+  /**
    * 检查页面是否存在
    */
   hasPage(id: string): boolean {

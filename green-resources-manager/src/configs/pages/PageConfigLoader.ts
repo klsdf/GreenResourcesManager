@@ -77,7 +77,7 @@ interface PageOrderConfig {
 }
 
 // 动态读取所有JSON配置文件
-const loadAllPageConfigs = async (): Promise<{ metaConfigs: PageConfigMeta[], fileNameMap: Map<string, string> }> => {
+const loadAllPageConfigs = async (): Promise<{ metaConfigs: PageConfigMeta[], idToFileNameMap: Map<string, string>, fileNameToIdMap: Map<string, string> }> => {
   try {
     // 读取页面顺序配置
     const pageOrderResult = await electronAPI.readJsonFile('configs/pages/pageOrder.json')
@@ -88,7 +88,8 @@ const loadAllPageConfigs = async (): Promise<{ metaConfigs: PageConfigMeta[], fi
     
     // 读取所有页面配置文件
     const pageConfigs: PageConfigMeta[] = []
-    const fileNameMap = new Map<string, string>()
+    const idToFileNameMap = new Map<string, string>()
+    const fileNameToIdMap = new Map<string, string>()
     
     for (const orderConfig of pageOrder) {
       const configResult = await electronAPI.readJsonFile(`configs/pages/${orderConfig.fileName}`)
@@ -102,13 +103,14 @@ const loadAllPageConfigs = async (): Promise<{ metaConfigs: PageConfigMeta[], fi
         isDefault: orderConfig.isDefault,
         isHidden: (orderConfig as any).isHidden
       })
-      fileNameMap.set(config.id, orderConfig.fileName)
+      idToFileNameMap.set(config.id, orderConfig.fileName)
+      fileNameToIdMap.set(orderConfig.fileName, config.id)
     }
     
-    return { metaConfigs: pageConfigs, fileNameMap }
+    return { metaConfigs: pageConfigs, idToFileNameMap, fileNameToIdMap }
   } catch (error) {
     console.error('Failed to load page configs:', error)
-    return { metaConfigs: [], fileNameMap: new Map() }
+    return { metaConfigs: [], idToFileNameMap: new Map(), fileNameToIdMap: new Map() }
   }
 }
 
@@ -127,6 +129,8 @@ export class PageConfigLoader {
 	private readyPromise: Promise<void> | null = null
 	// 存储文件名和配置ID的映射关系
 	private fileNameToIdMap: Map<string, string> = new Map()
+	// 反向映射：配置ID到文件名
+	private idToFileNameMap: Map<string, string> = new Map()
 
 	private constructor() {
 		this.readyPromise = this.loadConfigs()
@@ -140,12 +144,22 @@ export class PageConfigLoader {
 	}
 
 	private async loadConfigs(): Promise<void> {
-		const { metaConfigs, fileNameMap } = await loadAllPageConfigs()
+		const { metaConfigs, idToFileNameMap, fileNameToIdMap } = await loadAllPageConfigs()
 		this.metaConfigs = metaConfigs
-		this.fileNameToIdMap = fileNameMap
+		this.idToFileNameMap = idToFileNameMap
+		this.fileNameToIdMap = fileNameToIdMap
 		this.metaConfigs.forEach(meta => {
 			this.configs.set(meta.config.id, meta.config)
 		})
+	}
+
+	/**
+	 * 根据页面ID获取配置文件的文件名
+	 * @param pageId 页面ID
+	 * @returns 配置文件名，如果未找到则返回null
+	 */
+	public getFileNameByPageId(pageId: string): string | null {
+		return this.idToFileNameMap.get(pageId) || null
 	}
 
 	/**
