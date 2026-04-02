@@ -171,7 +171,7 @@ export class PageConfigLoader {
 		try {
 			// 创建新的页面顺序配置
 			const newPageOrder: SavePageOrderItem[] = pageIds.map((pageId, index) => {
-				const fileName = this.fileNameToIdMap.get(pageId)
+				const fileName = this.idToFileNameMap.get(pageId)
 				if (!fileName) {
 					throw new Error(`Could not find file name for page ID: ${pageId}`)
 				}
