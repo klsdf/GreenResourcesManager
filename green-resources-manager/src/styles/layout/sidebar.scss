@@ -1,8 +1,8 @@
 // 侧边栏样式
 .sidebar {
   min-width: 280px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: linear-gradient(135deg, var(--sidebar-bg-start) 0%, var(--sidebar-bg-end) 100%);
+  color: var(--sidebar-text);
   display: flex;
   flex-direction: column;
   box-shadow: 2px 0 10px var(--shadow-light);
@@ -11,42 +11,6 @@
   height: calc(100vh - 40px); /* 减去标签栏高度 */
   overflow-y: auto;
   transition: box-shadow var(--transition-slow) ease;
-}
-
-// 主题变体
-[data-theme="dark"] .sidebar {
-  background: linear-gradient(135deg, #1b2838 0%, #2a475e 100%);
-  box-shadow: 2px 0 10px var(--shadow-medium);
-}
-
-[data-theme="ukiyoe"] .sidebar {
-  background: linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%);
-  box-shadow: 2px 0 10px var(--shadow-medium);
-}
-
-[data-theme="chinese"] .sidebar {
-  background: linear-gradient(135deg, #C6493A 0%, #8C3B2A 100%);
-  box-shadow: 2px 0 10px var(--shadow-medium);
-}
-
-[data-theme="forest"] .sidebar {
-  background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%);
-  box-shadow: 2px 0 10px var(--shadow-medium);
-}
-
-[data-theme="ocean"] .sidebar {
-  background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
-  box-shadow: 2px 0 10px var(--shadow-medium);
-}
-
-[data-theme="light"] .sidebar {
-  background: linear-gradient(135deg, #d7901e 0%, #E4B660 100%);
-  box-shadow: 2px 0 10px var(--shadow-medium);
-}
-
-[data-theme="cream"] .sidebar {
-  background: linear-gradient(135deg, #EABCDD 0%, #A4B5D5 100%);
-  box-shadow: 2px 0 10px var(--shadow-medium);
 }
 
 .sidebar-header {

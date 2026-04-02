@@ -9,6 +9,11 @@
   --text-tertiary: #718096;
   --border-color: #e2e8f0;
   
+  /* 侧边栏 */
+  --sidebar-bg-start: #667eea;
+  --sidebar-bg-end: #764ba2;
+  --sidebar-text: white;
+  
   /* 阴影系统 */
   --shadow-light: rgba(0, 0, 0, 0.1);
   --shadow-medium: rgba(0, 0, 0, 0.15);
@@ -81,6 +86,9 @@
   --text-secondary: #9daebe;
   --text-tertiary: #6b7280;
   --border-color: #4a5568;
+  --sidebar-bg-start: #1b2838;
+  --sidebar-bg-end: #2a475e;
+  --sidebar-text: white;
   --shadow-light: rgba(0, 0, 0, 0.3);
   --shadow-medium: rgba(0, 0, 0, 0.4);
   --accent-color: #66c0f4;
@@ -102,6 +110,9 @@
   --text-secondary: #5d4037;
   --text-tertiary: #8d6e63;
   --border-color: #d7ccc8;
+  --sidebar-bg-start: #d32f2f;
+  --sidebar-bg-end: #b71c1c;
+  --sidebar-text: white;
   --shadow-light: rgba(139, 110, 99, 0.15);
   --shadow-medium: rgba(139, 110, 99, 0.25);
   --accent-color: #d32f2f;
@@ -116,6 +127,9 @@
   --text-secondary: #6C7A7C;
   --text-tertiary: #B8745F;
   --border-color: #CBB7A2;
+  --sidebar-bg-start: #C6493A;
+  --sidebar-bg-end: #8C3B2A;
+  --sidebar-text: white;
   --shadow-light: rgba(198, 73, 58, 0.15);
   --shadow-medium: rgba(198, 73, 58, 0.25);
   --accent-color: #C6493A;
@@ -130,6 +144,9 @@
   --text-secondary: #2e7d32;
   --text-tertiary: #4caf50;
   --border-color: #c8e6c9;
+  --sidebar-bg-start: #4caf50;
+  --sidebar-bg-end: #388e3c;
+  --sidebar-text: white;
   --shadow-light: rgba(76, 175, 80, 0.15);
   --shadow-medium: rgba(76, 175, 80, 0.25);
   --accent-color: #4caf50;
@@ -144,6 +161,9 @@
   --text-secondary: #1565c0;
   --text-tertiary: #1976d2;
   --border-color: #90caf9;
+  --sidebar-bg-start: #2196f3;
+  --sidebar-bg-end: #1976d2;
+  --sidebar-text: white;
   --shadow-light: rgba(25, 118, 210, 0.15);
   --shadow-medium: rgba(25, 118, 210, 0.25);
   --accent-color: #2196f3;
@@ -159,6 +179,9 @@
   --text-secondary: #8D6E63;
   --text-tertiary: #A1887F;
   --border-color: #FFCC80;
+  --sidebar-bg-start: #d7901e;
+  --sidebar-bg-end: #E4B660;
+  --sidebar-text: white;
   --shadow-light: rgba(93, 64, 55, 0.1);
   --shadow-medium: rgba(93, 64, 55, 0.15);
   --shadow-dark: rgba(93, 64, 55, 0.2);
@@ -176,6 +199,9 @@
   --text-secondary: #8B7D94;
   --text-tertiary: #A495AE;
   --border-color: #DDD1E9;
+  --sidebar-bg-start: #EABCDD;
+  --sidebar-bg-end: #A4B5D5;
+  --sidebar-text: white;
   --shadow-light: rgba(164, 181, 213, 0.15);
   --shadow-medium: rgba(164, 181, 213, 0.25);
   --shadow-dark: rgba(164, 181, 213, 0.35);
