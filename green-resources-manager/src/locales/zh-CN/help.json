@@ -6,5 +6,198 @@
     "features": "功能介绍",
     "faq": "常见问题",
     "shortcuts": "快捷键"
+  },
+  "sidebar": {
+    "title": "📚 帮助中心",
+    "expandMenu": "展开菜单",
+    "collapseMenu": "收起菜单",
+    "userManual": "用户手册",
+    "apiManual": "API 手册",
+    "intro": "简介",
+    "general": "通用管理",
+    "game": "游戏管理",
+    "image": "图片管理",
+    "video": "视频管理",
+    "novel": "小说管理",
+    "website": "网站收藏",
+    "audio": "音频管理",
+    "faq": "常见问题",
+    "apiGames": "游戏",
+    "apiManga": "漫画",
+    "apiVideos": "视频",
+    "apiNovels": "小说",
+    "apiWebsites": "网站",
+    "apiAudio": "音频",
+    "workshop": "创意工坊手册",
+    "support": "客服&问题反馈",
+    "about": "关于我们"
+  },
+  "intro": {
+    "title": "🏠 关于GreenResourcesManager<br/>（绿色资源管理器）",
+    "subtitle": "您的个人多媒体资源管理器",
+    "projectIntro": {
+      "title": "🎯 项目简介",
+      "description": "GreenResourcesManager（绿色资源管理器）是一个专为仓鼠症用户设计的绿色多媒体资源管理器。它非常善于帮助您管理大量且类型丰富复杂的媒体文件，包括游戏、图片、视频、小说、网站和音频文件。您不用再依赖于windows本地的原生管理方式，而是可以享受更加自由和便捷的管理体验。"
+    },
+    "developmentBackground": {
+      "title": "📖 开发背景",
+      "description": "Green Resources Manager 是一款专为\"仓鼠症\"用户设计的全能多媒体资源管理器。随着存储成本的降低，个人拥有大容量存储已成为可能，但管理海量资源的难度也随之增加。当资源超过 10TB 后，无论是按种类还是按常用程度分类，都难以满足需求。",
+      "emergence": "Green Resources Manager 应运而生，提供统一界面管理游戏、漫画、视频、音频、小说、网站等各类多媒体资源，让资源管理变得优雅而高效。"
+    },
+    "targetUsers": {
+      "title": "🎯 目标用户",
+      "users": [
+        "拥有强烈仓鼠症的用户",
+        "希望以更优雅方式管理软件和媒体的用户"
+      ]
+    },
+    "coreFeatures": {
+      "title": "✨ 核心特性",
+      "features": [
+        "<strong>完全本地、绝对隐私：</strong>所有数据保存在本地，绝不联网（至少现在是这样）。",
+        "<strong>类Steam的应用管理：</strong>可以为所有EXE文件提供时长记录、截图功能。",
+        "<strong>信息记录狂魔：</strong>自动记录各种数据，包括游戏时长、游戏运行次数、第一次运行时间、上一次运行时间等。并且会自动整理日报、周报，为您提供全方位的信息记录。",
+        "<strong>tag索引系统：</strong>管理器会自动收集所有资源的tag，并显示到不同资源的左侧导航栏，可以通过点击TAG的方式超快速索引所需的资源，再也不用纠结把资源放到哪个文件夹了",
+        "<strong>多种资源支持：</strong>不同于steam单一的游戏管理逻辑，本管理器不仅可以管理应用还支持漫画、视频、音频、小说、网站等多种资源的管理。"
+      ]
+    },
+    "techStack": {
+      "title": "🛠️ 技术栈"
+    },
+    "license": {
+      "title": "📜 开源协议",
+      "description": "本项目采用 <strong>PolyForm Noncommercial License 1.0.0</strong> 开源协议。",
+      "terms": [
+        "<strong>非商业使用：</strong>您可以自由使用、修改、分发本软件，但仅限于非商业用途",
+        "<strong>商业使用：</strong>如需用于商业目的，需要获得单独的商业许可证",
+        "<strong>个人使用：</strong>个人非商业用途完全免费，无需授权",
+        "<strong>研究和教育：</strong>用于研究、评估或教育目的的使用是被允许的",
+        "<strong>修改和分发：</strong>您可以修改源代码并分发，但必须保留原始版权声明和许可证"
+      ],
+      "fullLicense": "完整协议内容请查看项目根目录的 LICENSE 文件，或访问",
+      "licenseLinkText": "PolyForm Noncommercial License 1.0.0"
+    },
+    "projectLinks": {
+      "title": "📂 项目地址",
+      "starPrompt": "我要star！我要star！star、star要要要~",
+      "githubRepo": "GitHub 仓库",
+      "downloadLatest": "下载最新版本"
+    },
+    "contact": {
+      "title": "📧 联系方式兼客服中心（BuShi",
+      "github": {
+        "title": "GitHub",
+        "description": "可以去issues板块反馈技术问题"
+      },
+      "qq": {
+        "title": "QQ",
+        "description": "吹水用，以及有什么建议可以在这里反馈",
+        "joinLinkText": "点击链接加入群聊【GreenResourcesManager客服群】：https://qm.qq.com/q/qD9za7lqOQ"
+      }
+    }
+  },
+  "faq": {
+    "title": "❓ 常见问题",
+    "subtitle": "这里本来没有问题，问的人多了就有了问题",
+    "mysteryQuestions": "神秘问题",
+    "questions": [
+      {
+        "question": "Q: 在管理器内删除资源后，本地的资源会删除吗？",
+        "answer": "A: 永远不会！管理器只会删除资源在管理器内的引用，不会删除本地的资源。"
+      },
+      {
+        "question": "Q: 为什么开启隐藏模式后，所有的封面图都看不见了？",
+        "answer": "A: 开启隐藏模式后，系统会自动读取根目录的disguise文件夹，但是这个文件夹默认的空的。所以请自行把伪装的图片放进去"
+      }
+    ]
+  },
+  "general": {
+    "title": "🛠️ 通用管理模块",
+    "subtitle": "不知道往哪里放的说明我都会放这里",
+    "intro": "通用管理模块是整个应用所通用的功能和特性。",
+    "windowManagement": {
+      "title": "🎯 窗口管理",
+      "fullscreen": "<strong>全屏窗口：</strong>F11",
+      "minimize": "<strong>最小化窗口：</strong>Ctrl+M",
+      "close": "<strong>关闭窗口：</strong>Ctrl+W"
+    },
+    "viewManagement": {
+      "title": "🎯 视图管理",
+      "reload": "<strong>重新加载：</strong>Ctrl+R",
+      "forceReload": "<strong>强制重新加载：</strong>Ctrl+Shift+R",
+      "devTools": "<strong>开发者工具：</strong>Ctrl+Shift+I"
+    },
+    "disguiseMode": {
+      "title": "🎯 伪装模式",
+      "description": "伪装模式是一个非常使用的功能，打开这个模式后，所有资源的封面图"
+    },
+    "dataStorage": {
+      "title": "🎯 数据的存储",
+      "location": "<strong>数据的存储位置：</strong>默认在应用目录的 SaveData 文件夹中",
+      "whatIsStored": "<strong>会存储哪些内容：</strong>存档会自动保存添加的所有资源路径和信息。同时会自动复制封面图到文件夹中。游戏的截图也会保存到存档中",
+      "howToChange": "<strong>如何更改存档位置：</strong>如需更改存档位置，可以在设置中的\"存档文件夹位置\"中改为自定义目录，并设置自定义的文件夹路径。设置完毕后，如果文件夹里面没有SaveData，管理器会自动在这个目录下创建SaveData文件夹，并将现有存档的内容复制到这里。如果这个目录已经有SaveData 文件夹，会读取这个文件夹。"
+    },
+    "tagSystem": {
+      "title": "🎯 tag索引系统",
+      "important": "<b>这个功能是管理器最重要的核心功能。</b><br>",
+      "system": "<strong>tag索引系统：</strong>管理器会自动收集所有资源的tag，并显示到不同资源的左侧导航栏",
+      "howToRegister": "<strong>如何注册一个tag：</strong>在添加资源时，可以为资源添加tag。tag可以是任意的字符串，比如\"萝莉\"、\"萝莉\"、\"萝莉\"和\"萝莉\"等。",
+      "howToUse": "<strong>如何使用tag索引系统：</strong>左键tag代表选择包含这个tag的资源。右键tag代表剔除这个tag的资源。",
+      "multiSelect": "<strong>tag的多选</strong>当点击多个tag时，默认使用\"AND\"运算。例如选择了白丝和萝莉两个tag，则代表选择同时包含白丝和萝莉的资源。"
+    }
+  },
+  "about": {
+    "title": "ℹ️ 关于我们",
+    "subtitle": "了解 GreenResourcesManager 的更多信息",
+    "community": {
+      "title": "关于社群",
+      "description": "帽子社是一个专注于实验游戏开发和游戏理论研究的社群，同时也会涉猎游戏相关的工具、产品开发。如果对游戏感兴趣，欢迎加入我们。",
+      "notificationCenter": "通知中心",
+      "joinQQ": "加入QQ群",
+      "officialWebsite": "官方网站",
+      "websiteUrl": "hat-soft.top"
+    },
+    "developer": {
+      "title": "关于开发者",
+      "description": "独立游戏制作人。擅长实验性叙事游戏设计、unity开发、RPGMakerMV开发、Godot开发、WEB开发、作曲、2D美术、游戏理论研究。",
+      "portfolio": "个人作品集",
+      "viewMore": "查看更多项目"
+    },
+    "collaborators": {
+      "title": "关于协作者",
+      "description": "感谢所有为这个项目做出贡献的协作者们。他们的支持和帮助让这个项目变得更好。"
+    }
+  },
+  "support": {
+    "title": "💬 客服群&问题反馈",
+    "subtitle": "有问题？找我们！",
+    "joinGroup": {
+      "title": "🎯 加入客服群",
+      "description": "如果您在使用过程中遇到任何问题，或者有任何建议和反馈，欢迎加入我们的客服群！",
+      "qqGroup": {
+        "title": "QQ客服群",
+        "description": "在这里您可以：",
+        "benefits": [
+          "反馈使用中遇到的问题",
+          "提出功能建议和改进意见",
+          "与其他用户交流使用心得",
+          "获取最新的更新信息"
+        ],
+        "joinButton": "点击加入客服群",
+        "copyLinkText": "或复制链接："
+      }
+    },
+    "feedbackChannels": {
+      "title": "📧 问题反馈渠道",
+      "github": {
+        "title": "GitHub Issues",
+        "description": "如果您发现 bug 或有技术问题，可以在 GitHub Issues 中反馈"
+      },
+      "tencent": {
+        "title": "腾讯文档问题反馈",
+        "description": "您也可以通过腾讯文档提交问题反馈和建议",
+        "openLink": "点击打开问题反馈表格"
+      }
+    }
   }
 }

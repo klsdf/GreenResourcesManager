@@ -1,8 +1,8 @@
 <template>
   <div class="help-sidebar" :class="{ collapsed: isCollapsed }">
     <div class="sidebar-header">
-      <h2 v-if="!isCollapsed">📚 帮助中心</h2>
-      <button class="collapse-toggle" @click="toggleCollapse" :title="isCollapsed ? '展开菜单' : '收起菜单'">
+      <h2 v-if="!isCollapsed">{{ $t('help.sidebar.title') }}</h2>
+      <button class="collapse-toggle" @click="toggleCollapse" :title="isCollapsed ? $t('help.sidebar.expandMenu') : $t('help.sidebar.collapseMenu')">
         {{ isCollapsed ? '→' : '←' }}
       </button>
     </div>
@@ -21,6 +21,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import FunMenu from '../../fun-ui/navigation/Menu/FunMenu.vue'
 import type { MenuItem } from '../../fun-ui/navigation/Menu/FunMenu.vue'
 
@@ -33,59 +34,55 @@ const emit = defineEmits<{
   'section-change': [section: string]
 }>()
 
-// 缩起状态
+const { t } = useI18n()
+
 const isCollapsed = ref(false)
 
-// 切换缩起状态
 const toggleCollapse = () => {
   isCollapsed.value = !isCollapsed.value
 }
 
-// 菜单项配置
-const menuItems: MenuItem[] = [
+const menuItems = computed<MenuItem[]>(() => [
   {
     id: 'user-manual',
     icon: '📖',
-    label: '用户手册',
+    label: t('help.sidebar.userManual'),
     children: [
-      { id: 'intro', icon: '🏠', label: '简介' },
-      { id: 'general', icon: '🛠️', label: '通用管理' },
-      { id: 'game', icon: '🎮', label: '游戏管理' },
-      { id: 'image', icon: '🖼️', label: '图片管理' },
-      { id: 'video', icon: '🎬', label: '视频管理' },
-      { id: 'novel', icon: '📚', label: '小说管理' },
-      { id: 'website', icon: '🌐', label: '网站收藏' },
-      { id: 'audio', icon: '🎵', label: '音频管理' },
-      { id: 'faq', icon: '❓', label: '常见问题' },
+      { id: 'intro', icon: '🏠', label: t('help.sidebar.intro') },
+      { id: 'general', icon: '🛠️', label: t('help.sidebar.general') },
+      { id: 'game', icon: '🎮', label: t('help.sidebar.game') },
+      { id: 'image', icon: '🖼️', label: t('help.sidebar.image') },
+      { id: 'video', icon: '🎬', label: t('help.sidebar.video') },
+      { id: 'novel', icon: '📚', label: t('help.sidebar.novel') },
+      { id: 'website', icon: '🌐', label: t('help.sidebar.website') },
+      { id: 'audio', icon: '🎵', label: t('help.sidebar.audio') },
+      { id: 'faq', icon: '❓', label: t('help.sidebar.faq') },
 
     ]
   },
   {
     id: 'api',
     icon: '🔌',
-    label: 'API 手册',
+    label: t('help.sidebar.apiManual'),
     children: [
-      { id: 'api-games', icon: '🎮', label: '游戏' },
-      { id: 'api-manga', icon: '📚', label: '漫画' },
-      { id: 'api-videos', icon: '🎬', label: '视频' },
-      { id: 'api-novels', icon: '📖', label: '小说' },
-      { id: 'api-websites', icon: '🌐', label: '网站' },
-      { id: 'api-audio', icon: '🎵', label: '音频' }
+      { id: 'api-games', icon: '🎮', label: t('help.sidebar.apiGames') },
+      { id: 'api-manga', icon: '📚', label: t('help.sidebar.apiManga') },
+      { id: 'api-videos', icon: '🎬', label: t('help.sidebar.apiVideos') },
+      { id: 'api-novels', icon: '📖', label: t('help.sidebar.apiNovels') },
+      { id: 'api-websites', icon: '🌐', label: t('help.sidebar.apiWebsites') },
+      { id: 'api-audio', icon: '🎵', label: t('help.sidebar.apiAudio') }
     ]
   },
-  { id: 'workshop', icon: '🎨', label: '创意工坊手册' },
-  { id: 'support', icon: '💬', label: '客服&问题反馈' },
-  { id: 'about', icon: 'ℹ️', label: '关于我们' },
-]
+  { id: 'workshop', icon: '🎨', label: t('help.sidebar.workshop') },
+  { id: 'support', icon: '💬', label: t('help.sidebar.support') },
+  { id: 'about', icon: 'ℹ️', label: t('help.sidebar.about') },
+])
 
-// 自定义激活判断函数
 const isItemActive = (item: MenuItem): boolean => {
-  // 如果是用户手册（父级），检查子菜单中是否有激活项
   if (item.id === 'user-manual' && item.children) {
     return item.children.some(child => props.activeSection === child.id)
   }
   
-  // 如果是 API 相关的菜单项（父级）
   if (item.id === 'api' && item.children) {
     return props.activeSection === 'api' || 
            props.activeSection === 'api-games' ||
@@ -97,15 +94,11 @@ const isItemActive = (item: MenuItem): boolean => {
            item.children.some(subChild => props.activeSection === subChild.id)
   }
   
-  // 其他菜单项直接比较
   return props.activeSection === item.id
 }
 
-// 处理菜单项点击
 const handleMenuClick = (item: MenuItem) => {
   if (item.id) {
-    // 如果是用户手册（父级菜单），点击时不切换 section，只展开/折叠
-    // 实际的内容切换由 FunMenu 组件内部处理（点击子菜单项时）
     if (item.id !== 'user-manual') {
       emit('section-change', item.id)
     }
