@@ -181,6 +181,17 @@ const fixedRoutes: RouteRecordRaw[] = [
       description: '查看最近浏览的内容',
       requiresFilter: false
     }
+  },
+  {
+    path: '/resource-view',
+    name: 'resource-view',
+    component: () => import('../pages/ResourceView.vue'),
+    meta: {
+      title: '资源视图',
+      icon: '📊',
+      description: '资源视图页面',
+      requiresFilter: false
+    }
   }
 ]
 

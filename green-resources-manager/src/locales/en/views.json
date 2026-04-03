@@ -50,5 +50,9 @@
   "collections": {
     "name": "Collections",
     "description": "Manage your collections"
+  },
+  "resource-view": {
+    "name": "Resource View",
+    "description": "Resource view page"
   }
 }

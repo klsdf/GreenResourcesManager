@@ -80,6 +80,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 磁盘信息
   getDiskInfo: () => ipcRenderer.invoke('get-disk-info'),
   getDiskTypeByPath: (filePath) => ipcRenderer.invoke('get-disk-type-by-path', filePath),
+  getLogicalDrivesInfo: () => ipcRenderer.invoke('get-logical-drives-info'),
   
   // 获取文件图标
   getFileIcon: (filePath, size) => ipcRenderer.invoke('get-file-icon', filePath, size),

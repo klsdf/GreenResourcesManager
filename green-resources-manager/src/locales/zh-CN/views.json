@@ -50,5 +50,9 @@
   "collections": {
     "name": "合集",
     "description": "管理你的合集"
+  },
+  "resource-view": {
+    "name": "资源视图",
+    "description": "资源视图页面"
   }
 }

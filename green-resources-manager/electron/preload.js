@@ -87,6 +87,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 磁盘信息
   getDiskInfo: () => ipcRenderer.invoke('get-disk-info'),
   getDiskTypeByPath: (filePath) => ipcRenderer.invoke('get-disk-type-by-path', filePath),
+  getLogicalDrivesInfo: () => ipcRenderer.invoke('get-logical-drives-info'),
 
   // SQLite demo 数据（数据库页面展示）
   sqliteGetAllTablesData: () => ipcRenderer.invoke('sqlite-get-all-tables-data'),

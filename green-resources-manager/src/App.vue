@@ -112,6 +112,21 @@
             <span class="nav-text">{{ $t('views.scraper-library.name') }}</span>
           </div>
         </li>
+
+        <!-- 资源视图（一级菜单） -->
+        <li 
+          class="nav-item-wrapper"
+          :class="{ active: $route.name === 'resource-view' }"
+        >
+          <div 
+            class="nav-item"
+            :class="{ active: $route.name === 'resource-view' }"
+            @click="navigateTo('resource-view')"
+          >
+            <span class="nav-icon">{{ viewConfig['resource-view']?.icon || '📊' }}</span>
+            <span class="nav-text">{{ $t('views.resource-view.name') }}</span>
+          </div>
+        </li>
         
         <!-- 插件注册的导航项 -->
         <li 
@@ -390,6 +405,11 @@ export default {
           name: '合集',
           icon: '🗂️',
           description: '管理你的合集'
+        },
+        'resource-view': {
+          name: '资源视图',
+          icon: '📊',
+          description: '资源视图页面'
         }
       },
       navItems: [],
@@ -424,7 +444,7 @@ export default {
     // 主导航页面ID列表（一级菜单）
     mainNavViewIds() {
       // 主页、搜索、本地存档、本地刮削库是一级菜单，资源页面是主页的子菜单
-      return ['home', 'search', 'database', 'scraper-library']
+      return ['home', 'search', 'database', 'scraper-library', 'resource-view']
     },
     // 资源页面列表（主页的子菜单）
     resourcePages() {

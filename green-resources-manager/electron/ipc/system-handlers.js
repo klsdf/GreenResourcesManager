@@ -150,6 +150,116 @@ function registerIpcHandlers(ipcMain, app, windowsUtils, shell, getMainWindow) {
     }
   })
 
+  // 获取所有逻辑磁盘的完整信息（包括盘符、容量、使用情况、磁盘类型）
+  ipcMain.handle('get-logical-drives-info', async () => {
+    try {
+      if (process.platform !== 'win32') {
+        return { success: false, error: '此功能仅在 Windows 系统上可用' }
+      }
+
+      return new Promise((resolve) => {
+        const psCommand = `
+$results = @()
+$drives = Get-PSDrive -PSProvider FileSystem
+foreach ($drive in $drives) {
+    $driveLetter = $drive.Root.TrimEnd('\\')
+    if (-not $driveLetter) { continue }
+    
+    $usedBytes = $drive.Used
+    $freeBytes = $drive.Free
+    $totalBytes = if ($usedBytes -and $freeBytes) { $usedBytes + $freeBytes } else { 0 }
+    
+    $mediaType = 'Unknown'
+    $friendlyName = '未知磁盘'
+    $busType = 'Unknown'
+    $deviceId = $null
+    
+    try {
+        $partition = Get-Partition -DriveLetter $driveLetter[0] -ErrorAction SilentlyContinue
+        if ($partition) {
+            $disk = Get-Disk -Number $partition.DiskNumber -ErrorAction SilentlyContinue
+            if ($disk) {
+                $physicalDisk = Get-PhysicalDisk -DeviceId $disk.Number -ErrorAction SilentlyContinue
+                if ($physicalDisk) {
+                    $mediaType = $physicalDisk.MediaType
+                    $friendlyName = $physicalDisk.FriendlyName
+                    $busType = $physicalDisk.BusType
+                    $deviceId = $physicalDisk.DeviceID
+                }
+            }
+        }
+    } catch {
+        # 忽略错误，继续使用默认值
+    }
+    
+    $results += @{
+        driveLetter = $driveLetter
+        usedBytes = if ($usedBytes) { $usedBytes } else { 0 }
+        freeBytes = if ($freeBytes) { $freeBytes } else { 0 }
+        totalBytes = $totalBytes
+        mediaType = $mediaType
+        friendlyName = $friendlyName
+        busType = $busType
+        deviceId = $deviceId
+    }
+}
+$results | ConvertTo-Json -Depth 10
+`
+        const powershell = spawn('powershell', [
+          '-Command',
+          psCommand
+        ])
+
+        let output = ''
+        let errorOutput = ''
+
+        powershell.stdout.on('data', (data) => {
+          output += data.toString()
+        })
+
+        powershell.stderr.on('data', (data) => {
+          errorOutput += data.toString()
+        })
+
+        powershell.on('close', (code) => {
+          if (code !== 0) {
+            console.error('获取逻辑磁盘信息失败:', errorOutput)
+            resolve({ success: false, error: errorOutput || '获取逻辑磁盘信息失败' })
+            return
+          }
+
+          try {
+            const drives = JSON.parse(output.trim())
+            const driveArray = Array.isArray(drives) ? drives : [drives]
+
+            const formattedDrives = driveArray.map(drive => ({
+              driveLetter: drive.driveLetter || 'Unknown',
+              usedBytes: drive.usedBytes || 0,
+              freeBytes: drive.freeBytes || 0,
+              totalBytes: drive.totalBytes || 0,
+              usedGB: drive.usedBytes ? Math.round(drive.usedBytes / (1024 * 1024 * 1024)) : 0,
+              freeGB: drive.freeBytes ? Math.round(drive.freeBytes / (1024 * 1024 * 1024)) : 0,
+              totalGB: drive.totalBytes ? Math.round(drive.totalBytes / (1024 * 1024 * 1024)) : 0,
+              usagePercent: drive.totalBytes > 0 ? Math.round((drive.usedBytes / drive.totalBytes) * 100) : 0,
+              mediaType: drive.mediaType || 'Unknown',
+              friendlyName: drive.friendlyName || '未知磁盘',
+              busType: drive.busType || 'Unknown',
+              deviceId: drive.deviceId
+            }))
+
+            resolve({ success: true, drives: formattedDrives })
+          } catch (parseError) {
+            console.error('解析逻辑磁盘信息失败:', parseError, '原始输出:', output)
+            resolve({ success: false, error: '解析逻辑磁盘信息失败: ' + parseError.message })
+          }
+        })
+      })
+    } catch (error) {
+      console.error('获取逻辑磁盘信息异常:', error)
+      return { success: false, error: error.message }
+    }
+  })
+
   // 压缩文件或文件夹
   ipcMain.handle('compress-file', async (event, sourcePath, archivePath) => {
     try {

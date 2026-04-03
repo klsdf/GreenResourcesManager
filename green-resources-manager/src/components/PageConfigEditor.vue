@@ -7,102 +7,132 @@
       </div>
       <div class="modal-body">
         <h4 class="section-title">基础设置</h4>
-        <FormField
-          label="页面名称"
-          type="text"
-          v-model="editingPage.name"
-          placeholder="例如：我的收藏"
-        />
-        <FormField
-          label="图标"
-          type="text"
-          v-model="editingPage.icon"
-          placeholder="输入 emoji"
-        />
-        <FormField
-          label="页面描述"
-          type="text"
-          v-model="editingPage.description"
-          placeholder="例如：管理我喜欢的资源"
-        />
-        <FormField
-          label="默认每页显示数量"
-          type="number"
-          v-model.number="editingPage.defaultPageSize"
-          placeholder="例如：12"
-        />
+        <div class="form-group">
+          <label>页面名称</label>
+          <fun-input
+            type="text"
+            v-model="editingPage.name"
+            placeholder="例如：我的收藏"
+          />
+        </div>
+        <div class="form-group">
+          <label>图标</label>
+          <fun-input
+            type="text"
+            v-model="editingPage.icon"
+            placeholder="输入 emoji"
+          />
+        </div>
+        <div class="form-group">
+          <label>页面描述</label>
+          <fun-input
+            type="text"
+            v-model="editingPage.description"
+            placeholder="例如：管理我喜欢的资源"
+          />
+        </div>
+        <div class="form-group">
+          <label>默认每页显示数量</label>
+          <fun-input
+            type="number"
+            v-model.number="editingPage.defaultPageSize"
+            placeholder="例如：12"
+          />
+        </div>
         
         <h4 class="section-title">布局设置</h4>
-        <FormField
-          label="最小卡片宽度"
-          type="number"
-          v-model.number="editingPage.displayLayoutConfig.minWidth"
-          placeholder="例如：150"
-        />
-        <FormField
-          label="最大卡片宽度"
-          type="number"
-          v-model.number="editingPage.displayLayoutConfig.maxWidth"
-          placeholder="例如：400"
-        />
+        <div class="form-group">
+          <label>最小卡片宽度</label>
+          <fun-input
+            type="number"
+            v-model.number="editingPage.displayLayoutConfig.minWidth"
+            placeholder="例如：150"
+          />
+        </div>
+        <div class="form-group">
+          <label>最大卡片宽度</label>
+          <fun-input
+            type="number"
+            v-model.number="editingPage.displayLayoutConfig.maxWidth"
+            placeholder="例如：400"
+          />
+        </div>
         
         <h4 class="section-title">空状态设置</h4>
-        <FormField
-          label="空状态图标"
-          type="text"
-          v-model="editingPage.emptyStateConfig.icon"
-          placeholder="例如：📚"
-        />
-        <FormField
-          label="空状态标题"
-          type="text"
-          v-model="editingPage.emptyStateConfig.title"
-          placeholder="例如：你的资源库是空的"
-        />
-        <FormField
-          label="空状态描述"
-          type="text"
-          v-model="editingPage.emptyStateConfig.description"
-          placeholder="例如：点击按钮来添加你的第一个资源"
-        />
-        <FormField
-          label="空状态按钮文字"
-          type="text"
-          v-model="editingPage.emptyStateConfig.buttonText"
-          placeholder="例如：添加第一个资源"
-        />
-        <FormField
-          label="空状态按钮动作"
-          type="text"
-          v-model="editingPage.emptyStateConfig.buttonAction"
-          placeholder="例如：showAddDialog"
-        />
+        <div class="form-group">
+          <label>空状态图标</label>
+          <fun-input
+            type="text"
+            v-model="editingPage.emptyStateConfig.icon"
+            placeholder="例如：📚"
+          />
+        </div>
+        <div class="form-group">
+          <label>空状态标题</label>
+          <fun-input
+            type="text"
+            v-model="editingPage.emptyStateConfig.title"
+            placeholder="例如：你的资源库是空的"
+          />
+        </div>
+        <div class="form-group">
+          <label>空状态描述</label>
+          <fun-input
+            type="text"
+            v-model="editingPage.emptyStateConfig.description"
+            placeholder="例如：点击按钮来添加你的第一个资源"
+          />
+        </div>
+        <div class="form-group">
+          <label>空状态按钮文字</label>
+          <fun-input
+            type="text"
+            v-model="editingPage.emptyStateConfig.buttonText"
+            placeholder="例如：添加第一个资源"
+          />
+        </div>
+        <div class="form-group">
+          <label>空状态按钮动作</label>
+          <fun-input
+            type="text"
+            v-model="editingPage.emptyStateConfig.buttonAction"
+            placeholder="例如：showAddDialog"
+          />
+        </div>
         
         <h4 class="section-title">对话框设置</h4>
-        <FormField
-          label="添加对话框标题"
-          type="text"
-          v-model="editingPage.dialogConfig.addTitle"
-          placeholder="例如：添加资源"
-        />
-        <FormField
-          label="编辑对话框标题"
-          type="text"
-          v-model="editingPage.dialogConfig.editTitle"
-          placeholder="例如：编辑资源"
-        />
-        <FormField
-          label="添加对话框按钮文字"
-          type="text"
-          v-model="editingPage.dialogConfig.addButtonText"
-          placeholder="例如：添加资源"
-        />
-        <FormField
-          label="编辑对话框按钮文字"
-          type="text"
-          v-model="editingPage.dialogConfig.editButtonText"
-          placeholder="例如：保存修改"
-        />
+        <div class="form-group">
+          <label>添加对话框标题</label>
+          <fun-input
+            type="text"
+            v-model="editingPage.dialogConfig.addTitle"
+            placeholder="例如：添加资源"
+          />
+        </div>
+        <div class="form-group">
+          <label>编辑对话框标题</label>
+          <fun-input
+            type="text"
+            v-model="editingPage.dialogConfig.editTitle"
+            placeholder="例如：编辑资源"
+          />
+        </div>
+        <div class="form-group">
+          <label>添加对话框按钮文字</label>
+          <fun-input
+            type="text"
+            v-model="editingPage.dialogConfig.addButtonText"
+            placeholder="例如：添加资源"
+          />
+        </div>
+        <div class="form-group">
+          <label>编辑对话框按钮文字</label>
+          <fun-input
+            type="text"
+            v-model="editingPage.dialogConfig.editButtonText"
+            placeholder="例如：保存修改"
+          />
+        </div>
         
         <h4 class="section-title">排序选项</h4>
         <div class="sort-options-list">
@@ -122,27 +152,32 @@
               </button>
             </div>
             <div class="sort-option-fields">
-              <FormField
-                label="显示标签"
-                type="text"
-                v-model="sortOption.label"
-                placeholder="例如：按名称排序"
-              />
-              <FormField
-                label="排序字段"
-                type="text"
-                v-model="sortOption.field"
-                placeholder="例如：name"
-              />
-              <FormField
-                label="排序顺序"
-                type="select"
-                v-model="sortOption.order"
-                :options="[
-                  { value: 'asc', label: '升序' },
-                  { value: 'desc', label: '降序' }
-                ]"
-              />
+              <div class="form-group">
+                <label>显示标签</label>
+                <fun-input
+                  type="text"
+                  v-model="sortOption.label"
+                  placeholder="例如：按名称排序"
+                />
+              </div>
+              <div class="form-group">
+                <label>排序字段</label>
+                <fun-input
+                  type="text"
+                  v-model="sortOption.field"
+                  placeholder="例如：name"
+                />
+              </div>
+              <div class="form-group">
+                <label>排序顺序</label>
+                <fun-select
+                  v-model="sortOption.order"
+                  :options="[
+                    { value: 'asc', label: '升序' },
+                    { value: 'desc', label: '降序' }
+                  ]"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -160,7 +195,6 @@
 
 <script lang="ts">
 import { defineComponent, ref, watch } from 'vue'
-import FormField from './FormField.vue'
 import alertService from '../utils/AlertService.ts'
 import { pageConfigLoader } from '../configs/pages/PageConfigLoader'
 
@@ -206,7 +240,7 @@ interface EditingPage {
 
 export default defineComponent({
   name: 'PageConfigEditor',
-  components: { FormField },
+  components: {},
   props: {
     visible: {
       type: Boolean,
@@ -393,6 +427,17 @@ export default defineComponent({
   padding: 20px;
 }
 
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
 .modal-content {
   background: var(--bg-secondary);
   border-radius: 12px;
@@ -534,6 +579,10 @@ export default defineComponent({
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
+}
+
+.sort-option-fields .form-group {
+  margin-bottom: 0;
 }
 
 .add-sort-btn {

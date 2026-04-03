@@ -50,5 +50,9 @@
   "collections": {
     "name": "コレクション",
     "description": "コレクションを管理"
+  },
+  "resource-view": {
+    "name": "リソースビュー",
+    "description": "リソースビューページ"
   }
 }
