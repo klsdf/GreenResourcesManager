@@ -46,24 +46,50 @@
       
       <!-- 阅读器主体 -->
       <div class="comic-viewer-body" ref="comicViewerBody">
-        <div class="comic-image-container" ref="imageContainer">
-          <img 
-            v-if="currentPageImage"
-            :src="currentPageImage" 
-            :alt="`第 ${currentPageIndex + 1} 页`"
-            class="comic-image"
-            :style="{ transform: `translate3d(${imageOffsetX}px, ${imageOffsetY}px, 0) scale(${zoomLevel})` }"
-            @load="onImageLoad"
-            @error="onImageError"
-            @wheel="onImageWheel"
-            @mousedown="onImageMouseDown"
-            @mousemove="onImageMouseMove"
-            @mouseup="onImageMouseUp"
-            @mouseleave="onImageMouseUp"
-          >
-          <div v-else class="loading-placeholder">
-            <div class="loading-spinner"></div>
-            <p>加载中...</p>
+        <!-- 左侧预览栏 -->
+        <div class="sidebar-preview">
+          <div class="sidebar-title">页面预览</div>
+          <div class="thumbnail-list" ref="thumbnailList">
+            <div 
+              v-for="(page, index) in pages" 
+              :key="index"
+              class="thumbnail-item"
+              :class="{ active: index === currentPageIndex }"
+              @click="jumpToThumbnailPage(index)"
+            >
+              <div class="thumbnail-number">{{ index + 1 }}</div>
+              <img 
+                :src="getThumbnailUrl(page)" 
+                :alt="`第 ${index + 1} 页`"
+                class="thumbnail-image"
+                @load="onThumbnailLoad"
+                @error="onThumbnailError"
+              >
+            </div>
+          </div>
+        </div>
+        
+        <!-- 主阅读区域 -->
+        <div class="main-reading-area">
+          <div class="comic-image-container" ref="imageContainer">
+            <img 
+              v-if="currentPageImage"
+              :src="currentPageImage" 
+              :alt="`第 ${currentPageIndex + 1} 页`"
+              class="comic-image"
+              :style="{ transform: `translate3d(${imageOffsetX}px, ${imageOffsetY}px, 0) scale(${zoomLevel})` }"
+              @load="onImageLoad"
+              @error="onImageError"
+              @wheel="onImageWheel"
+              @mousedown="onImageMouseDown"
+              @mousemove="onImageMouseMove"
+              @mouseup="onImageMouseUp"
+              @mouseleave="onImageMouseUp"
+            >
+            <div v-else class="loading-placeholder">
+              <div class="loading-spinner"></div>
+              <p>加载中...</p>
+            </div>
           </div>
         </div>
       </div>
@@ -200,6 +226,13 @@ export default {
         }
       },
       immediate: false
+    },
+    currentPageIndex(newVal) {
+      if (this.visible) {
+        this.$nextTick(() => {
+          this.scrollThumbnailIntoView(newVal)
+        })
+      }
     }
   },
   methods: {
@@ -718,6 +751,62 @@ export default {
           this.toggleFullscreen()
           break
       }
+    },
+
+    // 获取缩略图URL
+    getThumbnailUrl(imagePath) {
+      if (!imagePath || (typeof imagePath === 'string' && imagePath.trim() === '')) {
+        return './default-image.png'
+      }
+      if (typeof imagePath === 'string' && (imagePath.startsWith('http://') || imagePath.startsWith('https://'))) {
+        return imagePath
+      }
+      if (typeof imagePath === 'string' && (imagePath.startsWith('data:') || imagePath.startsWith('file:'))) {
+        return imagePath
+      }
+      // CBZ/压缩包内图片：archive:// 协议 URL 直接返回
+      if (typeof imagePath === 'string' && imagePath.startsWith('archive://')) {
+        return imagePath
+      }
+      
+      const normalizedPath = String(imagePath).replace(/\\/g, '/')
+      return `file:///${normalizedPath}`
+    },
+
+    // 缩略图加载完成
+    onThumbnailLoad() {
+      // 可以在这里添加加载完成的逻辑
+    },
+
+    // 缩略图加载失败
+    onThumbnailError(event) {
+      event.target.src = './default-image.png'
+    },
+
+    // 点击缩略图跳转到指定页面
+    async jumpToThumbnailPage(index) {
+      if (index >= 0 && index < this.pages.length) {
+        this.currentPageIndex = index
+        this.imageOffsetX = 0
+        this.imageOffsetY = 0
+        await this.loadCurrentPage()
+        this.preloadImages(this.currentPageIndex, 3)
+        // 确保缩略图在可视区域内
+        this.$nextTick(() => {
+          this.scrollThumbnailIntoView(index)
+        })
+      }
+    },
+
+    // 滚动缩略图到可视区域
+    scrollThumbnailIntoView(index) {
+      const thumbnailList = this.$refs.thumbnailList
+      if (thumbnailList && thumbnailList.children[index]) {
+        thumbnailList.children[index].scrollIntoView({
+          block: 'nearest',
+          behavior: 'smooth'
+        })
+      }
     }
   },
 
@@ -834,11 +923,6 @@ export default {
 .comic-viewer-body {
   flex: 1;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding-left: 20px;
-  padding-right: 20px;
-  padding-top: 20px;
   overflow: hidden;
   position: relative;
   /* GPU硬件加速优化 */
@@ -846,6 +930,100 @@ export default {
   transform: translateZ(0);
   /* 优化渲染性能 */
   contain: layout style paint;
+}
+
+/* 左侧预览栏 */
+.sidebar-preview {
+  width: 200px;
+  background: var(--bg-tertiary);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sidebar-title {
+  padding: 12px 15px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-color);
+  text-align: center;
+}
+
+.thumbnail-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.thumbnail-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.thumbnail-list::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+  border-radius: 3px;
+}
+
+.thumbnail-list::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+.thumbnail-list::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
+.thumbnail-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  padding: 5px;
+  transition: all 0.2s ease;
+}
+
+.thumbnail-item:hover {
+  background: var(--bg-secondary);
+  border-color: var(--accent-color);
+}
+
+.thumbnail-item.active {
+  border-color: var(--accent-color);
+  background: rgba(102, 192, 244, 0.15);
+  box-shadow: 0 0 10px rgba(102, 192, 244, 0.3);
+}
+
+.thumbnail-number {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+
+.thumbnail-image {
+  width: 100%;
+  height: auto;
+  max-height: 150px;
+  object-fit: contain;
+  border-radius: 4px;
+  background: var(--bg-primary);
+}
+
+/* 主阅读区域 */
+.main-reading-area {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow: hidden;
 }
 
 .comic-image-container {
