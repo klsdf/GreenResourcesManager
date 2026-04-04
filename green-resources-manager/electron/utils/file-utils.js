@@ -653,6 +653,118 @@ async function searchMatchingFiles(rootDir, extensions) {
   }
 }
 
+/**
+ * 保存封面图片到指定的 cover 文件夹
+ * @param {string} sourceImagePath - 源图片路径
+ * @param {string} saveDataDir - SaveData 目录路径
+ * @param {string} resourceType - 资源类型 (games, images, videos, novels, audio, software, website, other)
+ * @param {string} resourceId - 资源 ID
+ * @returns {Promise<Object>} { success: boolean, coverPath?: string, error?: string }
+ */
+async function saveCoverToFolder(sourceImagePath, saveDataDir, resourceType, resourceId) {
+  try {
+    if (!sourceImagePath || !saveDataDir || !resourceType || !resourceId) {
+      return { success: false, error: '缺少必要参数' }
+    }
+
+    // 检查源文件是否存在
+    if (!fs.existsSync(sourceImagePath)) {
+      return { success: false, error: '源图片文件不存在' }
+    }
+
+    // 构建目标封面文件夹路径
+    const coverDir = path.join(saveDataDir, resourceType, 'covers')
+    
+    // 确保封面文件夹存在
+    if (!fs.existsSync(coverDir)) {
+      fs.mkdirSync(coverDir, { recursive: true })
+    }
+
+    // 获取源文件的扩展名
+    const ext = path.extname(sourceImagePath) || '.jpg'
+    
+    // 构建目标文件路径（使用资源 ID + 时间戳 + 扩展名）
+    const timestamp = Date.now()
+    const targetFileName = `${resourceId}_${timestamp}${ext}`
+    const targetFilePath = path.join(coverDir, targetFileName)
+
+    // 复制文件
+    fs.copyFileSync(sourceImagePath, targetFilePath)
+
+    // 验证复制是否成功
+    if (!fs.existsSync(targetFilePath)) {
+      return { success: false, error: '封面文件复制失败' }
+    }
+
+    // 返回相对路径（相对于 SaveData 目录）
+    const relativePath = path.join(resourceType, 'covers', targetFileName).replace(/\\/g, '/')
+    
+    return { success: true, coverPath: relativePath }
+  } catch (error) {
+    console.error('保存封面失败:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+/**
+ * 从 DataURL 保存封面图片到指定的 cover 文件夹
+ * @param {string} dataUrl - base64 dataURL
+ * @param {string} saveDataDir - SaveData 目录路径
+ * @param {string} resourceType - 资源类型
+ * @param {string} resourceId - 资源 ID
+ * @returns {Promise<Object>} { success: boolean, coverPath?: string, error?: string }
+ */
+async function saveCoverFromDataUrl(dataUrl, saveDataDir, resourceType, resourceId) {
+  try {
+    if (!dataUrl || !saveDataDir || !resourceType || !resourceId) {
+      return { success: false, error: '缺少必要参数' }
+    }
+
+    // 解析 dataURL 获取扩展名
+    let ext = '.jpg'
+    const match = dataUrl.match(/^data:image\/([a-zA-Z0-9]+);/)
+    if (match && match[1]) {
+      ext = '.' + match[1].toLowerCase()
+      if (ext === '.jpeg') ext = '.jpg'
+    }
+
+    // 构建目标封面文件夹路径
+    const coverDir = path.join(saveDataDir, resourceType, 'covers')
+    
+    // 确保封面文件夹存在
+    if (!fs.existsSync(coverDir)) {
+      fs.mkdirSync(coverDir, { recursive: true })
+    }
+
+    // 构建目标文件路径
+    const timestamp = Date.now()
+    const targetFileName = `${resourceId}_${timestamp}${ext}`
+    const targetFilePath = path.join(coverDir, targetFileName)
+
+    // 提取 base64 数据并保存
+    const base64Data = dataUrl.split(',')[1]
+    if (!base64Data) {
+      return { success: false, error: '无效的 dataURL 格式' }
+    }
+
+    const buffer = Buffer.from(base64Data, 'base64')
+    fs.writeFileSync(targetFilePath, buffer)
+
+    // 验证保存是否成功
+    if (!fs.existsSync(targetFilePath)) {
+      return { success: false, error: '封面文件保存失败' }
+    }
+
+    // 返回相对路径
+    const relativePath = path.join(resourceType, 'covers', targetFileName).replace(/\\/g, '/')
+    
+    return { success: true, coverPath: relativePath }
+  } catch (error) {
+    console.error('从 dataURL 保存封面失败:', error)
+    return { success: false, error: error.message }
+  }
+}
+
 module.exports = {
   writeJsonFile,
   readJsonFile,
@@ -664,6 +776,8 @@ module.exports = {
   listFiles,
   getFileStats,
   readTextFile,
-  searchMatchingFiles
+  searchMatchingFiles,
+  saveCoverToFolder,
+  saveCoverFromDataUrl
 }
 

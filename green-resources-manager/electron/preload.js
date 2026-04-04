@@ -225,6 +225,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 备份整个存档目录
   backupSaveDataDirectory: (saveDataDir, maxBackups) => ipcRenderer.invoke('backup-save-data-directory', saveDataDir, maxBackups),
   
+  // 封面管理
+  saveCoverToFolder: (sourceImagePath, saveDataDir, resourceType, resourceId) => ipcRenderer.invoke('save-cover-to-folder', sourceImagePath, saveDataDir, resourceType, resourceId),
+  saveCoverFromDataUrl: (dataUrl, saveDataDir, resourceType, resourceId) => ipcRenderer.invoke('save-cover-from-dataurl', dataUrl, saveDataDir, resourceType, resourceId),
+  getCoverFullPath: (coverPath, saveDataDir) => ipcRenderer.invoke('get-cover-full-path', coverPath, saveDataDir),
+  
   // 桌宠功能
   showPetWindow: () => ipcRenderer.invoke('show-pet-window'),
   hidePetWindow: () => ipcRenderer.invoke('hide-pet-window'),

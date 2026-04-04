@@ -232,6 +232,37 @@ function registerIpcHandlers(ipcMain, fileUtils, pathUtils) {
     }
   })
 
+  // 保存封面到文件夹
+  ipcMain.handle('save-cover-to-folder', async (event, sourceImagePath, saveDataDir, resourceType, resourceId) => {
+    return await fileUtils.saveCoverToFolder(sourceImagePath, saveDataDir, resourceType, resourceId)
+  })
+
+  // 从 DataURL 保存封面到文件夹
+  ipcMain.handle('save-cover-from-dataurl', async (event, dataUrl, saveDataDir, resourceType, resourceId) => {
+    return await fileUtils.saveCoverFromDataUrl(dataUrl, saveDataDir, resourceType, resourceId)
+  })
+
+  // 获取封面的完整路径（用于显示）
+  ipcMain.handle('get-cover-full-path', async (event, coverPath, saveDataDir) => {
+    try {
+      if (!coverPath) {
+        return { success: false, error: '封面路径为空' }
+      }
+      
+      // 如果是绝对路径，直接返回
+      if (path.isAbsolute(coverPath) || coverPath.startsWith('file://') || coverPath.startsWith('archive://') || coverPath.startsWith('http://') || coverPath.startsWith('https://')) {
+        return { success: true, fullPath: coverPath }
+      }
+      
+      // 如果是相对路径，拼接到 SaveData 目录
+      const fullPath = path.join(saveDataDir, coverPath)
+      return { success: true, fullPath: fullPath }
+    } catch (error) {
+      console.error('获取封面完整路径失败:', error)
+      return { success: false, error: error.message }
+    }
+  })
+
   // 备份整个存档目录
   ipcMain.handle('backup-save-data-directory', async (event, saveDataDir, maxBackups = MAX_BACKUP_FILES) => {
     try {

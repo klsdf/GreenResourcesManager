@@ -261,12 +261,50 @@ if (!gotTheLock) {
       () => mainWindowModule.showAndFocusMainWindow()
     )
 
-    // 注册默认的 F2 快捷键用于打开软件
-    shortcuts.updateShowWindowShortcut(
-      'F2',
-      () => mainWindowModule.getMainWindow(),
-      () => mainWindowModule.showAndFocusMainWindow()
-    )
+    // 从 SQLite 读取设置，根据 showWindowShortcutEnabled 决定是否注册 F2 快捷键
+    const initializeShowWindowShortcut = async () => {
+      try {
+        const result = await sqlite.getSettingsFromSqlite()
+        let shouldEnable = false
+        let shortcutKey = 'F2'
+        
+        if (result && result.ok && result.settings) {
+          shouldEnable = result.settings.showWindowShortcutEnabled === true
+          shortcutKey = result.settings.showWindowShortcut || 'F2'
+          console.log('[main] 从设置读取的 showWindowShortcutEnabled:', shouldEnable)
+        } else {
+          console.log('[main] 未找到设置，默认不启用 F2 快捷键')
+        }
+        
+        if (shouldEnable) {
+          console.log('[main] 启用 F2 快捷键')
+          shortcuts.updateShowWindowShortcut(
+            shortcutKey,
+            () => mainWindowModule.getMainWindow(),
+            () => mainWindowModule.showAndFocusMainWindow()
+          )
+        } else {
+          console.log('[main] 不启用 F2 快捷键')
+          // 确保不注册任何快捷键
+          shortcuts.updateShowWindowShortcut(
+            '',
+            () => mainWindowModule.getMainWindow(),
+            () => mainWindowModule.showAndFocusMainWindow()
+          )
+        }
+      } catch (error) {
+        console.error('[main] 初始化 F2 快捷键失败:', error)
+        // 出错时默认不启用
+        shortcuts.updateShowWindowShortcut(
+          '',
+          () => mainWindowModule.getMainWindow(),
+          () => mainWindowModule.showAndFocusMainWindow()
+        )
+      }
+    }
+    
+    // 执行初始化
+    initializeShowWindowShortcut()
     
     // 初始化自动更新
     autoUpdaterService.initAutoUpdater(

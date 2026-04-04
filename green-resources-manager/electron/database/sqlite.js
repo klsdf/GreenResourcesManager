@@ -30,8 +30,18 @@ function getSaveDataDirectory() {
         if (settings.settings && settings.settings.saveDataLocation === 'custom' && settings.settings.saveDataPath) {
           // 使用自定义路径
           const customPath = path.join(settings.settings.saveDataPath, 'SaveData')
-          console.log('[SQLite] 使用自定义 SaveData 路径:', customPath)
-          return customPath
+          // 检查自定义路径是否存在或能否创建
+          try {
+            if (!fs.existsSync(settings.settings.saveDataPath)) {
+              console.warn('[SQLite] 自定义存档目录不存在:', settings.settings.saveDataPath)
+              console.warn('[SQLite] 回退到默认路径')
+              return defaultSaveDataPath
+            }
+            console.log('[SQLite] 使用自定义 SaveData 路径:', customPath)
+            return customPath
+          } catch (pathError) {
+            console.warn('[SQLite] 检查自定义路径失败，使用默认路径:', pathError)
+          }
         }
       } catch (error) {
         console.warn('[SQLite] 读取设置文件失败，使用默认路径:', error)
@@ -53,15 +63,27 @@ function getSaveDataDirectory() {
  * @returns {string} 数据库文件路径
  */
 function getDatabasePath() {
-  const saveDataDir = getSaveDataDirectory()
-  const dbPath = path.join(saveDataDir, 'database.db')
-
-  // 确保 SaveData 目录存在
-  if (!fs.existsSync(saveDataDir)) {
-    fs.mkdirSync(saveDataDir, { recursive: true })
-    console.log('[SQLite] 已创建 SaveData 目录:', saveDataDir)
+  let saveDataDir = getSaveDataDirectory()
+  
+  try {
+    // 确保 SaveData 目录存在
+    if (!fs.existsSync(saveDataDir)) {
+      fs.mkdirSync(saveDataDir, { recursive: true })
+      console.log('[SQLite] 已创建 SaveData 目录:', saveDataDir)
+    }
+  } catch (error) {
+    console.error('[SQLite] 无法创建 SaveData 目录:', saveDataDir, error)
+    // 回退到默认路径
+    const defaultSaveDataPath = path.join(process.cwd(), 'SaveData')
+    console.warn('[SQLite] 回退到默认 SaveData 路径:', defaultSaveDataPath)
+    saveDataDir = defaultSaveDataPath
+    // 确保默认路径存在
+    if (!fs.existsSync(saveDataDir)) {
+      fs.mkdirSync(saveDataDir, { recursive: true })
+    }
   }
 
+  const dbPath = path.join(saveDataDir, 'database.db')
   return dbPath
 }
 

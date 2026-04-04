@@ -156,6 +156,7 @@ import { isDisguiseModeEnabled } from '../utils/disguiseMode'
 import { getGameScreenshotFolderPath } from '../composables/game/useGameScreenshot'
 import { ResourceField } from '@resources/base/ResourceField.ts'
 import { BaseResources } from '@resources/base/ResourcesDataBase.ts'
+import coverManager from '../utils/CoverManager.ts'
 
 /**
  * 安全获取资源属性值的辅助函数
@@ -1042,64 +1043,97 @@ export default {
       // 命中缓存
       if (this.imageCache[imagePath]) return this.imageCache[imagePath]
       
-      // 对于视频和音频，使用专门的缩略图处理方法
-      if (this.type === 'video' || this.type === 'audio') {
-        // 使用 Electron API 处理缩略图
-        if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.readFileAsDataUrl) {
-          window.electronAPI.readFileAsDataUrl(imagePath).then((dataUrl) => {
-            if (dataUrl) {
-              this.$set ? this.$set(this.imageCache, imagePath, dataUrl) : (this.imageCache[imagePath] = dataUrl)
-            } else {
-              const defaultImage = this.getDefaultImage()
-              this.$set ? this.$set(this.imageCache, imagePath, defaultImage) : (this.imageCache[imagePath] = defaultImage)
-            }
-          }).catch(() => {
-            const defaultImage = this.getDefaultImage()
-            this.$set ? this.$set(this.imageCache, imagePath, defaultImage) : (this.imageCache[imagePath] = defaultImage)
-          })
-        } else if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.getFileUrl) {
-          // 使用 getFileUrl API
-          window.electronAPI.getFileUrl(imagePath).then((result) => {
-            if (result && result.success) {
-              this.$set ? this.$set(this.imageCache, imagePath, result.url) : (this.imageCache[imagePath] = result.url)
-            } else {
-              const defaultImage = this.getDefaultImage()
-              this.$set ? this.$set(this.imageCache, imagePath, defaultImage) : (this.imageCache[imagePath] = defaultImage)
-            }
-          }).catch(() => {
-            const defaultImage = this.getDefaultImage()
-            this.$set ? this.$set(this.imageCache, imagePath, defaultImage) : (this.imageCache[imagePath] = defaultImage)
+      // 检查是否是相对路径（使用 coverManager 检查）
+      const isRelativePath = !imagePath.includes(':') && !imagePath.startsWith('archive://')
+      
+      if (isRelativePath) {
+        // 相对路径，异步使用 CoverManager 处理
+        if (this.isElectronEnvironment && window.electronAPI) {
+          coverManager.getCoverUrl(imagePath).then((coverUrl) => {
+            this.processImageUrl(coverUrl, imagePath)
+          }).catch((error) => {
+            console.error('[resolveImage] 获取封面 URL 失败:', error)
+            this.processImageUrl(imagePath, imagePath)
           })
         } else {
-          // 降级处理：构建 file:// URL
-          const normalizedPath = String(imagePath).replace(/\\/g, '/')
-          const fileUrl = `file:///${normalizedPath}`
-          this.$set ? this.$set(this.imageCache, imagePath, fileUrl) : (this.imageCache[imagePath] = fileUrl)
+          this.processImageUrl(imagePath, imagePath)
         }
       } else {
-        // 其他类型的媒体使用原有逻辑
-        if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.readFileAsDataUrl) {
-          window.electronAPI.readFileAsDataUrl(imagePath).then((dataUrl) => {
-            if (dataUrl) {
-              this.$set ? this.$set(this.imageCache, imagePath, dataUrl) : (this.imageCache[imagePath] = dataUrl)
-            } else {
-              const defaultImage = this.getDefaultImage()
-              this.$set ? this.$set(this.imageCache, imagePath, defaultImage) : (this.imageCache[imagePath] = defaultImage)
-            }
-          }).catch(() => {
-            const defaultImage = this.getDefaultImage()
-            this.$set ? this.$set(this.imageCache, imagePath, defaultImage) : (this.imageCache[imagePath] = defaultImage)
-          })
-        } else {
-          // 回退：尝试 file://
-          const normalizedPath = String(imagePath).replace(/\\/g, '/')
-          const fileUrl = `file:///${normalizedPath}`
-          this.$set ? this.$set(this.imageCache, imagePath, fileUrl) : (this.imageCache[imagePath] = fileUrl)
-        }
+        // 绝对路径，直接处理
+        this.processImageUrl(imagePath, imagePath)
       }
       
       // 初次返回默认图，待异步完成后会自动刷新
       return this.imageCache[imagePath] || this.getDefaultImage()
+    },
+    processImageUrl(coverUrl, cacheKey) {
+      // 网络资源直接返回
+      if (coverUrl.startsWith('http://') || coverUrl.startsWith('https://')) {
+        this.$set ? this.$set(this.imageCache, cacheKey, coverUrl) : (this.imageCache[cacheKey] = coverUrl)
+        return
+      }
+      
+      // 已是 data: 或 file: 直接返回
+      if (coverUrl.startsWith('data:') || coverUrl.startsWith('file:')) {
+        this.$set ? this.$set(this.imageCache, cacheKey, coverUrl) : (this.imageCache[cacheKey] = coverUrl)
+        return
+      }
+      
+      // 对于视频和音频，使用专门的缩略图处理方法
+      if (this.type === 'video' || this.type === 'audio') {
+        // 使用 Electron API 处理缩略图
+        if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.readFileAsDataUrl) {
+          window.electronAPI.readFileAsDataUrl(coverUrl).then((dataUrl) => {
+            if (dataUrl) {
+              this.$set ? this.$set(this.imageCache, cacheKey, dataUrl) : (this.imageCache[cacheKey] = dataUrl)
+            } else {
+              const defaultImage = this.getDefaultImage()
+              this.$set ? this.$set(this.imageCache, cacheKey, defaultImage) : (this.imageCache[cacheKey] = defaultImage)
+            }
+          }).catch(() => {
+            const defaultImage = this.getDefaultImage()
+            this.$set ? this.$set(this.imageCache, cacheKey, defaultImage) : (this.imageCache[cacheKey] = defaultImage)
+          })
+        } else if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.getFileUrl) {
+          // 使用 getFileUrl API
+          window.electronAPI.getFileUrl(coverUrl).then((result) => {
+            if (result && result.success) {
+              this.$set ? this.$set(this.imageCache, cacheKey, result.url) : (this.imageCache[cacheKey] = result.url)
+            } else {
+              const defaultImage = this.getDefaultImage()
+              this.$set ? this.$set(this.imageCache, cacheKey, defaultImage) : (this.imageCache[cacheKey] = defaultImage)
+            }
+          }).catch(() => {
+            const defaultImage = this.getDefaultImage()
+            this.$set ? this.$set(this.imageCache, cacheKey, defaultImage) : (this.imageCache[cacheKey] = defaultImage)
+          })
+        } else {
+          // 降级处理：构建 file:// URL
+          const normalizedPath = String(coverUrl).replace(/\\/g, '/')
+          const fileUrl = `file:///${normalizedPath}`
+          this.$set ? this.$set(this.imageCache, cacheKey, fileUrl) : (this.imageCache[cacheKey] = fileUrl)
+        }
+      } else {
+        // 其他类型的媒体使用原有逻辑
+        if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.readFileAsDataUrl) {
+          window.electronAPI.readFileAsDataUrl(coverUrl).then((dataUrl) => {
+            if (dataUrl) {
+              this.$set ? this.$set(this.imageCache, cacheKey, dataUrl) : (this.imageCache[cacheKey] = dataUrl)
+            } else {
+              const defaultImage = this.getDefaultImage()
+              this.$set ? this.$set(this.imageCache, cacheKey, defaultImage) : (this.imageCache[cacheKey] = defaultImage)
+            }
+          }).catch(() => {
+            const defaultImage = this.getDefaultImage()
+            this.$set ? this.$set(this.imageCache, cacheKey, defaultImage) : (this.imageCache[cacheKey] = defaultImage)
+          })
+        } else {
+          // 回退：尝试 file://
+          const normalizedPath = String(coverUrl).replace(/\\/g, '/')
+          const fileUrl = `file:///${normalizedPath}`
+          this.$set ? this.$set(this.imageCache, cacheKey, fileUrl) : (this.imageCache[cacheKey] = fileUrl)
+        }
+      }
     },
     getDefaultImage() {
       // 使用资源类的配置，如果没有配置则使用基类的默认值

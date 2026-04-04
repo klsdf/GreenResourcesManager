@@ -368,6 +368,7 @@ import FolderVideosGrid from './video/FolderVideosGrid.vue'
 import ResourcesEditDialog from './ResourcesEditDialog.vue'
 import ScraperUpdateDialog from './ScraperUpdateDialog.vue'
 import type { FilterItem } from '../types/filter'
+import coverManager from '../utils/CoverManager.ts'
 
 // 刮削数据专有字段，不写入主存档
 const SCRAPER_ONLY_KEYS = ['resourceFileName', 'resourceFolderName']
@@ -1937,6 +1938,17 @@ export default defineComponent({
           
           console.log('[GenericResourceView] onAdd 处理后 - newItem.id.value:', newItem.id?.value)
           
+          // 处理封面：保存到 cover 文件夹
+          const resourceId = BaseResources.extractPrimitiveValue(newItem.id?.value || newItem.id)
+          if (resourceId) {
+            console.log('[GenericResourceView] 准备处理封面...')
+            const processedItem = await coverManager.processCoverForResource(newItem, resourceType.value, resourceId)
+            if (processedItem) {
+              Object.assign(newItem, processedItem)
+              console.log('[GenericResourceView] 封面处理完成')
+            }
+          }
+          
           // 如果资源有 folderSize 字段配置，自动计算大小
           const cardConfig = newItem.constructor?.cardDisplayConfig || 
                            (typeof newItem.constructor?.getCardDisplayConfig === 'function' 
@@ -1970,6 +1982,22 @@ export default defineComponent({
                 item[key] = updates[key]
               }
             })
+            
+            // 处理封面：如果封面字段被更新了，保存到 cover 文件夹
+            const hasCoverUpdate = ['coverPath', 'cover', 'thumbnail', 'thumbnailPath'].some(
+              field => updates[field] !== undefined
+            )
+            if (hasCoverUpdate) {
+              console.log('[GenericResourceView] 封面已更新，准备处理封面...')
+              const resourceId = BaseResources.extractPrimitiveValue(item.id?.value || item.id)
+              if (resourceId) {
+                const processedItem = await coverManager.processCoverForResource(item, resourceType.value, resourceId)
+                if (processedItem) {
+                  Object.assign(item, processedItem)
+                  console.log('[GenericResourceView] 封面处理完成')
+                }
+              }
+            }
             
             // 仅当更新了 resourcePath、且当前没有 folderSize 数据时才计算大小（不覆盖已有值）
             if (updates.resourcePath && isElectronEnvironment.value) {
