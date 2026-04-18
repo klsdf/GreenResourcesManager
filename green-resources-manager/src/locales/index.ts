@@ -14,11 +14,34 @@ const messages = {
 
 export type MessageSchema = typeof zhCN
 
+const detectSystemLanguage = (): string => {
+  if (typeof navigator === 'undefined') {
+    return 'zh-CN'
+  }
+  
+  const systemLang = navigator.language || (navigator as any).userLanguage || 'zh-CN'
+  
+  if (systemLang.startsWith('zh-CN') || systemLang.startsWith('zh')) {
+    return 'zh-CN'
+  }
+  if (systemLang.startsWith('zh-TW')) {
+    return 'zh-TW'
+  }
+  if (systemLang.startsWith('ja')) {
+    return 'ja'
+  }
+  if (systemLang.startsWith('en')) {
+    return 'en'
+  }
+  
+  return 'zh-CN'
+}
+
 const getSavedLanguage = (): string => {
   if (typeof window !== 'undefined') {
-    return localStorage.getItem('app-language') || 'zh-CN'
+    return localStorage.getItem('app-language') || detectSystemLanguage()
   }
-  return 'zh-CN'
+  return detectSystemLanguage()
 }
 
 const i18n: I18n<{ messages: typeof messages }, {}, {}, string, false> = createI18n<{ messages: typeof messages }, string, false>({

@@ -18,10 +18,21 @@ export interface ChangelogEntry {
 export const changelogEntries: ChangelogEntry[] = [
   {
     version: 'v0.7.4',
-    date: '2026-04-01',
+    date: '2026-04-18',
     features: [
       "本地化功能，新增英文、繁体中文和日文",
+      "新增资源视图页",
+      "漫画阅读器增加预览栏",
+      "页面管理的内容可以做可视化编辑",
+      "资源的封面图会保存到本地，这样资源丢失，封面图也不会消失"
     ],
+    experience:[
+      "主题样式更新，默认配色改为仓鼠娘",
+      "新增奶油冰淇淋配色"
+    ],
+    bugfixes:[
+      "修复f2误触问题"
+    ]
 
   },
     {
