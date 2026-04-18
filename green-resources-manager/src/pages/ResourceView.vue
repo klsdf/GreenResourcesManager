@@ -364,27 +364,27 @@ export default {
   flex: 1;
   padding: 2rem;
   overflow-y: auto;
-  background: #f5f5f5;
+  background: var(--bg-primary);
 }
 
 .resources-container {
-  background: white;
-  border-radius: 8px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
   padding: 1.5rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px var(--shadow-light);
 }
 
 .loading-state {
   text-align: center;
   padding: 3rem;
-  color: #999;
+  color: var(--text-tertiary);
 }
 
 .loading-spinner {
   width: 40px;
   height: 40px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #3498db;
+  border: 4px solid var(--bg-tertiary);
+  border-top: 4px solid var(--accent-color);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 1rem;
@@ -404,9 +404,9 @@ export default {
   font-size: 1.3rem;
   font-weight: 600;
   margin: 0 0 1rem 0;
-  color: #333;
+  color: var(--text-primary);
   padding-bottom: 0.5rem;
-  border-bottom: 2px solid #e0e0e0;
+  border-bottom: 2px solid var(--border-color);
 }
 
 .disk-grid {
@@ -416,10 +416,10 @@ export default {
 }
 
 .disk-card {
-  background: #1b1b1b;
-  border-radius: 12px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-xl);
   padding: 1.5rem;
-  color: white;
+  color: var(--text-primary);
 }
 
 .disk-header {
@@ -447,18 +447,18 @@ export default {
   font-size: 1.1rem;
   font-weight: 600;
   margin: 0 0 0.25rem 0;
-  color: white;
+  color: var(--text-primary);
 }
 
 .disk-type {
   font-size: 0.85rem;
-  color: #888;
+  color: var(--text-tertiary);
 }
 
 .disk-drive {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #66c0f4;
+  color: var(--accent-color);
 }
 
 .storage-bars {
@@ -477,22 +477,22 @@ export default {
 
 .storage-bar-total {
   height: 100%;
-  background: #3d3d3d;
-  border-radius: 4px;
+  background: var(--border-color);
+  border-radius: var(--radius-sm);
 }
 
 .storage-bar-used {
   height: 100%;
-  background: linear-gradient(90deg, #7a9d0a, #a4d007);
-  border-radius: 4px;
-  transition: width 0.3s ease;
+  background: linear-gradient(90deg, var(--success-color), #a4d007);
+  border-radius: var(--radius-sm);
+  transition: width var(--transition-slow) ease;
 }
 
 .storage-bar-resources {
   height: 100%;
-  background: linear-gradient(90deg, #4c6ef5, #748ffc);
-  border-radius: 4px;
-  transition: width 0.3s ease;
+  background: linear-gradient(90deg, var(--accent-color), var(--accent-hover));
+  border-radius: var(--radius-sm);
+  transition: width var(--transition-slow) ease;
 }
 
 .storage-legend {
@@ -514,20 +514,20 @@ export default {
 }
 
 .legend-total {
-  background: #3d3d3d;
+  background: var(--border-color);
 }
 
 .legend-used {
-  background: linear-gradient(90deg, #7a9d0a, #a4d007);
+  background: linear-gradient(90deg, var(--success-color), #a4d007);
 }
 
 .legend-resources {
-  background: linear-gradient(90deg, #4c6ef5, #748ffc);
+  background: linear-gradient(90deg, var(--accent-color), var(--accent-hover));
 }
 
 .legend-label {
   font-size: 0.85rem;
-  color: #aaa;
+  color: var(--text-secondary);
 }
 
 .filter-section {
@@ -545,16 +545,17 @@ export default {
 
 .filter-group label {
   font-size: 0.9rem;
-  color: #666;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
 .filter-group select {
   padding: 0.5rem 1rem;
-  border: 1px solid #ddd;
-  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
   font-size: 0.9rem;
-  background: white;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
   cursor: pointer;
 }
 
@@ -565,17 +566,17 @@ export default {
 }
 
 .distribution-card {
-  background: #fafafa;
-  border-radius: 12px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-xl);
   padding: 1.5rem;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--border-color);
 }
 
 .distribution-card h4 {
   font-size: 1.1rem;
   font-weight: 600;
   margin: 0 0 1rem 0;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .distribution-list {
@@ -593,30 +594,30 @@ export default {
 .distribution-label {
   width: 80px;
   font-size: 0.9rem;
-  color: #666;
+  color: var(--text-secondary);
   flex-shrink: 0;
 }
 
 .distribution-bar-wrapper {
   flex: 1;
   height: 20px;
-  background: #e0e0e0;
+  background: var(--border-color);
   border-radius: 10px;
   overflow: hidden;
 }
 
 .distribution-bar {
   height: 100%;
-  background: linear-gradient(90deg, #2196F3, #03A9F4);
+  background: linear-gradient(90deg, var(--accent-color), var(--accent-hover));
   border-radius: 10px;
-  transition: width 0.3s ease;
+  transition: width var(--transition-slow) ease;
 }
 
 .distribution-value {
   width: 150px;
   text-align: right;
   font-size: 0.85rem;
-  color: #666;
+  color: var(--text-secondary);
   flex-shrink: 0;
 }
 </style>

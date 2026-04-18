@@ -4,63 +4,21 @@
   "icon": "🎮",
   "description": "可以管理游戏、应用等exe文件",
   "settingsKey": "game",
-  "defaultPageSize": 8,
-  "resourceTypes": [
-    "Game"
-  ],
+  "defaultPageSize": 12,
+  "resourceTypes": ["Game"],
   "displayLayoutConfig": {
     "minWidth": 80,
     "maxWidth": 400
   },
   "sortOptions": [
-    {
-      "id": "name-asc",
-      "label": "按名称排序",
-      "field": "name",
-      "order": "asc"
-    },
-    {
-      "id": "name-desc",
-      "label": "按名称排序（降序）",
-      "field": "name",
-      "order": "desc"
-    },
-    {
-      "id": "lastPlayed-asc",
-      "label": "按最后游玩时间",
-      "field": "lastPlayed",
-      "order": "asc"
-    },
-    {
-      "id": "lastPlayed-desc",
-      "label": "按最后游玩时间（降序）",
-      "field": "lastPlayed",
-      "order": "desc"
-    },
-    {
-      "id": "playTime-asc",
-      "label": "按游戏时长（升序）",
-      "field": "playTime",
-      "order": "asc"
-    },
-    {
-      "id": "playTime-desc",
-      "label": "按游戏时长（降序）",
-      "field": "playTime",
-      "order": "desc"
-    },
-    {
-      "id": "addedDate-asc",
-      "label": "按添加时间",
-      "field": "addedDate",
-      "order": "asc"
-    },
-    {
-      "id": "addedDate-desc",
-      "label": "按添加时间（降序）",
-      "field": "addedDate",
-      "order": "desc"
-    }
+    { "id": "name-asc", "label": "按名称排序", "field": "name", "order": "asc" },
+    { "id": "name-desc", "label": "按名称排序（降序）", "field": "name", "order": "desc" },
+    { "id": "lastPlayed-asc", "label": "按最后游玩时间", "field": "lastPlayed", "order": "asc" },
+    { "id": "lastPlayed-desc", "label": "按最后游玩时间（降序）", "field": "lastPlayed", "order": "desc" },
+    { "id": "playTime-asc", "label": "按游戏时长（升序）", "field": "playTime", "order": "asc" },
+    { "id": "playTime-desc", "label": "按游戏时长（降序）", "field": "playTime", "order": "desc" },
+    { "id": "addedDate-asc", "label": "按添加时间（升序）", "field": "addedDate", "order": "asc" },
+    { "id": "addedDate-desc", "label": "按添加时间（降序）", "field": "addedDate", "order": "desc" }
   ],
   "emptyStateConfig": {
     "icon": "🎮",

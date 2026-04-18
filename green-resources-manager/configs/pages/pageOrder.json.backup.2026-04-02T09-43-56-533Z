@@ -45,7 +45,7 @@
     "fileName": "novelPage.json",
     "order": 8,
     "isDefault": true,
-    "isHidden": false
+    "isHidden": true
   },
   {
     "fileName": "audioPage.json",

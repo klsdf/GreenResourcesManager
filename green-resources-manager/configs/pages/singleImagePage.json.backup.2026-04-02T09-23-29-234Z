@@ -1,16 +1,16 @@
 {
-  "id": "videos",
-  "name": "电影",
-  "icon": "🎦",
-  "description": "可以管理电影等单一的视频",
-  "settingsKey": "video",
+  "id": "single-image",
+  "name": "单图",
+  "icon": "🖼️",
+  "description": "可以管理单一图片文件喵",
+  "settingsKey": "singleImage",
   "defaultPageSize": 20,
   "resourceTypes": [
-    "Video"
+    "SingleImage"
   ],
   "displayLayoutConfig": {
     "minWidth": 150,
-    "maxWidth": 400
+    "maxWidth": 500
   },
   "sortOptions": [
     {
@@ -39,17 +39,17 @@
     }
   ],
   "emptyStateConfig": {
-    "icon": "🎬",
-    "title": "你的电影库是空的",
-    "description": "点击\"添加电影\"按钮来添加你的第一部电影",
-    "buttonText": "添加第一部电影",
+    "icon": "🖼️",
+    "title": "你的单图库是空的",
+    "description": "点击\"添加单图\"按钮来添加你的第一张图片",
+    "buttonText": "添加第一张图片",
     "buttonAction": "showAddDialog"
   },
   "toolbarConfig": {
     "items": [
       {
         "type": "button",
-        "label": "添加视频",
+        "label": "添加单图",
         "action": "showAddDialog",
         "icon": "➕",
         "buttonType": "primary"
@@ -62,7 +62,7 @@
       },
       {
         "type": "search",
-        "placeholder": "搜索视频...",
+        "placeholder": "搜索单图...",
         "action": "filterBySearch"
       },
       {
@@ -77,11 +77,10 @@
     ]
   },
   "dialogConfig": {
-    "addTitle": "添加视频",
-    "editTitle": "编辑视频",
-    "addButtonText": "添加视频",
-    "editButtonText": "保存",
-    "enableRandomizeThumbnail": true
+    "addTitle": "添加单图",
+    "editTitle": "编辑单图",
+    "addButtonText": "添加单图",
+    "editButtonText": "保存修改"
   },
   "filterConfig": [
     {
@@ -97,28 +96,18 @@
       "title": "标签筛选",
       "filterType": "resourceField",
       "params": {
-        "resource": "video",
+        "resource": "singleImage",
         "field": "tags"
       },
       "isArray": true
     },
     {
-      "key": "actors",
-      "title": "演员筛选",
+      "key": "author",
+      "title": "作者筛选",
       "filterType": "resourceField",
       "params": {
-        "resource": "video",
-        "field": "actors"
-      },
-      "isArray": true
-    },
-    {
-      "key": "series",
-      "title": "系列筛选",
-      "filterType": "resourceField",
-      "params": {
-        "resource": "video",
-        "field": "series"
+        "resource": "singleImage",
+        "field": "author"
       },
       "isArray": false
     }

@@ -3,7 +3,7 @@
     "fileName": "singleImagePage.json",
     "order": 1,
     "isDefault": true,
-    "isHidden": false
+    "isHidden": true
   },
   {
     "fileName": "websitePage.json",

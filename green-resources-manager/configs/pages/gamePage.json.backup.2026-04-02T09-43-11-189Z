@@ -51,7 +51,7 @@
     },
     {
       "id": "addedDate-asc",
-      "label": "按添加时间",
+      "label": "按添加时间（升序）",
       "field": "addedDate",
       "order": "asc"
     },

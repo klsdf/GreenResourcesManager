@@ -1,42 +1,20 @@
 {
   "id": "single-image",
-  "name": "单图喵",
+  "name": "单图",
   "icon": "🖼️",
-  "description": "可以管理单一图片文件喵~~~",
+  "description": "可以管理单一图片文件喵",
   "settingsKey": "singleImage",
   "defaultPageSize": 20,
-  "resourceTypes": [
-    "SingleImage"
-  ],
+  "resourceTypes": ["SingleImage"],
   "displayLayoutConfig": {
     "minWidth": 150,
     "maxWidth": 500
   },
   "sortOptions": [
-    {
-      "id": "name-asc",
-      "label": "按名称排序",
-      "field": "name",
-      "order": "asc"
-    },
-    {
-      "id": "name-desc",
-      "label": "按名称排序（降序）",
-      "field": "name",
-      "order": "desc"
-    },
-    {
-      "id": "addedDate-asc",
-      "label": "按添加时间（升序）",
-      "field": "addedDate",
-      "order": "asc"
-    },
-    {
-      "id": "addedDate-desc",
-      "label": "按添加时间（降序）",
-      "field": "addedDate",
-      "order": "desc"
-    }
+    { "id": "name-asc", "label": "按名称排序", "field": "name", "order": "asc" },
+    { "id": "name-desc", "label": "按名称排序（降序）", "field": "name", "order": "desc" },
+    { "id": "addedDate-asc", "label": "按添加时间（升序）", "field": "addedDate", "order": "asc" },
+    { "id": "addedDate-desc", "label": "按添加时间（降序）", "field": "addedDate", "order": "desc" }
   ],
   "emptyStateConfig": {
     "icon": "🖼️",

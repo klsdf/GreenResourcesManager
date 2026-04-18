@@ -1,42 +1,20 @@
 {
   "id": "videos",
   "name": "电影",
-  "icon": "🎦",
+  "icon": "🎬",
   "description": "可以管理电影等单一的视频",
   "settingsKey": "video",
   "defaultPageSize": 20,
-  "resourceTypes": [
-    "Video"
-  ],
+  "resourceTypes": ["Video"],
   "displayLayoutConfig": {
     "minWidth": 150,
     "maxWidth": 400
   },
   "sortOptions": [
-    {
-      "id": "name-asc",
-      "label": "按名称排序",
-      "field": "name",
-      "order": "asc"
-    },
-    {
-      "id": "name-desc",
-      "label": "按名称排序（降序）",
-      "field": "name",
-      "order": "desc"
-    },
-    {
-      "id": "addedDate-asc",
-      "label": "按添加时间（升序）",
-      "field": "addedDate",
-      "order": "asc"
-    },
-    {
-      "id": "addedDate-desc",
-      "label": "按添加时间（降序）",
-      "field": "addedDate",
-      "order": "desc"
-    }
+    { "id": "name-asc", "label": "按名称排序", "field": "name", "order": "asc" },
+    { "id": "name-desc", "label": "按名称排序（降序）", "field": "name", "order": "desc" },
+    { "id": "addedDate-asc", "label": "按添加时间（升序）", "field": "addedDate", "order": "asc" },
+    { "id": "addedDate-desc", "label": "按添加时间（降序）", "field": "addedDate", "order": "desc" }
   ],
   "emptyStateConfig": {
     "icon": "🎬",

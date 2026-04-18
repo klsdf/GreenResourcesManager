@@ -1,7 +1,7 @@
 {
   "id": "videos",
   "name": "电影",
-  "icon": "🎦",
+  "icon": "电",
   "description": "可以管理电影等单一的视频",
   "settingsKey": "video",
   "defaultPageSize": 20,
