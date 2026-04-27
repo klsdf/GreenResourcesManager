@@ -92,8 +92,8 @@
             <div class="contact-details">
               <h4>QQ</h4>
               <p>吹水用，以及有什么建议可以在这里反馈</p>
-              <span @click="openExternalLink('https://qm.qq.com/q/qD9za7lqOQ')" class="external-link">
-                点击链接加入群聊【GreenResourcesManager客服群】：https://qm.qq.com/q/qD9za7lqOQ
+              <span @click="openExternalLink('https://qm.qq.com/q/motJp8Bryu')" class="external-link">
+                点击链接加入群聊【GreenResourceManager里群*李代数】：https://qm.qq.com/q/motJp8Bryu
               </span>
             </div>
           </div>
