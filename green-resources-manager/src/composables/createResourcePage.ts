@@ -35,13 +35,16 @@ export interface ResourcePageOptions<T> {
     buttonAction: string
   }
   
-  // 工具栏配置
+  // 工具栏配置 - 支持两种格式
   toolbar: {
-    addButtonText: string
-    searchPlaceholder: string
-    sortOptions: Array<{ id: string; label: string }>
+    addButtonText?: string
+    searchPlaceholder?: string
+    sortOptions?: Array<{ id: string; label: string }>
     addFolderButtonText?: string
     importBookmarkButtonText?: string
+    // 灵活工具栏配置
+    items?: Array<{ type: string; label?: string; action?: string; icon?: string; buttonType?: 'primary' | 'secondary'; placeholder?: string }>
+    pageType?: string
   }
   
   // 其他选项
@@ -111,19 +114,19 @@ export function createResourcePage<T>(options: ResourcePageOptions<T>) {
 
   // 检查是否是灵活工具栏配置（包含 items 字段）
   let toolbarConfig: any
-  if (toolbar && 'items' in toolbar) {
+  if (toolbar && 'items' in toolbar && toolbar.items) {
     // 使用灵活工具栏配置
     toolbarConfig = {
       ...toolbar
     }
   } else {
-    // 使用旧版工具栏配置
+    // 使用旧版工具栏配置 - 提供默认值防止报错
     toolbarConfig = createToolbarConfig(
       pageType,
       itemType,
-      toolbar.addButtonText,
-      toolbar.searchPlaceholder,
-      toolbar.sortOptions,
+      toolbar.addButtonText || '添加',
+      toolbar.searchPlaceholder || '搜索...',
+      toolbar.sortOptions || [],
       {
         addFolderButtonText: toolbar.addFolderButtonText,
         importBookmarkButtonText: toolbar.importBookmarkButtonText

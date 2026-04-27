@@ -1163,7 +1163,7 @@ export default defineComponent({
           return
         }
 
-        const result = await window.electronAPI.terminateGame(executablePath)
+        const result = await window.electronAPI.terminateGame(executablePath, resourceName)
         
         if (result.success) {
           // 从运行列表中移除（游戏/软件等可执行程序统一登记，统一移除）

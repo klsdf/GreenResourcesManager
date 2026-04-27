@@ -154,9 +154,9 @@ npm run electron-build
 
 也欢迎来加入客服群@群主！让我们一起开发！
 
-点击链接加入群聊【GreenResourcesManager客服群】：https://qm.qq.com/q/weqIkXUN6o
+点击链接加入群聊【GreenResourceManager里群*李代数】：https://qm.qq.com/q/HgPf1nA4UK
 
-<img src="image/qrcode_1767085224573.jpg" alt="qrcode_1767085224573" style="zoom:25%;" />
+<img src="image/qrcode_1777297239552.jpg" alt="qrcode_1767085224573" style="zoom:25%;" />
 
 <div align="center">
   <img src="image/hat-soft.png" alt="HAT-SOFT" />

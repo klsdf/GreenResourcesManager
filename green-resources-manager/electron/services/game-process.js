@@ -44,6 +44,123 @@ const { app } = require('electron')
 const windowsUtils = require('../utils/windows-utils')
 const fileUtils = require('../utils/file-utils')
 
+/**
+ * 解析 Windows .lnk 快捷方式，获取目标路径
+ * @param {string} shortcutPath - 快捷方式路径
+ * @returns {Promise<{targetPath?: string, workingDir?: string, arguments?: string}>} 解析结果
+ */
+async function resolveShortcut(shortcutPath) {
+  return new Promise((resolve) => {
+    // 使用 PowerShell 解析快捷方式
+    const psScript = `
+      $wshell = New-Object -ComObject WScript.Shell
+      $shortcut = $wshell.CreateShortcut("${shortcutPath.replace(/"/g, '\\"')}")
+      $result = @{
+        TargetPath = $shortcut.TargetPath
+        WorkingDirectory = $shortcut.WorkingDirectory
+        Arguments = $shortcut.Arguments
+      }
+      $result | ConvertTo-Json
+    `
+    
+    exec(`powershell -NoProfile -ExecutionPolicy Bypass -Command "${psScript.replace(/"/g, '\\"')}"`, (error, stdout, stderr) => {
+      if (error) {
+        console.warn('解析快捷方式失败:', error)
+        resolve({})
+        return
+      }
+      
+      try {
+        const result = JSON.parse(stdout.trim())
+        resolve({
+          targetPath: result.TargetPath,
+          workingDir: result.WorkingDirectory,
+          arguments: result.Arguments
+        })
+      } catch (e) {
+        console.warn('解析快捷方式结果失败:', e)
+        resolve({})
+      }
+    })
+  })
+}
+
+/**
+ * 通过多种方式查找并终止与指定路径相关的所有进程
+ * @param {string} executablePath - 可执行文件路径或快捷方式路径
+ * @param {string} [gameName] - 游戏名称
+ */
+async function forceTerminateAllRelatedProcesses(executablePath, gameName) {
+  console.log('[DEBUG] 🔍 开始查找并终止相关进程，路径:', executablePath, '名称:', gameName)
+  
+  const methods = []
+  const targetPaths = []
+  
+  // 收集所有可能的目标路径
+  if (executablePath) {
+    targetPaths.push(executablePath)
+  }
+  
+  // 如果是快捷方式，先解析获取真实路径
+  if (executablePath && path.extname(executablePath).toLowerCase() === '.lnk') {
+    try {
+      const shortcutInfo = await resolveShortcut(executablePath)
+      if (shortcutInfo.targetPath) {
+        targetPaths.push(shortcutInfo.targetPath)
+        console.log('[DEBUG] 📎 快捷方式解析成功，目标路径:', shortcutInfo.targetPath)
+      }
+    } catch (e) {
+      console.warn('[DEBUG] ⚠️ 快捷方式解析失败:', e)
+    }
+  }
+  
+  // 方法 1: 通过可执行文件名终止（对所有路径都尝试）
+  for (const targetPath of targetPaths) {
+    const fileName = path.basename(targetPath, path.extname(targetPath))
+    if (fileName && fileName.trim()) {
+      methods.push(`Stop-Process -Name "${fileName}" -Force -ErrorAction SilentlyContinue`)
+    }
+  }
+  
+  // 方法 2: 通过完整匹配的可执行路径终止（更精确）
+  for (const targetPath of targetPaths) {
+    if (targetPath && targetPath.trim()) {
+      const normalizedPath = targetPath.replace(/\\/g, '\\\\')
+      methods.push(`Get-Process | Where-Object { $_.Path -like "*${normalizedPath}*" } | Stop-Process -Force -ErrorAction SilentlyContinue`)
+    }
+  }
+  
+  // 方法 3: 通过窗口标题查找（匹配游戏名称）
+  if (gameName && gameName.trim()) {
+    // 转义特殊字符
+    const safeGameName = gameName.replace(/[$&+,:;=?@#|'<>.^*()%!-]/g, '\\$&')
+    methods.push(`Get-Process | Where-Object { $_.MainWindowTitle -like "*${safeGameName}*" } | Stop-Process -Force -ErrorAction SilentlyContinue`)
+  }
+  
+  // 组合所有方法执行
+  if (methods.length > 0) {
+    const combinedScript = methods.join('; ')
+    console.log('[DEBUG] 🔪 执行终止命令:', combinedScript)
+    
+    return new Promise((resolve) => {
+      exec(`powershell -NoProfile -ExecutionPolicy Bypass -Command "${combinedScript.replace(/"/g, '\\"')}"`, (error, stdout, stderr) => {
+        if (error) {
+          console.warn('[DEBUG] ⚠️ 终止命令执行失败，但继续:', error)
+        }
+        if (stderr) {
+          console.warn('[DEBUG] ⚠️ PowerShell stderr:', stderr)
+        }
+        if (stdout) {
+          console.log('[DEBUG] 📝 PowerShell stdout:', stdout)
+        }
+        resolve()
+      })
+    })
+  } else {
+    console.log('[DEBUG] ℹ️ 没有可用的终止方法')
+  }
+}
+
 // 存储游戏进程信息的 Map，键为 PID，值为游戏信息对象
 const gameProcesses = new Map()
 
@@ -235,9 +352,10 @@ async function launchGame(executablePath, gameName, getMainWindow) {
       throw new Error('游戏文件不存在')
     }
 
-    // 检查是否为Flash游戏（.swf文件）
+    // 检查是否为Flash游戏（.swf文件）或快捷方式（.lnk）
     const fileExt = path.extname(executablePath).toLowerCase()
     const isFlashGame = fileExt === '.swf'
+    const isShortcut = fileExt === '.lnk'
 
     let gameProcess
     let actualExecutablePath = executablePath
@@ -303,6 +421,37 @@ async function launchGame(executablePath, gameName, getMainWindow) {
       
       console.log(`✅ 使用 Flash 播放器运行: ${flashPlayerPath} "${executablePath}"`)
       console.log(`   工作目录: ${swfDir}`)
+    } else if (isShortcut) {
+      // 快捷方式：先解析获取真实路径，然后直接启动真实程序
+      console.log('🔗 检测到快捷方式，正在解析...')
+      const shortcutInfo = await resolveShortcut(executablePath)
+      
+      let targetPath = shortcutInfo.targetPath
+      let workingDir = shortcutInfo.workingDir || path.dirname(executablePath)
+      let args = shortcutInfo.arguments ? shortcutInfo.arguments.split(' ') : []
+      
+      if (!targetPath || !fs.existsSync(targetPath)) {
+        console.warn('⚠️ 无法解析快捷方式或目标文件不存在，回退使用 start 命令')
+        // 回退方案：使用 Windows 的 start 命令
+        gameProcess = exec(`start "" "${executablePath}"`, {
+          detached: true,
+          stdio: 'ignore',
+          cwd: workingDir,
+          env: { ...process.env }
+        })
+        actualExecutablePath = executablePath
+      } else {
+        console.log('✅ 快捷方式解析成功，目标路径:', targetPath)
+        // 直接启动真实的可执行文件
+        actualExecutablePath = targetPath
+        gameProcess = spawn(targetPath, args, {
+          detached: true,
+          stdio: 'ignore',
+          cwd: workingDir || path.dirname(targetPath),
+          env: { ...process.env }
+        })
+      }
+      console.log(`✅ 快捷方式启动，工作目录: ${workingDir}`)
     } else {
       // 普通游戏：直接运行可执行文件
       // 获取游戏可执行文件所在目录作为工作目录
@@ -455,13 +604,29 @@ async function launchGameWithLocale(localeEmulatorPath, executablePath, gameName
     }
 
     const gameDir = path.dirname(executablePath)
-    // 调用方式：LEProc.exe "C:\Path\To\Game.exe"
-    const gameProcess = spawn(localeEmulatorPath, [executablePath], {
-      detached: true,
-      stdio: 'ignore',
-      cwd: gameDir,
-      env: { ...process.env }
-    })
+    let gameProcess
+    
+    if (fileExt === '.lnk') {
+      // 快捷方式：使用 Windows Shell 结合转区工具启动
+      console.log('🔗 转区启动 - 检测到快捷方式')
+      // 注意：这里可能需要先解析快捷方式获取真实路径，或者直接让转区工具处理
+      // 为了简单，我们先尝试直接传递快捷方式给转区工具
+      gameProcess = spawn(localeEmulatorPath, [executablePath], {
+        detached: true,
+        stdio: 'ignore',
+        cwd: gameDir,
+        env: { ...process.env }
+      })
+    } else {
+      // 普通可执行文件
+      // 调用方式：LEProc.exe "C:\Path\To\Game.exe"
+      gameProcess = spawn(localeEmulatorPath, [executablePath], {
+        detached: true,
+        stdio: 'ignore',
+        cwd: gameDir,
+        env: { ...process.env }
+      })
+    }
 
     const startTime = Date.now()
     const gameInfo = {
@@ -522,95 +687,81 @@ async function launchGameWithLocale(localeEmulatorPath, executablePath, gameName
 }
 
 /**
- * 强制终止游戏进程。
+ * 强制终止游戏进程（增强版）。
  * @param {string} executablePath - 游戏可执行文件路径。
  * @param {Function} getMainWindow - 获取主窗口的函数。
+ * @param {string} [gameName] - 游戏名称（可选）。
  * @returns {Promise<{success: boolean, pid?: number, playTime?: number, error?: string}>} 终止结果。
  */
-async function terminateGame(executablePath, getMainWindow) {
+async function terminateGame(executablePath, getMainWindow, gameName) {
   try {
-    console.log('[DEBUG] 🛑 请求强制结束游戏，executablePath:', executablePath)
+    console.log('[DEBUG] 🛑 请求强制结束游戏，executablePath:', executablePath, 'gameName:', gameName)
 
     if (!executablePath) {
       return { success: false, error: '可执行文件路径不能为空' }
     }
 
-    // 查找匹配的游戏进程
+    // 查找匹配的游戏进程（首先尝试我们记录的进程）
     let targetPid = null
     let targetGameInfo = null
+    let startTime = null
 
     for (const [pid, gameInfo] of gameProcesses.entries()) {
       if (gameInfo.executablePath === executablePath) {
         targetPid = pid
         targetGameInfo = gameInfo
+        startTime = gameInfo.startTime
+        console.log('[DEBUG] 🎯 找到记录的游戏进程，PID:', targetPid)
         break
       }
     }
 
-    if (!targetPid || !targetGameInfo) {
-      console.log('[DEBUG] ⚠️ 未找到运行中的游戏进程，executablePath:', executablePath)
-      return { success: false, error: '未找到运行中的游戏进程' }
+    // 计算游戏运行时长（如果找到了记录的进程）
+    let playTime = 0
+    if (startTime) {
+      playTime = Math.floor((Date.now() - startTime) / 1000)
     }
 
-    console.log('[DEBUG] 🎯 找到游戏进程，PID:', targetPid, '游戏:', targetGameInfo.gameName || executablePath)
-
-    // 计算游戏运行时长
-    const endTime = Date.now()
-    const startTime = targetGameInfo.startTime
-    const playTime = Math.floor((endTime - startTime) / 1000)
-
-    // 尝试通过进程对象终止
-    try {
-      const gameProcess = targetGameInfo.process
-      if (gameProcess && !gameProcess.killed) {
-        console.log('[DEBUG] 🔪 尝试通过 process.kill() 终止进程')
-        gameProcess.kill('SIGTERM')
-
-        // 等待进程退出，最多等待 3 秒
+    // 第一步：尝试通过我们记录的进程对象终止（如果存在）
+    if (targetGameInfo && targetGameInfo.process && !targetGameInfo.process.killed) {
+      try {
+        console.log('[DEBUG] 🔪 尝试通过 process.kill() 终止记录的进程 PID:', targetPid)
+        targetGameInfo.process.kill('SIGTERM')
+        
         await new Promise((resolve) => {
           const timeout = setTimeout(() => {
-            console.log('[DEBUG] ⚠️ 进程未在 3 秒内退出，尝试强制终止')
             try {
-              gameProcess.kill('SIGKILL')
-            } catch (e) {
-              console.error('[DEBUG] ❌ 强制终止失败:', e)
-            }
+              targetGameInfo.process.kill('SIGKILL')
+            } catch (e) {}
             resolve()
-          }, 3000)
-
-          gameProcess.once('exit', () => {
+          }, 2000)
+          
+          targetGameInfo.process.once('exit', () => {
             clearTimeout(timeout)
             resolve()
           })
         })
+      } catch (e) {
+        console.warn('[DEBUG] ⚠️ process.kill() 失败:', e)
       }
-    } catch (error) {
-      console.warn('[DEBUG] ⚠️ 通过 process.kill() 终止失败，尝试使用 PowerShell:', error)
     }
 
-    // 如果进程仍然存在，使用 PowerShell 强制终止
-    try {
-      await new Promise((resolve, reject) => {
-        exec(`powershell -Command "Stop-Process -Id ${targetPid} -Force -ErrorAction SilentlyContinue"`, (error) => {
-          if (error) {
-            console.warn('[DEBUG] ⚠️ PowerShell 终止进程失败:', error)
-            // 不抛出错误，可能进程已经退出
-          }
-          resolve()
-        })
-      })
-    } catch (error) {
-      console.warn('[DEBUG] ⚠️ PowerShell 终止进程异常:', error)
+    // 第二步：无论是否找到了记录的进程，都强制终止所有可能相关的进程！
+    console.log('[DEBUG] 🔥 执行强制终止（多种方式）...')
+    await forceTerminateAllRelatedProcesses(executablePath, gameName)
+
+    // 第三步：清理我们的进程记录（即使没找到也要清理该路径对应的记录）
+    for (const [pid, gameInfo] of gameProcesses.entries()) {
+      if (gameInfo.executablePath === executablePath) {
+        gameProcesses.delete(pid)
+        console.log('[DEBUG] 🗑️ 已从 gameProcesses 中移除 PID:', pid)
+      }
     }
 
-    // 从进程列表中移除
-    gameProcesses.delete(targetPid)
-    console.log('[DEBUG] 🗑️ 已从 gameProcesses 中移除 PID:', targetPid)
-
-    // 通知渲染进程游戏已结束
+    // 第四步：通知渲染进程游戏已结束（无论是否成功终止，都发送结束事件）
     const mainWindow = getMainWindow()
     if (mainWindow && !mainWindow.isDestroyed()) {
-      console.log('[DEBUG] 📤 发送 game-process-ended 事件（强制终止），PID:', targetPid, 'executablePath:', executablePath)
+      console.log('[DEBUG] 📤 发送 game-process-ended 事件（强制终止），executablePath:', executablePath)
       mainWindow.webContents.send('game-process-ended', {
         pid: targetPid,
         playTime: playTime,
@@ -701,8 +852,8 @@ function registerIpcHandlers(ipcMain, getMainWindow) {
   })
 
   // 强制结束游戏
-  ipcMain.handle('terminate-game', async (event, executablePath) => {
-    return await terminateGame(executablePath, getMainWindow)
+  ipcMain.handle('terminate-game', async (event, executablePath, gameName) => {
+    return await terminateGame(executablePath, getMainWindow, gameName)
   })
 
   // 通过 PID 获取进程的所有窗口标题

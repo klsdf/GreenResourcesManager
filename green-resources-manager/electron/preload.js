@@ -77,7 +77,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 使用转区工具启动游戏（LEProc -run）
   launchGameWithLocale: (localeEmulatorPath, executablePath, gameName) => ipcRenderer.invoke('launch-game-with-locale', localeEmulatorPath, executablePath, gameName),
   // 强制结束游戏
-  terminateGame: (executablePath) => ipcRenderer.invoke('terminate-game', executablePath),
+  terminateGame: (executablePath, gameName) => ipcRenderer.invoke('terminate-game', executablePath, gameName),
   // 通过 PID 获取所有窗口标题
   getAllWindowTitlesByPID: (pid) => ipcRenderer.invoke('get-all-window-titles-by-pid', pid),
   
