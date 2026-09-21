@@ -93,6 +93,13 @@ export default {
       }
     }
 
+    // 监听外部传入的 readerSettings 实时变化（左侧设置面板调整时即时生效）
+    watch(() => props.readerSettings, (newSettings) => {
+      if (newSettings && typeof newSettings === 'object') {
+        readerSettings.value = { ...readerSettings.value, ...newSettings }
+      }
+    }, { deep: true })
+
     // 加载文本内容
     const loadContent = async () => {
       if (!props.filePath) {

@@ -68,6 +68,50 @@ function registerTabHandlers(ipcMain, mainWindow, isDev) {
     }
   })
 
+  // 在新标签页中打开小说阅读器
+  // 渲染进程传入 path（文件路径）、title（资源名称）与 fileType（txt/pdf/epub）
+  ipcMain.handle('tab-open-novel-viewer', async (event, { path: filePath, title, fileType } = {}) => {
+    try {
+      if (!filePath) {
+        return { success: false, error: '未提供小说文件路径' }
+      }
+
+      let viewerUrl
+      const pathEncoded = encodeURIComponent(filePath)
+      const titleEncoded = encodeURIComponent(title || '小说阅读器')
+      const typeEncoded = encodeURIComponent(fileType || 'txt')
+      const query = `?path=${pathEncoded}&title=${titleEncoded}&fileType=${typeEncoded}`
+
+      if (isDev) {
+        viewerUrl = `http://localhost:5173/novel-viewer.html${query}`
+      } else {
+        const appPath = app.getAppPath()
+        const possiblePaths = [
+          path.join(appPath, 'dist', 'novel-viewer.html'),
+          path.join(appPath, 'novel-viewer.html'),
+          path.join(__dirname, '../../novel-viewer.html'),
+          path.join(__dirname, '../../dist/novel-viewer.html')
+        ]
+        const htmlPath = possiblePaths.find((p) => fs.existsSync(p))
+        if (!htmlPath) {
+          const errorMsg = `找不到 novel-viewer.html 文件。尝试的路径: ${possiblePaths.join(', ')}`
+          console.error('❌', errorMsg)
+          return { success: false, error: errorMsg }
+        }
+        const normalized = htmlPath.replace(/\\/g, '/')
+        viewerUrl = `file:///${normalized}${query}`
+      }
+
+      const tabManager = getTabManager(mainWindow, isDev)
+      const tabId = tabManager.createTab(viewerUrl, title || '小说阅读器')
+      console.log('✅ 已在新标签页打开小说:', title, fileType, viewerUrl)
+      return { success: true, tabId }
+    } catch (error) {
+      console.error('在新标签页打开小说失败:', error)
+      return { success: false, error: error.message }
+    }
+  })
+
   // 关闭标签页
   ipcMain.handle('tab-close', async (event, { tabId }) => {
     try {

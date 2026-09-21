@@ -121,20 +121,6 @@
               <p>加载中...</p>
             </div>
           </div>
-
-          <!-- 图片两侧悬浮翻页区：hover 时显示箭头 + 边缘渐变遮罩 -->
-          <div
-            class="page-nav-zone page-nav-prev"
-            :class="{ disabled: currentPageIndex <= 0 }"
-          >
-            <div class="page-nav-arrow" @click="previousPage" title="上一页 (←)">‹</div>
-          </div>
-          <div
-            class="page-nav-zone page-nav-next"
-            :class="{ disabled: currentPageIndex >= pages.length - 1 }"
-          >
-            <div class="page-nav-arrow" @click="nextPage" title="下一页 (→)">›</div>
-          </div>
         </div>
       </div>
       
@@ -1168,71 +1154,6 @@ export default {
   justify-content: center;
   padding: 20px;
   overflow: hidden;
-  position: relative;
-}
-
-/* 图片两侧悬浮翻页区 —— hover 时显示箭头 + 边缘渐变遮罩 */
-.page-nav-zone {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 120px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10;
-  transition: background 0.2s ease;
-  background: transparent;
-}
-
-.page-nav-zone:hover {
-  background: rgba(0, 0, 0, 0.2);
-}
-
-.page-nav-zone.disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-
-.page-nav-prev {
-  left: 0;
-}
-
-.page-nav-prev:hover {
-  background: linear-gradient(to right, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0));
-}
-
-.page-nav-next {
-  right: 0;
-}
-
-.page-nav-next:hover {
-  background: linear-gradient(to left, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0));
-}
-
-.page-nav-arrow {
-  font-size: 72px;
-  font-weight: 300;
-  color: rgba(255, 255, 255, 0.92);
-  line-height: 1;
-  opacity: 0;
-  transform: scale(0.5);
-  transition: opacity 0.2s ease, transform 0.2s ease;
-  user-select: none;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
-  cursor: pointer;
-  padding: 30px 24px;
-  border-radius: 12px;
-}
-
-.page-nav-zone:hover .page-nav-arrow {
-  opacity: 1;
-  transform: scale(1);
-}
-
-.page-nav-zone.disabled:hover .page-nav-arrow {
-  opacity: 0.45;
-  transform: scale(0.8);
 }
 
 .comic-image-container {
@@ -1369,14 +1290,6 @@ export default {
   .comic-controls {
     flex-wrap: wrap;
     justify-content: center;
-  }
-
-  .page-nav-zone {
-    width: 70px;
-  }
-
-  .page-nav-arrow {
-    font-size: 52px;
   }
 }
 </style>

@@ -424,6 +424,10 @@ export const openImageHandler: ActionHandler = async (resource, context) => {
 /**
  * 打开小说阅读器的通用 Handler
  * 适用于小说资源类型
+ *
+ * 在 Electron 环境下，会优先通过 tabOpenNovelViewer 在新标签页中打开小说，
+ * 每个标签页展示一本独立的小说，支持同时阅读多本。
+ * 当 Electron API 不可用时，回退到原内置模态阅读器。
  */
 export const openNovelReaderHandler: ActionHandler = async (resource, context) => {
   try {
@@ -432,7 +436,7 @@ export const openNovelReaderHandler: ActionHandler = async (resource, context) =
     const filePath = BaseResources.extractPrimitiveValue(
       resource.resourcePath?.value || resource.filePath?.value || resource.resourcePath || resource.filePath
     )
-    
+
     if (resourceId && context.updateResource && resource.visitedSessions) {
       const visitedSessionsValue = BaseResources.extractPrimitiveValue(resource.visitedSessions?.value || resource.visitedSessions)
       const visitedSessions = Array.isArray(visitedSessionsValue) ? visitedSessionsValue : []
@@ -442,14 +446,30 @@ export const openNovelReaderHandler: ActionHandler = async (resource, context) =
         console.warn('[ResourceActionHandlers] 更新访问记录失败:', e)
       }
     }
-    
+
     console.log('[ResourceActionHandlers] 开始打开小说:', resourceName, filePath)
-    
+
     if (!filePath) {
       notify.toast('warning', '打开失败', '小说文件路径不存在')
       return
     }
-    
+
+    // 先检测文件类型（后面打开方式都要用）
+    let fileType = 'txt'
+    if (context.getFileType) {
+      fileType = context.getFileType(filePath)
+    } else {
+      const ext = filePath.toLowerCase().substring(filePath.lastIndexOf('.'))
+      if (ext === '.epub') fileType = 'epub'
+      else if (ext === '.mobi') fileType = 'mobi'
+      else if (ext === '.pdf') fileType = 'pdf'
+      else fileType = 'txt'
+    }
+    // mobi 暂不支持独立阅读器，回退为外部打开
+    if (fileType === 'mobi') {
+      fileType = 'mobi' // 保留原逻辑
+    }
+
     // 获取全局设置（打开模式）
     let openMode = 'internal'
     if (context.getGlobalSettings) {
@@ -460,78 +480,67 @@ export const openNovelReaderHandler: ActionHandler = async (resource, context) =
         console.warn('[ResourceActionHandlers] 获取全局设置失败，使用默认模式:', error)
       }
     }
-    
-    console.log('[ResourceActionHandlers] 打开模式:', openMode)
-    
+
+    console.log('[ResourceActionHandlers] 打开模式:', openMode, '文件类型:', fileType)
+
     if (openMode === 'external') {
       // 使用外部应用打开
       if (context.isElectronEnvironment && window.electronAPI && window.electronAPI.openExternal) {
         const result = await window.electronAPI.openExternal(filePath)
         if (result.success) {
           notify.native('打开成功', `"${resourceName}" 已用默认程序打开`)
-          // 更新阅读统计
-          if (context.updateReadingStats) {
-            await context.updateReadingStats(resource)
-          }
+          if (context.updateReadingStats) await context.updateReadingStats(resource)
         } else {
           notify.toast('error', '打开失败', `打开失败: ${result.error || '未知错误'}`)
         }
       } else {
         notify.toast('info', '文件位置', `小说文件位置:\n${filePath}\n\n请手动打开此文件进行阅读`)
       }
-      
-      // 关闭详情页面
-      if (context.closeDetail) {
-        context.closeDetail()
-      }
-    } else {
-      // 使用应用内阅读器
-      // 检查文件类型
-      let fileType = 'txt'
-      if (context.getFileType) {
-        fileType = context.getFileType(filePath)
-      } else {
-        // 简单的文件类型检测
-        const ext = filePath.toLowerCase().substring(filePath.lastIndexOf('.'))
-        if (ext === '.epub') fileType = 'epub'
-        else if (ext === '.mobi') fileType = 'mobi'
-        else if (ext === '.pdf') fileType = 'pdf'
-        else fileType = 'txt'
-      }
-      
-      console.log('[ResourceActionHandlers] 文件类型:', fileType)
-      
-      if (fileType === 'epub') {
-        // EPUB 文件使用 EPUB 阅读器 V2
-        if (context.setEbookReaderV2FilePath) {
-          context.setEbookReaderV2FilePath(filePath)
-        }
-        if (context.showEbookReaderV2) {
-          context.showEbookReaderV2(true)
-        }
-        if (context.updateReadingStats) {
-          await context.updateReadingStats(resource)
-        }
-      } else {
-        // 其他文件类型使用内部阅读器（PDF/TXT）
-        if (context.setCurrentNovel) {
-          context.setCurrentNovel(resource)
-        }
-        if (context.showNovelReader) {
-          context.showNovelReader(true)
-        }
-        if (context.updateReadingStats) {
-          await context.updateReadingStats(resource)
-        }
-      }
-      
-      notify.native('开始阅读', `"${resourceName}" 已在应用内打开`)
-      
-      // 关闭详情页面
-      if (context.closeDetail) {
-        context.closeDetail()
-      }
+      if (context.closeDetail) context.closeDetail()
+      return
     }
+
+    // === internal 模式：优先走新标签页 ===
+    // mobi 暂不支持独立阅读器，回退内置模态
+    const isSupportedType = fileType === 'txt' || fileType === 'pdf' || fileType === 'epub'
+    const hasElectronAPI = !!(window as any).electronAPI
+    const hasTabOpener = !!(window as any).electronAPI?.tabOpenNovelViewer
+
+    console.log('[ResourceActionHandlers] 新标签页条件检查:', {
+      isSupportedType,
+      isElectronEnvironment: context.isElectronEnvironment,
+      hasElectronAPI,
+      hasTabOpener,
+      fileType
+    })
+
+    if (
+      isSupportedType &&
+      context.isElectronEnvironment &&
+      hasTabOpener
+    ) {
+      const result = await window.electronAPI!.tabOpenNovelViewer(filePath, resourceName, fileType)
+      if (result.success) {
+        console.log('[ResourceActionHandlers] 已在新标签页打开小说')
+        if (context.updateReadingStats) await context.updateReadingStats(resource)
+        if (context.closeDetail) context.closeDetail()
+        return
+      }
+      console.warn('[ResourceActionHandlers] 新标签页打开小说失败，回退内置阅读器:', result.error)
+    } else {
+      console.warn('[ResourceActionHandlers] 不满足新标签页条件，回退内置阅读器。若刚修改过 preload/tab-handlers，请重启 Electron 主进程（npm run electron-dev 需要重启 electron 子进程）')
+    }
+
+    // === 回退：内置模态阅读器 ===
+    if (fileType === 'epub') {
+      if (context.setEbookReaderV2FilePath) context.setEbookReaderV2FilePath(filePath)
+      if (context.showEbookReaderV2) context.showEbookReaderV2(true)
+    } else {
+      if (context.setCurrentNovel) context.setCurrentNovel(resource)
+      if (context.showNovelReader) context.showNovelReader(true)
+    }
+    if (context.updateReadingStats) await context.updateReadingStats(resource)
+    if (context.closeDetail) context.closeDetail()
   } catch (error) {
     console.error('[ResourceActionHandlers] 打开小说失败:', error)
     const resourceName = BaseResources.extractPrimitiveValue(resource.name?.value || resource.name)

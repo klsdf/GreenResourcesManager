@@ -20,6 +20,7 @@ export default defineConfig({
         main: resolve(__dirname, 'index.html'),
         pet: resolve(__dirname, 'pet.html'),
         'comic-viewer': resolve(__dirname, 'comic-viewer.html'),
+        'novel-viewer': resolve(__dirname, 'novel-viewer.html'),
         'video-player': resolve(__dirname, 'public/html/video-player.html')
       },
       output: {
