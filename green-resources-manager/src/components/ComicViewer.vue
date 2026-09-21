@@ -10,19 +10,33 @@
       <div class="comic-viewer-header">
         <div class="comic-info">
           <h3 class="comic-title">{{ album?.name || '漫画阅读器' }}</h3>
-          <span class="page-info">
-            <input
-              type="number"
-              v-model.number="jumpToPage"
-              :min="1"
-              :max="pages.length"
-              @keyup.enter="jumpToPageNumber"
-              class="page-jump-input"
-              title="输入页码后回车跳转"
-            >
-            <span class="page-separator">/</span>
-            <span class="page-total">{{ pages.length }}</span>
-          </span>
+          <div class="page-nav-group">
+            <button
+              class="page-nav-btn page-nav-btn-prev"
+              @click="previousPage"
+              :disabled="currentPageIndex <= 0"
+              title="上一页 (←)"
+            >‹</button>
+            <span class="page-info">
+              <input
+                type="number"
+                v-model.number="jumpToPage"
+                :min="1"
+                :max="pages.length"
+                @keyup.enter="jumpToPageNumber"
+                class="page-jump-input"
+                title="输入页码后回车跳转"
+              >
+              <span class="page-separator">/</span>
+              <span class="page-total">{{ pages.length }}</span>
+            </span>
+            <button
+              class="page-nav-btn page-nav-btn-next"
+              @click="nextPage"
+              :disabled="currentPageIndex >= pages.length - 1"
+              title="下一页 (→)"
+            >›</button>
+          </div>
         </div>
         <div class="comic-controls">
           <fun-button
@@ -108,7 +122,7 @@
             </div>
           </div>
 
-          <!-- 左右翻页悬浮区放在 image-container 之后，DOM 顺序保证绘制在上层 -->
+          <!-- 图片两侧悬浮翻页区：hover 时显示箭头 + 边缘渐变遮罩 -->
           <div
             class="page-nav-zone page-nav-prev"
             :class="{ disabled: currentPageIndex <= 0 }"
@@ -721,15 +735,24 @@ export default {
     // 键盘快捷键处理
     handleKeydown(event) {
       if (!this.visible) return
-      
+
+      // 当焦点在输入框/可编辑元素内时，只拦截 Escape（用于关闭阅读器），
+      // 其它快捷键（翻页、缩放）让浏览器正常处理，不干扰用户输入
+      const tag = (event.target && event.target.tagName) || ''
+      const isEditable =
+        tag === 'INPUT' ||
+        tag === 'TEXTAREA' ||
+        (event.target && event.target.isContentEditable)
+
       switch (event.key) {
         case 'ArrowLeft':
-          event.preventDefault()
-          this.previousPage()
-          break
         case 'ArrowRight':
+        case 'ArrowUp':
+        case 'ArrowDown':
+          if (isEditable) return
           event.preventDefault()
-          this.nextPage()
+          if (event.key === 'ArrowLeft') this.previousPage()
+          else if (event.key === 'ArrowRight') this.nextPage()
           break
         case 'Escape':
           event.preventDefault()
@@ -737,19 +760,23 @@ export default {
           break
         case '+':
         case '=':
+          if (isEditable) return
           event.preventDefault()
           this.zoomIn()
           break
         case '-':
+          if (isEditable) return
           event.preventDefault()
           this.zoomOut()
           break
         case '0':
+          if (isEditable) return
           event.preventDefault()
           this.zoomLevel = 1
           break
         case 'f':
         case 'F':
+          if (isEditable) return
           event.preventDefault()
           this.toggleFullscreen()
           break
@@ -893,6 +920,63 @@ export default {
   font-weight: 600;
   margin: 0;
   transition: color 0.3s ease;
+}
+
+/* 翻页组件：‹ 页码 / 总数 › 水平排列 */
+.page-nav-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0; /* 防止被标题或右侧 controls 挤压掉 */
+}
+
+.page-nav-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 24px;
+  font-weight: 600;
+  font-family: inherit;
+  line-height: 1;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.page-nav-btn:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  border-color: var(--accent-color);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+}
+
+.page-nav-btn:active:not(:disabled) {
+  transform: scale(0.92);
+  box-shadow: none;
+}
+
+.page-nav-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.page-nav-btn-prev {
+  /* 对齐页码胶囊左边 */
+}
+
+.page-nav-btn-next {
+  /* 对齐页码胶囊右边 */
 }
 
 .page-info {
@@ -1080,14 +1164,14 @@ export default {
 .main-reading-area {
   flex: 1;
   display: flex;
-  align-items: stretch;
+  align-items: center;
   justify-content: center;
   padding: 20px;
   overflow: hidden;
   position: relative;
 }
 
-/* 左右翻页悬浮区 —— 鼠标靠近边缘时显隐箭头 */
+/* 图片两侧悬浮翻页区 —— hover 时显示箭头 + 边缘渐变遮罩 */
 .page-nav-zone {
   position: absolute;
   top: 0;
@@ -1098,12 +1182,11 @@ export default {
   justify-content: center;
   z-index: 10;
   transition: background 0.2s ease;
-  /* 透明但始终接收指针事件，否则 :hover 不会触发 */
   background: transparent;
 }
 
 .page-nav-zone:hover {
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(0, 0, 0, 0.2);
 }
 
 .page-nav-zone.disabled {
@@ -1129,7 +1212,7 @@ export default {
 
 .page-nav-arrow {
   font-size: 72px;
-  font-weight: 200;
+  font-weight: 300;
   color: rgba(255, 255, 255, 0.92);
   line-height: 1;
   opacity: 0;
@@ -1138,7 +1221,7 @@ export default {
   user-select: none;
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
   cursor: pointer;
-  padding: 30px 24px; /* 增大可点击热区 */
+  padding: 30px 24px;
   border-radius: 12px;
 }
 
