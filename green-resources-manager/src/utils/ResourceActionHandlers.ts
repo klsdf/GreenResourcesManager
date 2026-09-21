@@ -353,28 +353,20 @@ export const launchWithLocaleHandler: ActionHandler = async (resource, context) 
 /**
  * 打开专辑/漫画的通用 Handler
  * 适用于图片专辑、漫画等资源类型
+ *
+ * 在 Electron 环境下，会通过 tabOpenComicViewer 在新标签页中打开漫画，
+ * 每个标签页展示一个独立的漫画，支持同时阅读多本漫画。
+ * 当 Electron API 不可用时，回退到原内置的模态阅读器。
  */
 export const openAlbumHandler: ActionHandler = async (resource, context) => {
   try {
     const resourceName = BaseResources.extractPrimitiveValue(resource.name?.value || resource.name)
-    console.log('开始打开专辑:', resourceName)
-    
-    // 设置当前专辑
-    if (context.setCurrentAlbum) {
-      context.setCurrentAlbum(resource)
-    }
-    
-    // 设置当前页面索引为 0
-    if (context.setCurrentPageIndex) {
-      context.setCurrentPageIndex(0)
-    }
-    
-    // 清空之前的页面数据，确保重新加载
-    if (context.clearPages) {
-      context.clearPages()
-    }
-    
-    // 增加浏览次数
+    const resourcePath = BaseResources.extractPrimitiveValue(
+      resource.resourcePath?.value || resource.resourcePath
+    )
+    console.log('开始打开专辑:', resourceName, resourcePath)
+
+    // 增加浏览次数（无论打开方式都应记录）
     if (context.updateViewInfo) {
       try {
         await context.updateViewInfo(resource)
@@ -383,13 +375,33 @@ export const openAlbumHandler: ActionHandler = async (resource, context) => {
         // 不阻止打开阅读器，继续执行
       }
     }
-    
-    // 先加载当前专辑的图片文件，再显示阅读器
+
+    // 优先走新标签页打开方式
+    if (context.isElectronEnvironment && window.electronAPI?.tabOpenComicViewer && resourcePath) {
+      const result = await window.electronAPI.tabOpenComicViewer(resourcePath, resourceName)
+      if (result.success) {
+        // 关闭详情页面，让用户回到资源列表（新标签页会自动激活并显示漫画）
+        if (context.closeDetail) {
+          context.closeDetail()
+        }
+        return
+      }
+      console.warn('新标签页打开漫画失败，回退到内置阅读器:', result.error)
+    }
+
+    // 回退：使用内置模态阅读器
+    if (context.setCurrentAlbum) {
+      context.setCurrentAlbum(resource)
+    }
+    if (context.setCurrentPageIndex) {
+      context.setCurrentPageIndex(0)
+    }
+    if (context.clearPages) {
+      context.clearPages()
+    }
     if (context.loadAlbumPages) {
       await context.loadAlbumPages()
     }
-    
-    // 确保pages数组已加载完成后再显示阅读器
     console.log('页面加载完成，显示阅读器')
     if (context.showComicViewer) {
       context.showComicViewer(true)
@@ -651,7 +663,7 @@ export const playAudioHandler: ActionHandler = async (resource, context) => {
     window.dispatchEvent(new CustomEvent('global-play-audio', { detail: audioForPlayer }))
     
     // 显示播放通知（参考 useAudioPlayback.playAudio 的实现）
-    notify.native('开始播放', `正在播放: ${resourceName}`)
+    // notify.native('开始播放', `正在播放: ${resourceName}`)
     
     // 关闭详情页面
     if (context.closeDetail) {

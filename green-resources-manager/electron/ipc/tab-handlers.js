@@ -1,3 +1,6 @@
+const { app } = require('electron')
+const path = require('path')
+const fs = require('fs')
 const { getTabManager } = require('../window/tab-manager')
 
 /**
@@ -15,6 +18,52 @@ function registerTabHandlers(ipcMain, mainWindow, isDev) {
       return { success: true, tabId }
     } catch (error) {
       console.error('创建标签页失败:', error)
+      return { success: false, error: error.message }
+    }
+  })
+
+  // 在新标签页中打开漫画阅读器
+  // 渲染进程传入 path（资源路径）和 title（资源名称），主进程根据环境构建 comic-viewer.html URL
+  ipcMain.handle('tab-open-comic-viewer', async (event, { path: resourcePath, title } = {}) => {
+    try {
+      if (!resourcePath) {
+        return { success: false, error: '未提供漫画路径' }
+      }
+
+      let viewerUrl
+      const pathEncoded = encodeURIComponent(resourcePath)
+      const titleEncoded = encodeURIComponent(title || '漫画阅读器')
+      const query = `?path=${pathEncoded}&title=${titleEncoded}`
+
+      if (isDev) {
+        // 开发环境：通过 Vite 服务器加载
+        viewerUrl = `http://localhost:5173/comic-viewer.html${query}`
+      } else {
+        // 生产环境：加载打包后的 comic-viewer.html
+        const appPath = app.getAppPath()
+        const possiblePaths = [
+          path.join(appPath, 'dist', 'comic-viewer.html'),
+          path.join(appPath, 'comic-viewer.html'),
+          path.join(__dirname, '../../comic-viewer.html'),
+          path.join(__dirname, '../../dist/comic-viewer.html')
+        ]
+        const htmlPath = possiblePaths.find((p) => fs.existsSync(p))
+        if (!htmlPath) {
+          const errorMsg = `找不到 comic-viewer.html 文件。尝试的路径: ${possiblePaths.join(', ')}`
+          console.error('❌', errorMsg)
+          return { success: false, error: errorMsg }
+        }
+        // 转换为 file:// URL（Windows 路径反斜杠转正斜杠）
+        const normalized = htmlPath.replace(/\\/g, '/')
+        viewerUrl = `file:///${normalized}${query}`
+      }
+
+      const tabManager = getTabManager(mainWindow, isDev)
+      const tabId = tabManager.createTab(viewerUrl, title || '漫画阅读器')
+      console.log('✅ 已在新标签页打开漫画:', title, viewerUrl)
+      return { success: true, tabId }
+    } catch (error) {
+      console.error('在新标签页打开漫画失败:', error)
       return { success: false, error: error.message }
     }
   })

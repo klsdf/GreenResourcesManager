@@ -48,7 +48,7 @@ export function useAudioPlayback(options: AudioPlaybackOptions) {
       console.log('🎵 通过全局播放器播放音频:', audio.name)
       window.dispatchEvent(new CustomEvent('global-play-audio', { detail: audio }))
       
-      notify.native('开始播放', `正在播放: ${audio.name}`)
+      // notify.native('开始播放', `正在播放: ${audio.name}`)
       
     } catch (error: any) {
       console.error('播放音频失败:', error)

@@ -255,6 +255,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   tabActivate: (tabId) => ipcRenderer.invoke('tab-activate', { tabId }),
   tabGetAll: () => ipcRenderer.invoke('tab-get-all'),
   tabNavigate: (tabId, url) => ipcRenderer.invoke('tab-navigate', { tabId, url }),
+  // 在新标签页中打开漫画阅读器，传入 path（资源路径）与 title（资源名称）
+  tabOpenComicViewer: (path, title) => ipcRenderer.invoke('tab-open-comic-viewer', { path, title }),
   
   // 标签页事件监听
   onTabLoaded: (callback) => ipcRenderer.on('tab-loaded', (event, data) => callback(data)),

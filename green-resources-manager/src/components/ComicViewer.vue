@@ -1,12 +1,28 @@
 <template>
   <!-- 漫画阅读器 -->
-  <div v-if="visible" class="comic-viewer-overlay" @click="closeViewer">
-    <div class="comic-viewer-content" @click.stop>
+  <div
+    v-if="visible"
+    :class="standalone ? 'comic-viewer-standalone' : 'comic-viewer-overlay'"
+    @click="onOverlayClick"
+  >
+    <div class="comic-viewer-content" :class="{ 'comic-viewer-content--standalone': standalone }" @click.stop>
       <!-- 阅读器头部 -->
       <div class="comic-viewer-header">
         <div class="comic-info">
           <h3 class="comic-title">{{ album?.name || '漫画阅读器' }}</h3>
-          <span class="page-info">{{ currentPageIndex + 1 }} / {{ pages.length }}</span>
+          <span class="page-info">
+            <input
+              type="number"
+              v-model.number="jumpToPage"
+              :min="1"
+              :max="pages.length"
+              @keyup.enter="jumpToPageNumber"
+              class="page-jump-input"
+              title="输入页码后回车跳转"
+            >
+            <span class="page-separator">/</span>
+            <span class="page-total">{{ pages.length }}</span>
+          </span>
         </div>
         <div class="comic-controls">
           <fun-button
@@ -91,6 +107,20 @@
               <p>加载中...</p>
             </div>
           </div>
+
+          <!-- 左右翻页悬浮区放在 image-container 之后，DOM 顺序保证绘制在上层 -->
+          <div
+            class="page-nav-zone page-nav-prev"
+            :class="{ disabled: currentPageIndex <= 0 }"
+          >
+            <div class="page-nav-arrow" @click="previousPage" title="上一页 (←)">‹</div>
+          </div>
+          <div
+            class="page-nav-zone page-nav-next"
+            :class="{ disabled: currentPageIndex >= pages.length - 1 }"
+          >
+            <div class="page-nav-arrow" @click="nextPage" title="下一页 (→)">›</div>
+          </div>
         </div>
       </div>
       
@@ -98,44 +128,6 @@
       <div class="image-filename" v-if="currentPageImage && pages[currentPageIndex]">
         {{ getImageFileName(pages[currentPageIndex]) }}
         <span class="file-size">({{ currentFileSize > 0 ? formatFileSize(currentFileSize) : '获取中...' }})</span>
-      </div>
-      
-      <!-- 阅读器底部导航 -->
-      <div class="comic-viewer-footer">
-        <div class="navigation-controls">
-          <fun-button
-            type="primary"
-            icon="◀"
-            @click="previousPage"
-            :disabled="currentPageIndex <= 0"
-          >
-            上一页
-          </fun-button>
-          <div class="page-jump">
-            <input 
-              type="number" 
-              v-model.number="jumpToPage" 
-              :min="1" 
-              :max="pages.length"
-              @keyup.enter="jumpToPageNumber"
-              class="page-input"
-            >
-            <fun-button
-              type="secondary"
-              @click="jumpToPageNumber"
-            >
-              跳转
-            </fun-button>
-          </div>
-          <fun-button
-            type="primary"
-            icon="▶"
-            @click="nextPage"
-            :disabled="currentPageIndex >= pages.length - 1"
-          >
-            下一页
-          </fun-button>
-        </div>
       </div>
     </div>
   </div>
@@ -160,6 +152,11 @@ export default {
     initialPageIndex: {
       type: Number,
       default: 0
+    },
+    // 独立模式：在新标签页内以全屏铺满方式展示，不作为模态遮罩层
+    standalone: {
+      type: Boolean,
+      default: false
     }
   },
   emits: ['close', 'page-change', 'view-count-update'],
@@ -240,6 +237,12 @@ export default {
     closeViewer() {
       this.$emit('close')
       this.cleanup()
+    },
+
+    // 遮罩层点击：仅在模态模式下关闭，独立模式下不处理
+    onOverlayClick() {
+      if (this.standalone) return
+      this.closeViewer()
     },
 
     // 清理资源
@@ -834,6 +837,17 @@ export default {
   backdrop-filter: blur(5px);
 }
 
+/* 独立模式：在新标签页内全屏铺满，作为页面内容而非模态遮罩 */
+.comic-viewer-standalone {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .comic-viewer-content {
   background: var(--bg-secondary);
   border-radius: 12px;
@@ -845,6 +859,16 @@ export default {
   flex-direction: column;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
   transition: background-color 0.3s ease;
+}
+
+/* 独立模式：铺满整个标签页视口 */
+.comic-viewer-content--standalone {
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .comic-viewer-header {
@@ -872,12 +896,48 @@ export default {
 }
 
 .page-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: var(--text-secondary);
   font-size: 0.9rem;
   background: var(--bg-secondary);
-  padding: 4px 12px;
+  padding: 4px 10px;
   border-radius: 20px;
   border: 1px solid var(--border-color);
+  font-variant-numeric: tabular-nums;
+}
+
+.page-jump-input {
+  width: 42px;
+  padding: 2px 4px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: center;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.page-jump-input:hover {
+  border-color: var(--border-color);
+}
+
+.page-jump-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  background: var(--bg-tertiary);
+}
+
+.page-separator {
+  color: var(--text-tertiary);
+}
+
+.page-total {
+  color: var(--text-secondary);
+  min-width: 2ch;
 }
 
 .comic-controls {
@@ -1020,10 +1080,76 @@ export default {
 .main-reading-area {
   flex: 1;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
   padding: 20px;
   overflow: hidden;
+  position: relative;
+}
+
+/* 左右翻页悬浮区 —— 鼠标靠近边缘时显隐箭头 */
+.page-nav-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: background 0.2s ease;
+  /* 透明但始终接收指针事件，否则 :hover 不会触发 */
+  background: transparent;
+}
+
+.page-nav-zone:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.page-nav-zone.disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.page-nav-prev {
+  left: 0;
+}
+
+.page-nav-prev:hover {
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0));
+}
+
+.page-nav-next {
+  right: 0;
+}
+
+.page-nav-next:hover {
+  background: linear-gradient(to left, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0));
+}
+
+.page-nav-arrow {
+  font-size: 72px;
+  font-weight: 200;
+  color: rgba(255, 255, 255, 0.92);
+  line-height: 1;
+  opacity: 0;
+  transform: scale(0.5);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  user-select: none;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+  padding: 30px 24px; /* 增大可点击热区 */
+  border-radius: 12px;
+}
+
+.page-nav-zone:hover .page-nav-arrow {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.page-nav-zone.disabled:hover .page-nav-arrow {
+  opacity: 0.45;
+  transform: scale(0.8);
 }
 
 .comic-image-container {
@@ -1120,41 +1246,6 @@ export default {
   100% { transform: rotate(360deg); }
 }
 
-.comic-viewer-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 15px 20px;
-  border-top: 1px solid var(--border-color);
-  background: var(--bg-tertiary);
-  border-radius: 0 0 12px 12px;
-}
-
-.navigation-controls {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-
-.page-jump {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.page-input {
-  width: 60px;
-  padding: 6px 8px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  text-align: center;
-  font-size: 0.9rem;
-}
-
-
 /* 全屏模式 */
 .comic-viewer-content:fullscreen {
   width: 100vw;
@@ -1165,20 +1256,12 @@ export default {
   background: var(--bg-primary);
 }
 
-.comic-viewer-content:fullscreen .comic-viewer-header,
-.comic-viewer-content:fullscreen .comic-viewer-footer {
+.comic-viewer-content:fullscreen .comic-viewer-header {
   border-radius: 0;
   background: var(--bg-secondary);
   backdrop-filter: blur(10px);
   border: none;
-}
-
-.comic-viewer-content:fullscreen .comic-viewer-header {
   border-bottom: 1px solid var(--border-color);
-}
-
-.comic-viewer-content:fullscreen .comic-viewer-footer {
-  border-top: 1px solid var(--border-color);
 }
 
 /* 全屏时隐藏文件名显示，避免遮挡图片 */
@@ -1204,17 +1287,13 @@ export default {
     flex-wrap: wrap;
     justify-content: center;
   }
-  
-  
-  .comic-viewer-footer {
-    flex-direction: column;
-    gap: 10px;
-    padding: 10px 15px;
+
+  .page-nav-zone {
+    width: 70px;
   }
-  
-  .navigation-controls {
-    flex-wrap: wrap;
-    justify-content: center;
+
+  .page-nav-arrow {
+    font-size: 52px;
   }
 }
 </style>
