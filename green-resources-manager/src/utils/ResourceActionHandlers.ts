@@ -814,3 +814,50 @@ registerActionHandler('openWebsite', openWebsiteHandler)
 registerActionHandler('playAudio', playAudioHandler)
 registerActionHandler('playVideo', playVideoHandler)
 registerActionHandler('openImage', openImageHandler)
+
+/**
+ * 打开文件夹的 Handler
+ * 适用于番剧（VideoFolder）、音频文件夹等以文件夹形式管理的资源，
+ * 在系统文件管理器中打开资源所在的文件夹
+ */
+export const openFolderHandler: ActionHandler = async (resource, context) => {
+  try {
+    const resourceId = BaseResources.extractPrimitiveValue(resource.id?.value || resource.id)
+    const resourceName = BaseResources.extractPrimitiveValue(resource.name?.value || resource.name)
+    const folderPath = BaseResources.extractPrimitiveValue(
+      resource.resourcePath?.value || resource.resourcePath
+    )
+
+    if (!folderPath || !folderPath.trim()) {
+      notify.toast('error', '打开失败', `资源 "${resourceName}" 没有配置文件夹路径`)
+      return
+    }
+
+    // 记录访问时间（用于"最近观看"等显示）
+    if (resourceId && context.updateResource && resource.visitedSessions) {
+      const visitedSessionsValue = BaseResources.extractPrimitiveValue(resource.visitedSessions?.value || resource.visitedSessions)
+      const visitedSessions = Array.isArray(visitedSessionsValue) ? visitedSessionsValue : []
+      try {
+        await context.updateResource(resourceId, { visitedSessions: [...visitedSessions, new Date().toISOString()] })
+      } catch (e) {
+        console.warn('[ResourceActionHandlers] 更新访问记录失败:', e)
+      }
+    }
+
+    if (!context.isElectronEnvironment || !window.electronAPI?.openFolder) {
+      notify.toast('error', '打开失败', '当前环境无法打开文件夹')
+      return
+    }
+
+    const result = await window.electronAPI.openFolder(folderPath)
+    if (!result?.success) {
+      notify.toast('error', '打开失败', result?.error || '未知错误')
+    }
+  } catch (error: any) {
+    console.error('[ResourceActionHandlers] 打开文件夹失败:', error)
+    const resourceName = BaseResources.extractPrimitiveValue(resource.name?.value || resource.name)
+    notify.toast('error', '打开失败', `${resourceName}: ${error?.message || '未知错误'}`)
+  }
+}
+
+registerActionHandler('openFolder', openFolderHandler)

@@ -207,7 +207,7 @@ export default {
 .tag-selection-panel {
   background: var(--bg-secondary);
   border-radius: 12px;
-  width: 300px;
+  width: 500px;
   max-width: 90vw;
   max-height: 90vh;
   overflow-y: auto;

@@ -103,7 +103,9 @@ class SaveManager {
           novels: 100,
           websites: 100,
           audio: 100
-        }
+        },
+        // 各页面的标签筛选设置（按页面类型存储每个筛选器的选中/排除状态）
+        filterSettings: {}
       }
     }
   }
@@ -1891,6 +1893,52 @@ class SaveManager {
     } catch (error) {
       console.error(`获取${pageType}页面布局缩放失败:`, error)
       return 100
+    }
+  }
+
+  /**
+   * 保存页面标签筛选设置
+   * @param {string} pageType - 页面类型 ('games', 'images', 'videos', 'novels', 'websites', 'audio' 等)
+   * @param {Object} filterData - 筛选数据，格式为 { [filterKey]: { selected: string[], excluded: string[] } }
+   * @returns {Promise<boolean>} 保存是否成功
+   */
+  async saveFilterSetting(pageType, filterData) {
+    try {
+      const settings = await this.loadSettings()
+      if (settings) {
+        if (!settings.filterSettings) {
+          settings.filterSettings = {}
+        }
+        settings.filterSettings[pageType] = filterData
+        const success = await this.saveSettings(settings)
+        if (success) {
+          console.log(`✅ 已保存${pageType}页面标签筛选设置`)
+        }
+        return success
+      }
+      return false
+    } catch (error) {
+      console.error(`保存${pageType}页面标签筛选设置失败:`, error)
+      return false
+    }
+  }
+
+  /**
+   * 获取页面标签筛选设置
+   * @param {string} pageType - 页面类型
+   * @returns {Promise<Object>} 筛选数据，格式为 { [filterKey]: { selected: string[], excluded: string[] } }，无数据返回 {}
+   */
+  async getFilterSetting(pageType) {
+    try {
+      const settings = await this.loadSettings()
+      if (settings && settings.filterSettings && settings.filterSettings[pageType]) {
+        console.log(`✅ 加载${pageType}页面标签筛选设置`)
+        return settings.filterSettings[pageType]
+      }
+      return {}
+    } catch (error) {
+      console.error(`获取${pageType}页面标签筛选设置失败:`, error)
+      return {}
     }
   }
 

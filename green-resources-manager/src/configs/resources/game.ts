@@ -67,9 +67,9 @@ export class Game extends BaseResources {
 		editType: new FormField_Tags('开发商', false)
 	})
 	
-	publisher: ResourceField<string> = new ResourceField<string>({
+	publisher: ResourceField<string[]> = new ResourceField<string[]>({
 		saveable: true,
-		editType: new FormField_Text('发行商', false)
+		editType: new FormField_Tags('发行商', false)
 	})
 	
 	tags: ResourceField<string[]> = new ResourceField<string[]>({
@@ -157,7 +157,7 @@ export class Game extends BaseResources {
 			nameJa: this.nameJa.value || '',
 			description: this.description.value || '',
 			developers: Array.isArray(this.developers.value) ? [...this.developers.value] : [],
-			publisher: this.publisher.value || '',
+			publisher: Array.isArray(this.publisher.value) ? [...this.publisher.value] : [],
 			tags: Array.isArray(this.tags.value) ? [...this.tags.value] : [],
 			engine: this.engine.value || '',
 			coverPath: this.coverPath.value || '',
@@ -282,7 +282,8 @@ export class Game extends BaseResources {
 			{
 				field: 'publisher',
 				label: '发行商',
-				formatter: undefined
+				formatter: undefined,
+				arrayJoin: '、'
 			},
 			{
 				field: 'engine',

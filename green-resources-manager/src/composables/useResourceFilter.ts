@@ -1,4 +1,4 @@
-import { ref, computed, type Ref } from 'vue'
+import { ref, computed, watch, nextTick, type Ref } from 'vue'
 import type { FilterItem } from '../types/filter'
 import type { FilterConfig } from '../types/filter'
 import type { SortOptionConfig } from '../types/sort'
@@ -7,6 +7,8 @@ import { sortBy as sortByUtil } from '../utils/sortBy'
 import type { SortConfig } from '../utils/sortBy'
 import { getFilterFunctions } from '../configs/filters/filterLibrary.ts'
 import { pageConfigLoader } from '../configs/pages/PageConfigLoader.ts'
+import saveManager from '../utils/SaveManager'
+import { useTagIndex } from './useTagIndex'
 
 const DATE_FIELDS = ['addedDate', 'lastRead', 'lastPlayed', 'lastViewed']
 
@@ -16,6 +18,10 @@ function buildSortConfig(config: SortOptionConfig): SortConfig<any> {
       const value = item[config.field]?.value
       if (DATE_FIELDS.includes(config.field)) {
         return value ? new Date(value).getTime() : null
+      }
+      // 数组型字段（如多作者、多发行商）排序时拼接为字符串比较
+      if (Array.isArray(value)) {
+        return value.length > 0 ? value.join(',') : null
       }
       return value != null ? value : null
     },
@@ -36,6 +42,20 @@ function getFieldValue<T>(field: any): T | undefined {
     return field.value as T
   }
   return field as T
+}
+
+/**
+ * 将数组型筛选字段的值规范化为字符串数组
+ * 兼容旧存档：字段已改为标签数组（如游戏发行商 publisher），但历史数据中可能存的是单个字符串
+ */
+function normalizeStringArray(fieldValue: any): string[] {
+  if (Array.isArray(fieldValue)) {
+    return fieldValue.map(v => String(v))
+  }
+  if (fieldValue != null && fieldValue !== '') {
+    return [String(fieldValue)]
+  }
+  return []
 }
 
 /**
@@ -183,12 +203,36 @@ export function useResourceFilter<T = any>(
     filterConfigs = [missingResourcesFilter, ...filterConfigs]
   }
   
+  // ========== 标签索引接入 ==========
+  // resourceField 型筛选器的候选不再遍历资源，而是从主进程 SQLite 标签索引读取
+  const tagIndex = useTagIndex()
+  const tagIndexAvailable = tagIndex.isAvailable()
+  /** 由标签索引支撑的筛选器 key 集合（这些字段 extractAllFilters 不再扫描） */
+  const tagBackedKeys = new Set<string>()
+  /** 供标签索引按页加载用的查询列表 */
+  const tagQueries: Array<{ key: string; resourceType: string; field: string }> = []
+
   // 动态创建筛选状态：为每个筛选配置创建 selected 和 excluded 数组
   const filterStates = filterConfigs.reduce((acc, config) => {
+    const params = (config as any).params
+    const isTagBacked = tagIndexAvailable
+      && (config as any).filterType === 'resourceField'
+      && params && typeof params.resource === 'string' && typeof params.field === 'string'
+
+    let itemsRef: Ref<FilterItem[]>
+    if (isTagBacked) {
+      // 候选项来自标签索引（同一 resourceType+field 全局共享一份响应式数据）
+      itemsRef = tagIndex.register(params.resource, params.field) as Ref<FilterItem[]>
+      tagBackedKeys.add(config.key)
+      tagQueries.push({ key: config.key, resourceType: params.resource, field: params.field })
+    } else {
+      itemsRef = ref<FilterItem[]>([])
+    }
+
     acc[config.key] = {
       selected: ref<string[]>([]),
       excluded: ref<string[]>([]),
-      items: ref<FilterItem[]>([])
+      items: itemsRef
     }
     return acc
   }, {} as Record<string, {
@@ -197,6 +241,88 @@ export function useResourceFilter<T = any>(
     items: Ref<FilterItem[]>
   }>)
 
+  // 首次进入页面时异步从索引加载候选（Electron 环境；无环境时静默回退遍历）
+  if (tagIndexAvailable && tagQueries.length > 0) {
+    tagIndex.ensurePageLoaded(pageId, tagQueries)
+  }
+
+  // ========== 标签筛选配置持久化 ==========
+  /**
+   * 将当前所有筛选器的选中/排除状态收集为可序列化对象
+   */
+  function collectFilterStates(): Record<string, { selected: string[]; excluded: string[] }> {
+    const result: Record<string, { selected: string[]; excluded: string[] }> = {}
+    filterConfigs.forEach(config => {
+      const state = filterStates[config.key]
+      if (!state) return
+      result[config.key] = {
+        selected: [...state.selected.value],
+        excluded: [...state.excluded.value]
+      }
+    })
+    return result
+  }
+
+  // 保存防抖：避免频繁写入
+  let saveTimer: ReturnType<typeof setTimeout> | null = null
+  let isRestoring = false // 标记是否正在恢复已保存的配置，避免触发保存
+  function scheduleSaveFilterStates() {
+    if (isRestoring) return
+    if (saveTimer) {
+      clearTimeout(saveTimer)
+    }
+    saveTimer = setTimeout(() => {
+      const data = collectFilterStates()
+      saveManager.saveFilterSetting(pageId, data).catch(err => {
+        console.warn('[useResourceFilter] 保存筛选设置失败:', err)
+      })
+    }, 300)
+  }
+
+  // 监听每个筛选器的 selected / excluded 变化，自动保存
+  filterConfigs.forEach(config => {
+    const state = filterStates[config.key]
+    if (!state) return
+    watch(
+      () => [state.selected.value, state.excluded.value],
+      () => {
+        scheduleSaveFilterStates()
+      },
+      { deep: true }
+    )
+  })
+
+  // 异步加载已保存的筛选配置并应用
+  ;(async () => {
+    try {
+      const saved = await saveManager.getFilterSetting(pageId)
+      if (saved && typeof saved === 'object') {
+        isRestoring = true
+        filterConfigs.forEach(config => {
+          const state = filterStates[config.key]
+          if (!state) return
+          const savedFilter = saved[config.key]
+          if (savedFilter) {
+            if (Array.isArray(savedFilter.selected)) {
+              state.selected.value = savedFilter.selected
+            }
+            if (Array.isArray(savedFilter.excluded)) {
+              state.excluded.value = savedFilter.excluded
+            }
+          }
+        })
+        // 等待 Vue 响应式更新完成后再解除标记
+        await nextTick()
+        isRestoring = false
+        console.log(`[useResourceFilter] 已加载 ${pageId} 页面的标签筛选配置`)
+      }
+    } catch (error) {
+      console.warn('[useResourceFilter] 加载筛选配置失败:', error)
+      isRestoring = false
+    }
+  })()
+  // ========== 标签筛选配置持久化结束 ==========
+
   /**
    * 从所有资源中提取筛选数据
    */
@@ -204,6 +330,9 @@ export function useResourceFilter<T = any>(
     filterConfigs.forEach(config => {
       const state = filterStates[config.key]
       if (!state) return
+
+      // 标签索引支撑的字段：候选由主进程索引提供，禁止遍历资源统计
+      if (tagBackedKeys.has(config.key)) return
 
       // 如果提供了自定义提取函数，使用它
       if (config.extractFn) {
@@ -223,11 +352,11 @@ export function useResourceFilter<T = any>(
         const fieldValue = config.fieldAccessor(item)
         
         if (config.isArray) {
-          // 数组类型：遍历数组中的每个值
-          const values = Array.isArray(fieldValue) ? fieldValue : []
-          values.forEach((value: any) => {
-            if (value != null && value !== '') {
-              const key = String(value)
+          // 数组类型：遍历数组中的每个值（兼容旧存档中的单个字符串）
+          const values = normalizeStringArray(fieldValue)
+          values.forEach((value: string) => {
+            if (value !== '') {
+              const key = value
               countMap[key] = (countMap[key] || 0) + 1
             }
           })
@@ -266,7 +395,7 @@ export function useResourceFilter<T = any>(
     // 检查排除条件
     if (excluded.length > 0) {
       if (config.isArray) {
-        const values = Array.isArray(fieldValue) ? fieldValue.map(v => String(v)) : []
+        const values = normalizeStringArray(fieldValue)
         if (values.some(v => excluded.includes(v))) {
           return false
         }
@@ -281,7 +410,7 @@ export function useResourceFilter<T = any>(
     if (selected.length > 0) {
       if (config.isArray) {
         // 数组类型：必须包含所有选中的值（AND逻辑）
-        const values = Array.isArray(fieldValue) ? fieldValue.map(v => String(v)) : []
+        const values = normalizeStringArray(fieldValue)
         return selected.every(sel => values.includes(sel))
       } else {
         // 单个值类型：必须匹配选中的值（OR逻辑）
@@ -311,7 +440,7 @@ export function useResourceFilter<T = any>(
           }
           const fieldValue = config.fieldAccessor(item)
           if (config.isArray) {
-            const values = Array.isArray(fieldValue) ? fieldValue.map(v => String(v).toLowerCase()) : []
+            const values = normalizeStringArray(fieldValue).map(v => v.toLowerCase())
             return values.some(v => v.includes(searchLower))
           } else {
             return String(fieldValue).toLowerCase().includes(searchLower)

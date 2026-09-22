@@ -95,7 +95,7 @@
         "resource": "manga",
         "field": "author"
       },
-      "isArray": false
+      "isArray": true
     }
   ]
 }

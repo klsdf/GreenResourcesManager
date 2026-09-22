@@ -1138,13 +1138,28 @@ export default defineComponent({
     })
 
     // 按字段 key 提供各自的候选列表（开发商用 developers 数据，标签用 tags 数据）
+    // 注意：筛选器的 key 可能与资源字段名不同（如游戏页发行商 filter key 为 publishers，资源字段为 publisher），
+    // 因此同时按 filterConfig.params.field（资源字段名）建立映射，供编辑对话框按字段名查找
     const availableTagsByField = computed<Record<string, FilterItem[]>>(() => {
       const states = filterComposable.filterStates
       if (!states || typeof states !== 'object') return {}
+      // 建立 filter key -> 资源字段名 的映射
+      const fieldByFilterKey: Record<string, string> = {}
+      ;(pageConfig.value?.filterConfig || []).forEach((cfg: any) => {
+        if (cfg?.key && cfg?.params?.field) {
+          fieldByFilterKey[cfg.key] = cfg.params.field
+        }
+      })
       const map: Record<string, FilterItem[]> = {}
       for (const key of Object.keys(states)) {
         const items = (states as any)[key]?.items?.value
-        map[key] = Array.isArray(items) ? items : []
+        const list = Array.isArray(items) ? items : []
+        map[key] = list
+        // 同时以资源字段名存一份（如 publishers -> publisher），保证编辑面板能按字段名命中
+        const resourceField = fieldByFilterKey[key]
+        if (resourceField && resourceField !== key) {
+          map[resourceField] = list
+        }
       }
       return map
     })
@@ -2114,6 +2129,14 @@ export default defineComponent({
         case 'launchWithLocale':
           handleResourceAction(item, { handlerName: 'launchWithLocale' })
           break
+        case 'open':
+        case 'play':
+        case 'read':
+        case 'visit':
+          // 详情面板主按钮：按资源类的 actionConfig 路由到对应 handler
+          // （番剧→openFolder、漫画/单图→openAlbum、视频/音频→playVideo/playAudio、网站→openWebsite、小说→openNovelReader）
+          handleResourceAction(item)
+          break
         case 'terminate':
           showTerminateConfirmDialog.value = true
           resourceToTerminate.value = item
@@ -2598,6 +2621,7 @@ export default defineComponent({
     }
 
     // 监听游戏进程结束事件
+    let offTagsRebuiltHandler: (() => void) | null = null
     onMounted(async () => {
       // 1. 加载页面数据（仅从数据库读取）
       const pageId = pageConfig.value?.id
@@ -2667,6 +2691,39 @@ export default defineComponent({
       if (isElectronEnvironment.value && window.electronAPI && window.electronAPI.onGameProcessEnded) {
         window.electronAPI.onGameProcessEnded((event: any, data: any) => {
           handleGameProcessEnded(data)
+        })
+      }
+
+      // 标签管理页执行重命名/合并/删除后，主进程广播 tags:rebuilt，
+      // 本页若包含对应资源类型，则重新拉取数据，保证卡片标签与数据库一致
+      if (window.electronAPI?.onTagsRebuilt) {
+        offTagsRebuiltHandler = window.electronAPI.onTagsRebuilt(async (data: any) => {
+          const types: string[] = data?.resourceTypes || []
+          // 页面 pageConfig.type 为 PascalCase（如 Anime/Image），需归一化为主进程逻辑类型
+          const rawType = String(resourceType.value || '')
+          const currentLogicalType = rawType === 'Anime'
+            ? 'videoFolder'
+            : rawType === 'Image'
+              ? 'manga'
+              : rawType.charAt(0).toLowerCase() + rawType.slice(1)
+          if (types.length > 0 && !types.includes(currentLogicalType)) {
+            return
+          }
+          try {
+            const result = await window.electronAPI.sqliteGetPageData(pageId)
+            if (!result?.ok) return
+            const loadedData = result.data || []
+            if (ResourceClass && ResourceClass.fromJSON) {
+              items.value = loadedData.map((d: any) => ResourceClass.fromJSON(d))
+            } else {
+              items.value = loadedData
+            }
+            if (filterComposable.extractAllFilters) {
+              filterComposable.extractAllFilters()
+            }
+          } catch (e) {
+            console.error('[GenericResourceView] 标签变更后重载页面数据失败:', e)
+          }
         })
       }
 
@@ -2752,6 +2809,11 @@ export default defineComponent({
         window.electronAPI.removeGlobalScreenshotListener()
       } else if (isElectronEnvironment.value && window.electronAPI?.removeAllListeners) {
         window.electronAPI.removeAllListeners('global-screenshot-trigger')
+      }
+      // 移除标签重建广播监听
+      if (offTagsRebuiltHandler) {
+        offTagsRebuiltHandler()
+        offTagsRebuiltHandler = null
       }
     })
 

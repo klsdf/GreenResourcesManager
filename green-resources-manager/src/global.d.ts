@@ -13,9 +13,37 @@ declare module 'pdfjs-dist/build/pdf.worker.min.mjs?url' {
 // 导入文件选择过滤器类型
 import type { FileSelectFilter } from './class/game'
 
-// Electron 环境中的 File 扩展
-// 注意：path 属性已被 Electron 官方弃用，建议未来使用 webUtils.getPathForFile
 declare global {
+  // ===== 标签索引（Tag Index）相关类型 =====
+  interface TagIndexItem {
+    name: string
+    norm: string
+    count: number
+  }
+  interface TagIndexQueryOptions {
+    keyword?: string
+    limit?: number
+    offset?: number
+  }
+  interface TagIndexManageOptions extends TagIndexQueryOptions {
+    unusedOnly?: boolean
+    duplicatesOnly?: boolean
+  }
+  interface TagIndexManageItem extends TagIndexItem {
+    rawVariants: number
+    createdAt: string
+    updatedAt: string
+  }
+  interface TagIndexChangedEvent {
+    resourceType: string | null
+    resourceId?: string
+    resourceTypes?: string[]
+    adds: Array<{ field: string; tag: string; norm: string }>
+    removes: Array<{ field: string; tag: string; norm: string }>
+  }
+
+  // Electron 环境中的 File 扩展
+  // 注意：path 属性已被 Electron 官方弃用，建议未来使用 webUtils.getPathForFile
   interface File {
     /** @deprecated 使用 webUtils.getPathForFile 替代 */
     path?: string
@@ -200,7 +228,26 @@ declare global {
       sqliteMigrateUser: (customSaveDataPath?: string) => Promise<{ ok: boolean; message?: string }>
       sqliteGetUser: () => Promise<{ ok: boolean; user?: any; timestamp?: string; version?: string; message?: string }>
       sqliteSaveUser: (user: any) => Promise<{ ok: boolean; message?: string }>
-      
+
+      // ===== 标签索引（Tag Index）=====
+      tagIndexGetByFields: (queries: Array<{ key: string; resourceType: string; field: string }>) =>
+        Promise<{ ok: boolean; data?: Record<string, TagIndexItem[]>; message?: string }>
+      tagIndexGetByField: (resourceType: string, field: string, options?: TagIndexQueryOptions) =>
+        Promise<{ ok: boolean; data?: TagIndexItem[]; message?: string }>
+      tagIndexGetRefs: (resourceType: string, field: string, tagNorm: string, options?: { limit?: number; offset?: number }) =>
+        Promise<{ ok: boolean; data?: Array<{ resourceId: string }>; message?: string }>
+      tagIndexList: (resourceType: string, field: string, options?: TagIndexManageOptions) =>
+        Promise<{ ok: boolean; data?: TagIndexManageItem[]; message?: string }>
+      tagIndexRename: (resourceType: string, field: string, sourceNorm: string, targetName: string) =>
+        Promise<{ ok: boolean; affected?: number; message?: string }>
+      tagIndexMerge: (resourceType: string, field: string, sourceNorms: string[], targetName: string) =>
+        Promise<{ ok: boolean; affected?: number; message?: string }>
+      tagIndexRemove: (resourceType: string, field: string, tagNorm: string) =>
+        Promise<{ ok: boolean; affected?: number; message?: string }>
+      tagIndexRebuild: () => Promise<{ ok: boolean; refCount?: number; durationMs?: number; message?: string }>
+      onTagsChanged: (callback: (data: TagIndexChangedEvent) => void) => () => void
+      onTagsRebuilt: (callback: (data: { resourceTypes?: string[]; fields?: string[]; reason?: string }) => void) => () => void
+
       // 刮削库数据库操作
       scraperDbImport: (scrapableFieldsByTable?: Record<string, string[]>, sourceDbPath?: string) => Promise<{ ok: boolean; count?: number; message?: string }>
       scraperDbGetAll: () => Promise<{ ok: boolean; data?: Array<any>; message?: string }>

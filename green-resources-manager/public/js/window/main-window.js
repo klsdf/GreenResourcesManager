@@ -31,9 +31,38 @@
 
 const { BrowserWindow, app } = require('electron')
 const path = require('path')
+const fs = require('fs')
 
 // 主窗口实例
 let mainWindow = null
+
+/**
+ * "已最小化到托盘"首次提示标记文件（存于 Electron userData，跨重启生效）
+ * 只在用户第一次触发最小化到托盘时弹一次系统通知，之后不再打扰
+ */
+function getMinimizeNoticeFlagPath() {
+  return path.join(app.getPath('userData'), 'minimize-tray-notice-shown.json')
+}
+
+function hasShownMinimizeNotice() {
+  try {
+    return fs.existsSync(getMinimizeNoticeFlagPath())
+  } catch {
+    return false
+  }
+}
+
+function markMinimizeNoticeShown() {
+  try {
+    fs.writeFileSync(
+      getMinimizeNoticeFlagPath(),
+      JSON.stringify({ shown: true, at: new Date().toISOString() }),
+      'utf8'
+    )
+  } catch (err) {
+    console.warn('写入最小化到托盘提示标记失败:', err)
+  }
+}
 
 /**
  * 创建主窗口
@@ -222,12 +251,13 @@ function createMainWindow(isDev, getMinimizeToTrayEnabled, getSystemTray, displa
       event.preventDefault()
       // 最小化到托盘
       mainWindow.hide()
-      // 显示托盘通知
-      if (displayBalloon) {
+      // 仅在首次最小化到托盘时提示一次，避免每次关闭都弹系统通知
+      if (displayBalloon && !hasShownMinimizeNotice()) {
         displayBalloon({
           title: 'Green Resource Manager',
           content: '应用已最小化到系统托盘'
         })
+        markMinimizeNoticeShown()
       }
     }
   })

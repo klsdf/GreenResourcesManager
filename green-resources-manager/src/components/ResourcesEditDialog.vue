@@ -912,8 +912,13 @@ export default {
           }
           
           if (resourceValue !== undefined && resourceValue !== null) {
-            if (field instanceof FormField_Tags && Array.isArray(resourceValue)) {
-              initData[key] = [...resourceValue]
+            if (field instanceof FormField_Tags) {
+              if (Array.isArray(resourceValue)) {
+                initData[key] = [...resourceValue]
+              } else if (typeof resourceValue === 'string' && resourceValue.trim() !== '') {
+                // 兼容旧存档：标签字段（如游戏发行商）历史上可能存为单个字符串，包装为单元素数组
+                initData[key] = [resourceValue]
+              }
             } else if (field instanceof FormField_Checkbox && typeof resourceValue === 'boolean') {
               initData[key] = resourceValue
             } else if (field instanceof FormField_Number && (typeof resourceValue === 'number' || typeof resourceValue === 'string')) {

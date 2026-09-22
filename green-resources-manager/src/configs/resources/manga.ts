@@ -39,9 +39,9 @@ export class Manga extends BaseResources {
 		editType: new FormField_Textarea('漫画简介', false)
 	})
 	
-	author: ResourceField<string> = new ResourceField<string>({
+	author: ResourceField<string[]> = new ResourceField<string[]>({
 		saveable: true,
-		editType: new FormField_Text('作者', false)
+		editType: new FormField_Tags('作者', false)
 	})
 	
 	tags: ResourceField<string[]> = new ResourceField<string[]>({
@@ -102,7 +102,7 @@ export class Manga extends BaseResources {
 			resourceType: this.resourceType.value || this.resourceType.defaultValue || 'manga',
 			name: this.name.value || '',
 			description: this.description.value || '',
-			author: this.author.value || '',
+			author: Array.isArray(this.author.value) ? [...this.author.value] : [],
 			tags: Array.isArray(this.tags.value) ? [...this.tags.value] : [],
 			resourcePath: this.resourcePath.value || '',
 			coverPath: this.coverPath.value || '',
@@ -192,7 +192,8 @@ export class Manga extends BaseResources {
 			{
 				field: 'author',
 				label: '作者',
-				formatter: undefined
+				formatter: undefined,
+				arrayJoin: '、'
 			},
 			{
 				field: 'resourcePath',

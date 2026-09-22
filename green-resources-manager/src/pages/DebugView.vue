@@ -83,7 +83,7 @@ export default defineComponent({
       exampleGame.name.value = '示例游戏'
       exampleGame.description.value = '这是一个游戏示例，用于测试 MediaCard 组件的显示效果'
       exampleGame.developers.value = ['示例开发商']
-      exampleGame.publisher.value = '示例发行商'
+      exampleGame.publisher.value = ['示例发行商']
       exampleGame.tags.value = ['动作', '冒险', 'RPG']
       exampleGame.engine.value = 'Unity'
       exampleGame.resourcePath.value = 'G:\\下载的数据\\telegram\\悲剧之森\\悲剧之森\\player.exe'

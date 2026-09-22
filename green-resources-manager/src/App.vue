@@ -99,17 +99,32 @@
         </li>
 
         <!-- 本地刮削库（一级菜单） -->
-        <li 
+        <li
           class="nav-item-wrapper"
           :class="{ active: $route.name === 'scraper-library' }"
         >
-          <div 
+          <div
             class="nav-item"
             :class="{ active: $route.name === 'scraper-library' }"
             @click="navigateTo('scraper-library')"
           >
             <span class="nav-icon">{{ viewConfig['scraper-library']?.icon || '📚' }}</span>
             <span class="nav-text">{{ $t('views.scraper-library.name') }}</span>
+          </div>
+        </li>
+
+        <!-- 标签管理（一级菜单） -->
+        <li
+          class="nav-item-wrapper"
+          :class="{ active: $route.name === 'tag-manage' }"
+        >
+          <div
+            class="nav-item"
+            :class="{ active: $route.name === 'tag-manage' }"
+            @click="navigateTo('tag-manage')"
+          >
+            <span class="nav-icon">{{ viewConfig['tag-manage']?.icon || '🏷️' }}</span>
+            <span class="nav-text">标签管理</span>
           </div>
         </li>
 
@@ -444,7 +459,7 @@ export default {
     // 主导航页面ID列表（一级菜单）
     mainNavViewIds() {
       // 主页、搜索、本地存档、本地刮削库是一级菜单，资源页面是主页的子菜单
-      return ['home', 'search', 'database', 'scraper-library', 'resource-view']
+      return ['home', 'search', 'database', 'scraper-library', 'tag-manage', 'resource-view']
     },
     // 资源页面列表（主页的子菜单）
     resourcePages() {

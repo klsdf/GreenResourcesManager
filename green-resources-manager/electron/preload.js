@@ -117,6 +117,34 @@ contextBridge.exposeInMainWorld('electronAPI', {
   sqliteGetUser: () => ipcRenderer.invoke('sqlite-get-user'),
   // 保存用户数据到 SQLite
   sqliteSaveUser: (user) => ipcRenderer.invoke('sqlite-save-user', user),
+
+  // ===== 标签索引（Tag Index）=====
+  // 批量查询页面各字段的标签候选：queries=[{key, resourceType, field}]
+  tagIndexGetByFields: (queries) => ipcRenderer.invoke('tag-index-get-by-fields', queries),
+  // 单字段候选（搜索/分页）
+  tagIndexGetByField: (resourceType, field, options) => ipcRenderer.invoke('tag-index-get-by-field', resourceType, field, options),
+  // 查询标签引用的资源
+  tagIndexGetRefs: (resourceType, field, tagNorm, options) => ipcRenderer.invoke('tag-index-get-refs', resourceType, field, tagNorm, options),
+  // 标签管理列表（unusedOnly/duplicatesOnly）
+  tagIndexList: (resourceType, field, options) => ipcRenderer.invoke('tag-index-list', resourceType, field, options),
+  // 重命名 / 合并 / 删除标签
+  tagIndexRename: (resourceType, field, sourceNorm, targetName) => ipcRenderer.invoke('tag-index-rename', resourceType, field, sourceNorm, targetName),
+  tagIndexMerge: (resourceType, field, sourceNorms, targetName) => ipcRenderer.invoke('tag-index-merge', resourceType, field, sourceNorms, targetName),
+  tagIndexRemove: (resourceType, field, tagNorm) => ipcRenderer.invoke('tag-index-remove', resourceType, field, tagNorm),
+  // 全量重建索引
+  tagIndexRebuild: () => ipcRenderer.invoke('tag-index-rebuild'),
+  // 监听标签变更（单资源增删改的增量事件 / 批量失效）
+  onTagsChanged: (callback) => {
+    const fn = (event, data) => callback(data)
+    ipcRenderer.on('tags:changed', fn)
+    return () => ipcRenderer.removeListener('tags:changed', fn)
+  },
+  // 监听标签全量刷新（重命名/合并/删除/重建后）
+  onTagsRebuilt: (callback) => {
+    const fn = (event, data) => callback(data)
+    ipcRenderer.on('tags:rebuilt', fn)
+    return () => ipcRenderer.removeListener('tags:rebuilt', fn)
+  },
   
   // 刮削库数据库操作
   scraperDbImport: (scrapableFieldsByTable, sourceDbPath) => ipcRenderer.invoke('scraper-db-import', scrapableFieldsByTable, sourceDbPath),

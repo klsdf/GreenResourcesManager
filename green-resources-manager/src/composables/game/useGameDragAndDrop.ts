@@ -164,7 +164,7 @@ export function useGameDragAndDrop(options: GameDragDropOptions) {
           const gameData: any = {
             name: extractGameNameFromPath(executableFile.name),
             developers: [],
-            publisher: '',
+            publisher: [],
             description: '',
             tags: [],
             resourcePath: filePath,

@@ -32,6 +32,7 @@ const pathUtils = require('./utils/path-utils')
 const windowsUtils = require('./utils/windows-utils')
 const constants = require('./utils/constants')
 const sqlite = require('./database/sqlite')
+const tagIndex = require('./database/tagIndex')
 const scraperDb = require('./database/scraper-db')
 
 // 判断是否为开发环境
@@ -204,6 +205,37 @@ if (!gotTheLock) {
 
     // SQLite demo 数据查询（供「数据库」页面展示）
     ipcMain.handle('sqlite-get-all-tables-data', () => sqlite.getAllTablesData())
+
+    // ===== 标签索引（Tag Index）=====
+    // 广播：向所有窗口推送标签变更
+    tagIndex.setBroadcastHandler((channel, payload) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) win.webContents.send(channel, payload)
+      }
+    })
+    // 首启/版本升级时全量构建一次索引
+    tagIndex.initOnStartup()
+
+    // 批量查询页面各字段的标签候选
+    ipcMain.handle('tag-index-get-by-fields', (event, queries) => tagIndex.queryByFields(queries))
+    // 单字段候选（带搜索/分页）
+    ipcMain.handle('tag-index-get-by-field', (event, resourceType, field, options) =>
+      tagIndex.queryByField(resourceType, field, options))
+    // 查询标签引用的资源
+    ipcMain.handle('tag-index-get-refs', (event, resourceType, field, tagNorm, options) =>
+      tagIndex.queryRefs(resourceType, field, tagNorm, options))
+    // 标签管理页列表（含未使用/疑似重复）
+    ipcMain.handle('tag-index-list', (event, resourceType, field, options) =>
+      tagIndex.listForManage(resourceType, field, options))
+    // 重命名 / 合并 / 删除标签（回写所有引用资源）
+    ipcMain.handle('tag-index-rename', (event, resourceType, field, sourceNorm, targetName) =>
+      tagIndex.renameTag(resourceType, field, sourceNorm, targetName))
+    ipcMain.handle('tag-index-merge', (event, resourceType, field, sourceNorms, targetName) =>
+      tagIndex.mergeTags(resourceType, field, sourceNorms, targetName))
+    ipcMain.handle('tag-index-remove', (event, resourceType, field, tagNorm) =>
+      tagIndex.removeTag(resourceType, field, tagNorm))
+    // 全量重建索引
+    ipcMain.handle('tag-index-rebuild', () => tagIndex.rebuild())
     
     // 从数据库读取页面数据
     ipcMain.handle('sqlite-get-page-data', (event, pageId) => sqlite.getPageData(pageId))

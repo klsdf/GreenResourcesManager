@@ -121,6 +121,24 @@
               <p>加载中...</p>
             </div>
           </div>
+
+          <!-- 图片两侧悬浮翻页区：hover 时显示箭头 + 边缘渐变遮罩 -->
+          <div
+            class="page-nav-zone page-nav-prev"
+            :class="{ disabled: currentPageIndex <= 0 }"
+            @click="currentPageIndex > 0 && previousPage()"
+            title="上一页 (←)"
+          >
+            <div class="page-nav-arrow">‹</div>
+          </div>
+          <div
+            class="page-nav-zone page-nav-next"
+            :class="{ disabled: currentPageIndex >= pages.length - 1 }"
+            @click="currentPageIndex < pages.length - 1 && nextPage()"
+            title="下一页 (→)"
+          >
+            <div class="page-nav-arrow">›</div>
+          </div>
         </div>
       </div>
       
@@ -814,12 +832,12 @@ export default {
       }
     },
 
-    // 滚动缩略图到可视区域
+    // 滚动缩略图到可视区域（当前页尽量居中，到顶/到底时自然停在边界）
     scrollThumbnailIntoView(index) {
       const thumbnailList = this.$refs.thumbnailList
       if (thumbnailList && thumbnailList.children[index]) {
         thumbnailList.children[index].scrollIntoView({
-          block: 'nearest',
+          block: 'center',
           behavior: 'smooth'
         })
       }
@@ -1154,6 +1172,74 @@ export default {
   justify-content: center;
   padding: 20px;
   overflow: hidden;
+  position: relative;
+}
+
+/* 图片两侧悬浮翻页区 */
+.page-nav-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  cursor: pointer;
+  background: transparent;
+  transition: background 0.25s ease;
+}
+
+.page-nav-zone:hover {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.page-nav-prev {
+  left: 0;
+}
+
+.page-nav-prev:hover {
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0));
+}
+
+.page-nav-next {
+  right: 0;
+}
+
+.page-nav-next:hover {
+  background: linear-gradient(to left, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0));
+}
+
+.page-nav-zone.disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.page-nav-zone.disabled:hover {
+  background: transparent;
+}
+
+.page-nav-arrow {
+  font-size: 84px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.95);
+  line-height: 1;
+  opacity: 0;
+  transform: scale(0.4);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  user-select: none;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.75);
+  pointer-events: none;
+}
+
+.page-nav-zone:hover .page-nav-arrow {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.page-nav-zone.disabled:hover .page-nav-arrow {
+  opacity: 0.35;
+  transform: scale(0.7);
 }
 
 .comic-image-container {
@@ -1290,6 +1376,14 @@ export default {
   .comic-controls {
     flex-wrap: wrap;
     justify-content: center;
+  }
+
+  .page-nav-zone {
+    width: 80px;
+  }
+
+  .page-nav-arrow {
+    font-size: 60px;
   }
 }
 </style>

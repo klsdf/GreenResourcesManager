@@ -5,6 +5,7 @@
 
 const path = require('path')
 const fs = require('fs')
+const tagIndex = require('./tagIndex')
 
 // 资源表名列表（使用 id + jsonData + timestamp + version 存储）
 const RESOURCE_TABLES = [
@@ -643,6 +644,11 @@ async function saveResourceToTable(resourceType, resource) {
     }
 
     ensureResourceTablesExist(db)
+    tagIndex.ensureTagTables(db)
+
+    // 规范化物理表名与逻辑资源类型（标签索引用逻辑类型登记）
+    const tableName = mapResourceTypeToTableName(resourceType)
+    const logicalType = tagIndex.TABLE_TO_TYPE[tableName]
 
     // 若已是 { id, jsonData } 格式（jsonData 为字符串），直接使用；否则序列化整个对象
     const jsonToStore = (typeof resource.jsonData === 'string')
@@ -651,10 +657,39 @@ async function saveResourceToTable(resourceType, resource) {
     const timestamp = resource.timestamp != null ? resource.timestamp : new Date().toISOString()
     const version = resource.version != null ? resource.version : null
 
-    const insertStmt = db.prepare(`INSERT OR REPLACE INTO "${resourceType}" (id, jsonData, timestamp, version) VALUES (?, ?, ?, ?)`)
-    insertStmt.run(resource.id, jsonToStore, timestamp, version)
+    // 读取保存前的数据，用于标签索引增量 diff
+    let oldObj = null
+    let newObj = null
+    if (logicalType) {
+      const oldRow = db.prepare(`SELECT jsonData FROM "${tableName}" WHERE id = ?`).get(resource.id)
+      if (oldRow) {
+        try { oldObj = JSON.parse(oldRow.jsonData) } catch { oldObj = null }
+      }
+      try { newObj = JSON.parse(jsonToStore) } catch { newObj = null }
+    }
+
+    // 资源写入与标签索引更新在同一事务内提交
+    let tagChanges = null
+    const saveTx = db.transaction(() => {
+      const insertStmt = db.prepare(`INSERT OR REPLACE INTO "${tableName}" (id, jsonData, timestamp, version) VALUES (?, ?, ?, ?)`)
+      insertStmt.run(resource.id, jsonToStore, timestamp, version)
+      if (logicalType) {
+        tagChanges = tagIndex.syncTagRefsInTx(db, logicalType, resource.id, oldObj, newObj)
+      }
+    })
+    saveTx()
 
     db.close()
+
+    // 通知各渲染进程增量更新标签候选
+    if (logicalType && tagChanges && (tagChanges.adds.length > 0 || tagChanges.removes.length > 0)) {
+      tagIndex.broadcast('tags:changed', {
+        resourceType: logicalType,
+        resourceId: resource.id,
+        adds: tagChanges.adds,
+        removes: tagChanges.removes
+      })
+    }
     return { ok: true }
   } catch (err) {
     console.error(`[SQLite] 保存资源到 ${resourceType} 表失败:`, err.message)
@@ -765,6 +800,10 @@ async function savePageResources(pageId, resources) {
     const dbPath = getDatabasePath()
     const db = new Database(dbPath)
     ensureResourceTablesExist(db)
+    tagIndex.ensureTagTables(db)
+
+    // 收集本批次发生标签变更的逻辑资源类型（用于事务后一次广播）
+    const changedResourceTypes = new Set()
 
     // 页面ID到资源类型的映射（用于推断资源类型）
     const pageIdToResourceType = {
@@ -815,12 +854,30 @@ async function savePageResources(pageId, resources) {
           // 保存映射关系
           resourceTableMap.set(resource.id, tableName)
 
+          // 标签索引：读取保存前数据（逻辑类型存在注册表才处理）
+          const logicalType = tagIndex.TABLE_TO_TYPE[tableName]
+          let oldTagObj = null
+          if (logicalType) {
+            const oldRow = db.prepare(`SELECT jsonData FROM "${tableName}" WHERE id = ?`).get(resource.id)
+            if (oldRow) {
+              try { oldTagObj = JSON.parse(oldRow.jsonData) } catch { oldTagObj = null }
+            }
+          }
+
           const timestamp = resource.timestamp != null ? resource.timestamp : new Date().toISOString()
           const version = resource.version != null ? resource.version : null
           const insertStmt = db.prepare(`INSERT OR REPLACE INTO "${tableName}" (id, jsonData, timestamp, version) VALUES (?, ?, ?, ?)`)
           insertStmt.run(resource.id, JSON.stringify(resource), timestamp, version)
           insertedCount++
           console.log(`[SQLite] 资源保存成功，insertedCount 现在为: ${insertedCount}`)
+
+          // 标签索引：同一事务内增量同步
+          if (logicalType) {
+            const tagChanges = tagIndex.syncTagRefsInTx(db, logicalType, resource.id, oldTagObj, resource)
+            if (tagChanges.adds.length > 0 || tagChanges.removes.length > 0) {
+              changedResourceTypes.add(logicalType)
+            }
+          }
         }
       }
 
@@ -878,6 +935,16 @@ async function savePageResources(pageId, resources) {
     transaction()
     db.close()
 
+    // 批量保存后，受影响类型的标签候选统一通知刷新（前端按类型失效缓存）
+    if (changedResourceTypes.size > 0) {
+      tagIndex.broadcast('tags:changed', {
+        resourceType: null,
+        resourceTypes: [...changedResourceTypes],
+        adds: [],
+        removes: []
+      })
+    }
+
     // 允许空数组的情况（清空页面）
     if (resources.length === 0) {
       return { ok: true }
@@ -903,32 +970,59 @@ async function deleteResourceFromTable(tableName, resourceId) {
     const Database = require('better-sqlite3')
     const dbPath = getDatabasePath()
     const db = new Database(dbPath)
+    tagIndex.ensureTagTables(db)
 
-    // 1. 从资源表中删除记录
-    const deleteStmt = db.prepare(`DELETE FROM "${tableName}" WHERE id = ?`)
-    const result = deleteStmt.run(resourceId)
+    // 规范化物理表名（HTTP API 可能传入别名，如 'images' → 'manga'、'novels' → 'novel'）
+    const physicalTable = mapResourceTypeToTableName(tableName)
+    const logicalType = tagIndex.TABLE_TO_TYPE[physicalTable]
 
-    if (result.changes === 0) {
-      db.close()
+    // 删除前读取资源数据（用于清理标签索引）
+    let removedRefs = []
+    let notFound = false
+
+    const deleteTx = db.transaction(() => {
+      // 1. 从资源表中删除记录
+      const deleteStmt = db.prepare(`DELETE FROM "${physicalTable}" WHERE id = ?`)
+      const result = deleteStmt.run(resourceId)
+
+      if (result.changes === 0) {
+        notFound = true
+        return
+      }
+
+      // 2. 清理该资源的标签索引引用（同一事务）
+      if (logicalType) {
+        removedRefs = tagIndex.removeAllRefsInTx(db, logicalType, resourceId)
+      }
+
+      // 3. 从所有页面索引表中删除该资源的索引
+      const tablesStmt = db.prepare(`
+        SELECT name FROM sqlite_master
+        WHERE type='table' AND name LIKE '%_page'
+      `)
+      const pageTables = tablesStmt.all()
+      for (const table of pageTables) {
+        const deletePageIndexStmt = db.prepare(`DELETE FROM "${table.name}" WHERE resourceId = ?`)
+        deletePageIndexStmt.run(resourceId)
+      }
+    })
+
+    deleteTx()
+
+    db.close()
+
+    if (notFound) {
       return { ok: false, message: '未找到要删除的记录' }
     }
 
-    // 2. 从所有页面索引表中删除该资源的索引
-    // 获取所有页面表
-    const tablesStmt = db.prepare(`
-      SELECT name FROM sqlite_master 
-      WHERE type='table' AND name LIKE '%_page'
-    `)
-    const pageTables = tablesStmt.all()
-
-    // 从每个页面表中删除该资源的索引
-    for (const table of pageTables) {
-      const pageTableName = table.name
-      const deletePageIndexStmt = db.prepare(`DELETE FROM "${pageTableName}" WHERE resourceId = ?`)
-      deletePageIndexStmt.run(resourceId)
+    if (logicalType && removedRefs.length > 0) {
+      tagIndex.broadcast('tags:changed', {
+        resourceType: logicalType,
+        resourceId,
+        adds: [],
+        removes: removedRefs
+      })
     }
-
-    db.close()
     return { ok: true }
   } catch (err) {
     console.error(`[SQLite] 从 ${tableName} 表删除资源 ${resourceId} 失败:`, err.message)

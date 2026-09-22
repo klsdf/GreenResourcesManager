@@ -145,7 +145,7 @@
         "resource": "game",
         "field": "publisher"
       },
-      "isArray": false
+      "isArray": true
     },
     {
       "key": "engines",

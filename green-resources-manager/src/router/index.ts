@@ -60,6 +60,17 @@ const fixedRoutes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/tag-manage',
+    name: 'tag-manage',
+    component: () => import('../pages/TagManageView.vue'),
+    meta: {
+      title: '标签管理',
+      icon: '🏷️',
+      description: '统一浏览、重命名、合并和删除各资源类型的标签',
+      requiresFilter: false
+    }
+  },
+  {
     path: '/workshop',
     name: 'workshop',
     component: () => import('../pages/WorkshopView.vue'),
