@@ -1,3 +1,5 @@
+import { PAGE_TEMPLATES, TEMPLATE_FILE_NAMES, createUniquePageId, isSafePageFileName } from './pageTemplates'
+
 // 在Electron中，我们需要通过预加载脚本暴露的API获取配置
 const electronAPI = window.electronAPI
 
@@ -160,6 +162,109 @@ export class PageConfigLoader {
 	 */
 	public getFileNameByPageId(pageId: string): string | null {
 		return this.idToFileNameMap.get(pageId) || null
+	}
+
+	/**
+	 * 按模板新建一个页面。
+	 * 复制模板里的筛选、工具栏和空状态，但换成新的页面 ID，
+	 * 这样新页面的数据和原来的页面是分开的。
+	 */
+	public async createPageFromTemplate(templateId: string, pageName: string): Promise<{ success: boolean; pageId?: string; error?: string }> {
+		await this.ready()
+		const template = PAGE_TEMPLATES.find(item => item.id === templateId)
+		if (!template) {
+			return { success: false, error: '请选择一个页面模板' }
+		}
+
+		const trimmedName = pageName.trim()
+		if (!trimmedName) {
+			return { success: false, error: '请填写页面名称' }
+		}
+
+		const templateResult = await electronAPI.readJsonFile(`configs/pages/${template.fileName}`)
+		if (!templateResult?.success || !templateResult.data) {
+			return { success: false, error: '读取页面模板失败' }
+		}
+
+		const existingIds = new Set(this.metaConfigs.map(meta => meta.config.id))
+		const pageId = createUniquePageId(template.id, existingIds)
+		const clonedConfig = JSON.parse(JSON.stringify(templateResult.data))
+		clonedConfig.id = pageId
+		clonedConfig.name = trimmedName
+		clonedConfig.icon = template.icon
+		clonedConfig.settingsKey = pageId
+
+		const fileName = `custom-${pageId}.json`
+		if (!isSafePageFileName(fileName)) {
+			return { success: false, error: '生成的配置文件名不合法' }
+		}
+
+		const writeResult = await electronAPI.writeJsonFile(`configs/pages/${fileName}`, clonedConfig)
+		if (!writeResult?.success) {
+			return { success: false, error: writeResult?.error || '写入页面配置失败' }
+		}
+
+		const nextOrder = this.getAllPageConfigs().map(meta => ({
+			fileName: this.idToFileNameMap.get(meta.config.id),
+			order: meta.order,
+			isDefault: meta.isDefault !== false,
+			isHidden: !!meta.isHidden
+		}))
+		nextOrder.push({
+			fileName,
+			order: nextOrder.length + 1,
+			isDefault: false,
+			isHidden: false
+		})
+
+		const orderResult = await electronAPI.writeJsonFile('configs/pages/pageOrder.json', nextOrder)
+		if (!orderResult?.success) {
+			await electronAPI.deleteFile(`configs/pages/${fileName}`)
+			return { success: false, error: orderResult?.error || '更新页面列表失败' }
+		}
+
+		this.readyPromise = this.loadConfigs()
+		await this.readyPromise
+		return { success: true, pageId }
+	}
+
+	/**
+	 * 从页面列表里移除一个页面。
+	 * 内置模板文件会保留，方便以后再按这个类型新建；
+	 * 用户新建出来的配置文件会一起删掉。
+	 */
+	public async removePage(pageId: string): Promise<{ success: boolean; error?: string }> {
+		await this.ready()
+		const fileName = this.idToFileNameMap.get(pageId)
+		if (!fileName) {
+			return { success: false, error: '找不到这个页面' }
+		}
+
+		const remaining = this.getAllPageConfigs().filter(meta => meta.config.id !== pageId)
+		const nextOrder = remaining.map((meta, index) => ({
+			fileName: this.idToFileNameMap.get(meta.config.id),
+			order: index + 1,
+			isDefault: meta.isDefault !== false,
+			isHidden: !!meta.isHidden
+		}))
+
+		const orderResult = await electronAPI.writeJsonFile('configs/pages/pageOrder.json', nextOrder)
+		if (!orderResult?.success) {
+			return { success: false, error: orderResult?.error || '更新页面列表失败' }
+		}
+
+		this.readyPromise = this.loadConfigs()
+		await this.readyPromise
+
+		const shouldKeepTemplate = TEMPLATE_FILE_NAMES.has(fileName)
+		if (!shouldKeepTemplate && isSafePageFileName(fileName)) {
+			const deleteResult = await electronAPI.deleteFile(`configs/pages/${fileName}`)
+			if (!deleteResult?.success) {
+				return { success: false, error: deleteResult?.error || '页面已从列表移除，但配置文件删除失败' }
+			}
+		}
+
+		return { success: true }
 	}
 
 	/**

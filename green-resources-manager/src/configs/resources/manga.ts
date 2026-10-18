@@ -99,6 +99,7 @@ export class Manga extends BaseResources {
 		}
 		return {
 			id: id || '',
+			fingerprint: this.fingerprint.value || '',
 			resourceType: this.resourceType.value || this.resourceType.defaultValue || 'manga',
 			name: this.name.value || '',
 			description: this.description.value || '',

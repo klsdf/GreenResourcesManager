@@ -605,9 +605,14 @@ export default {
       this.currentPageImage = './default-image.png'
     },
 
-    // 鼠标滚轮缩放
+    /**
+     * 漫画图片上的滚轮缩放。
+     * 按住 Ctrl/Cmd 时不处理：那一格要留给主窗口做界面缩放，避免图片和整个界面一起被放大两次。
+     * @param {WheelEvent} event 滚轮事件
+     */
     onImageWheel(event) {
       event.preventDefault()
+      if (event.ctrlKey || event.metaKey) return
       if (event.deltaY < 0) {
         this.zoomIn()
       } else {

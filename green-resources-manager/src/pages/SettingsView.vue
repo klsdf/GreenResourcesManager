@@ -169,7 +169,7 @@ export default {
       settingsCategories: [
         { id: 'general', name: '通用', icon: '⚙️', description: '应用的基本设置和外观配置' },
         { id: 'personalization', name: '个性化', icon: '🎨', description: '个性化外观和主题设置' },
-        { id: 'pageManagement', name: '页面管理', icon: '🧩', description: '添加/编辑/排序/隐藏自定义页面' },
+        { id: 'pageManagement', name: '页面管理', icon: '🧩', description: '添加、编辑、排序或删除页面' },
         { id: 'games', name: '游戏', icon: '🎮', description: '游戏相关的设置选项' },
         { id: 'images', name: '图片', icon: '🖼️', description: '图片管理和显示设置' },
         { id: 'videos', name: '视频', icon: '🎬', description: '视频播放和管理设置' },

@@ -52,8 +52,9 @@
         </label>
         <div class="setting-control">
           <FunShortcutInput
-            v-model="settings.safetyKeyShortcut"
+            :model-value="settings.safetyKeyShortcut"
             :default-shortcut="'Esc'"
+            @update:model-value="onSafetyKeyShortcutChange"
           />
         </div>
       </div>
@@ -72,7 +73,7 @@
         </label>
         <div class="setting-control">
           <FunShortcutInput
-            v-model="settings.showWindowShortcut"
+            :model-value="settings.showWindowShortcut"
             :default-shortcut="'F2'"
             @shortcut-changed="onShowWindowShortcutChange"
           />
@@ -386,7 +387,8 @@ export default {
         const event = new CustomEvent('safety-key-changed', {
           detail: { 
             enabled: newValue,
-            url: this.settings.safetyKeyUrl
+            url: this.settings.safetyKeyUrl,
+            shortcut: this.settings.safetyKeyShortcut
           }
         })
         window.dispatchEvent(event)
@@ -423,7 +425,8 @@ export default {
           const event = new CustomEvent('safety-key-changed', {
             detail: { 
               enabled: this.settings.safetyKeyEnabled,
-              url: newUrl
+              url: newUrl,
+              shortcut: this.settings.safetyKeyShortcut
             }
           })
           window.dispatchEvent(event)
@@ -454,7 +457,44 @@ export default {
       }
     },
 
+    /**
+     * 安全键快捷键改完后立刻重新注册。
+     * 注册失败就退回原来的键，避免界面上显示一个按了没反应的组合。
+     */
+    async onSafetyKeyShortcutChange(newKey: string) {
+      const previousKey = this.settings.safetyKeyShortcut
+      this.updateSetting('safetyKeyShortcut', newKey)
+      if (this.settings.safetyKeyEnabled && window.electronAPI && window.electronAPI.setSafetyKey) {
+        try {
+          const result = await window.electronAPI.setSafetyKey(true, this.settings.safetyKeyUrl, newKey)
+          if (!result.success) {
+            this.updateSetting('safetyKeyShortcut', previousKey)
+            notify.error(this.t('settings.general.safetyKeyFailed'), result.error || this.t('settings.general.safetyKeyFailedDetail'))
+            return
+          }
+        } catch (error: any) {
+          this.updateSetting('safetyKeyShortcut', previousKey)
+          notify.error(this.t('settings.general.safetyKeyFailed'), error.message)
+          return
+        }
+      }
+      try {
+        const event = new CustomEvent('safety-key-changed', {
+          detail: {
+            enabled: this.settings.safetyKeyEnabled,
+            url: this.settings.safetyKeyUrl,
+            shortcut: newKey
+          }
+        })
+        window.dispatchEvent(event)
+      } catch (error) {
+        console.error('触发安全键快捷键变化事件失败:', error)
+      }
+      notify.success(this.t('settings.general.safetyKeyUpdated'), newKey)
+    },
+
     async onShowWindowShortcutChange(newKey: string) {
+      const previousKey = this.settings.showWindowShortcut
       this.updateSetting('showWindowShortcut', newKey)
       if (this.settings.showWindowShortcutEnabled && window.electronAPI && window.electronAPI.updateShowWindowShortcut) {
         try {
@@ -465,13 +505,15 @@ export default {
           } else {
             console.warn('更新打开软件快捷键失败:', result.error)
             notify.error(this.t('messages.error'), result.error || this.t('settings.general.showWindowShortcutUpdateFailed'))
-            this.updateSetting('showWindowShortcut', this.settings.showWindowShortcut)
+            this.updateSetting('showWindowShortcut', previousKey)
           }
         } catch (error: any) {
           console.error('更新打开软件快捷键失败:', error)
           notify.error(this.t('messages.error'), error.message)
-          this.updateSetting('showWindowShortcut', this.settings.showWindowShortcut)
+          this.updateSetting('showWindowShortcut', previousKey)
         }
+      } else {
+        notify.success(this.t('settings.general.showWindowShortcutUpdated'), this.t('settings.general.showWindowShortcutSet', { key: newKey }))
       }
     },
     

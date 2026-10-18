@@ -1,0 +1,31 @@
+---
+description: 有用户可见的改动时，必须把说明写进 changelog.ts，给用户看
+alwaysApply: true
+---
+
+# 更新日志
+
+给用户看的改动说明只写在 `green-resources-manager/src/data/changelog.ts`。应用里的更新记录和更新弹窗读的就是这个文件。不要把说明写进 `package.json`。
+
+用户能感知到的改动，必须在同一次修改里写进去。只改注释、格式或这条规则本身时不用写。
+
+写到哪一条：看 `package.json` 的 `version`，日志版本是 `v` 加这个号。数组最前面已经是这个版本时，往该条里追加；还没有时，在最前面新增一条，日期用当天的 `YYYY-MM-DD`。
+
+用用户能看懂的中文，一条一件事，不要写文件名和实现细节。放进对应数组：
+
+- `features`：新功能
+- `experience`：体验优化
+- `bugfixes`：缺陷修复
+- `refactor`：用户需要知道的结构调整
+- `notice`：发版注意事项，没有就不写
+
+```ts
+// 当前 version 是 0.7.6 时，追加到已有的 v0.7.6
+{
+  version: 'v0.7.6',
+  date: '2026-10-18',
+  experience: [
+    "主页的为您推荐会固定住，只有点击再来一批才会换一批",
+  ],
+}
+```

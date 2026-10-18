@@ -30,6 +30,7 @@
  *
  * 截图功能特性:
  * - 自动识别游戏窗口（通过窗口标题匹配）。
+ * - 游戏名对不上窗口时（如 MTool / NW.js），按聚焦窗口、最大窗口、当前活动窗口依次兜底。
  * - 按游戏名称或窗口名称组织截图文件夹。
  * - 支持 PNG（无损）、JPEG（有损）、WebP（有损）格式。
  * - 可配置的图片质量（仅适用于 JPEG 和 WebP）。
@@ -97,6 +98,151 @@ function renameScreenshotFolderIfNeeded(baseScreenshotsDir, gameId, expectedFold
 }
 
 /**
+ * 截图兜底时要避开的窗口关键词。
+ * MTool（NW.js）启动游戏后，游戏窗口标题经常对不上存档里的名字。
+ * 这时不能按列表随便抓一个窗口，否则会截到显卡叠加层、浏览器、编辑器、聊天软件或 MTool 自己。
+ * 比较时不区分大小写，窗口标题包含其中任一关键词就会被排除。
+ */
+const FALLBACK_WINDOW_BLACKLIST = [
+  'nvidia',
+  'overlay',
+  'visual studio code',
+  'chrome',
+  'edge',
+  'mtool',
+  'green resource manager',
+  'butter manager',
+  'program manager',
+  'qq',
+  '微信',
+  'wechat',
+  '钉钉',
+  'dingtalk',
+  'wallpaper engine'
+]
+
+/**
+ * 判断窗口标题是否命中截图兜底黑名单。
+ * @param {string} name 窗口标题
+ * @returns {boolean} 命中黑名单时返回 true
+ */
+function isFallbackWindowBlacklisted(name) {
+  const lowerName = String(name || '').toLowerCase()
+  return FALLBACK_WINDOW_BLACKLIST.some(keyword => lowerName.includes(keyword))
+}
+
+/**
+ * 判断两个窗口标题是否指向同一个窗口。
+ * desktopCapturer 不提供 PID，只能靠标题完全相同或互相包含，对上系统报出的聚焦窗口。
+ * @param {string} sourceName 捕获源里的窗口标题
+ * @param {string} focusedName 系统前台窗口标题
+ * @returns {boolean} 视为同一窗口时返回 true
+ */
+function windowTitlesReferToSameWindow(sourceName, focusedName) {
+  const left = String(sourceName || '').trim()
+  const right = String(focusedName || '').trim()
+  if (!left || !right) return false
+  return left === right || left.includes(right) || right.includes(left)
+}
+
+/**
+ * 按缩略图面积选出最大的窗口。
+ * 名字对不上时，全屏游戏通常就是面积最大的那个，比按列表顺序更不容易截错。
+ * @param {Electron.DesktopCapturerSource[]} windowSources 候选窗口
+ * @returns {Electron.DesktopCapturerSource|null} 面积最大的窗口，没有候选时返回 null
+ */
+function pickLargestWindowSource(windowSources) {
+  if (!windowSources.length) return null
+  return windowSources.reduce((largest, source) => {
+    const largestSize = largest.thumbnail.getSize()
+    const currentSize = source.thumbnail.getSize()
+    const largestArea = largestSize.width * largestSize.height
+    const currentArea = currentSize.width * currentSize.height
+    return currentArea > largestArea ? source : largest
+  })
+}
+
+/**
+ * 决定兜底截图记到哪一个正在运行的游戏上。
+ * 优先记到 PID 与当前聚焦窗口一致的游戏，避免存进另一个同时开着的游戏文件夹。
+ * @param {Object} runningGamesInfo 运行中的游戏信息
+ * @param {number|null} focusedWindowPID 当前聚焦窗口的进程号
+ * @returns {[string, Object]|null} [游戏 ID, 游戏数据]，没有运行中的游戏时返回 null
+ */
+function pickFallbackRunningGame(runningGamesInfo, focusedWindowPID) {
+  const runningGameEntries = Object.entries(runningGamesInfo)
+  if (runningGameEntries.length === 0) return null
+  const focusedEntry = runningGameEntries.find(([, gameData]) => focusedWindowPID && gameData.pid === focusedWindowPID)
+  return focusedEntry || runningGameEntries[0]
+}
+
+/**
+ * 打印当前能看到的全部窗口，方便对照 NW.js 游戏真实的窗口标题。
+ * @param {Electron.DesktopCapturerSource[]} sources 全部窗口源
+ */
+function logAllWindowSources(sources) {
+  console.log('====== 所有窗口列表 ======')
+  sources.forEach((source, index) => {
+    const size = source.thumbnail.getSize()
+    const area = size.width * size.height
+    console.log(`  [${index}] "${source.name}" → ${size.width} x ${size.height}（面积 ${area}）`)
+  })
+  console.log('==========================')
+}
+
+/**
+ * 按游戏名匹配不到窗口时，选出真正该截的那个窗口。
+ * 顺序固定为三步：当前聚焦窗口（排除黑名单）→ 面积最大的非黑名单窗口 → 当前活动窗口。
+ * 前两步避开叠加层和聊天软件；前两步都没有时，仍截当前活动窗口，避免直接失败。
+ * @param {Object} params
+ * @param {Electron.DesktopCapturerSource[]} params.sources 全部窗口源
+ * @param {Electron.DesktopCapturerSource[]} params.nonSystemWindows 已去掉系统窗口的列表
+ * @param {string|null} params.focusedWindowTitle 当前聚焦窗口标题
+ * @returns {Electron.DesktopCapturerSource|null} 选中的窗口，一个都没有时返回 null
+ */
+function pickFallbackScreenshotSource({ sources, nonSystemWindows, focusedWindowTitle }) {
+  logAllWindowSources(sources)
+
+  if (focusedWindowTitle) {
+    const focusedSource = nonSystemWindows.find(source =>
+      windowTitlesReferToSameWindow(source.name, focusedWindowTitle)
+    )
+    if (focusedSource && !isFallbackWindowBlacklisted(focusedSource.name)) {
+      console.log(`  ✅ 兜底：采用当前聚焦窗口: "${focusedSource.name}"`)
+      return focusedSource
+    }
+    if (focusedSource) {
+      console.log(`  ⚠️ 聚焦窗口 "${focusedSource.name}" 命中黑名单，跳过`)
+    } else {
+      console.log('  ⚠️ 未在非系统窗口中找到聚焦窗口，回退到按面积选最大')
+    }
+  }
+
+  const matchedSources = nonSystemWindows.filter(source => !isFallbackWindowBlacklisted(source.name))
+  console.log(`  📐 排除黑名单后，候选窗口 ${matchedSources.length} 个:`)
+  matchedSources.forEach(source => {
+    const size = source.thumbnail.getSize()
+    const area = size.width * size.height
+    console.log(`     - "${source.name}" → ${size.width} x ${size.height}（面积 ${area}）`)
+  })
+
+  const largestSource = pickLargestWindowSource(matchedSources)
+  if (largestSource) {
+    console.log(`  ✅ 兜底：选择面积最大的窗口: "${largestSource.name}"`)
+    return largestSource
+  }
+
+  console.log('  ⚠️ 未找到候选窗口，改用当前前台活动窗口')
+  if (nonSystemWindows.length > 0) {
+    const activeSource = nonSystemWindows[0]
+    console.log(`  ✅ 兜底：使用当前活动窗口: "${activeSource.name}"`)
+    return activeSource
+  }
+
+  return null
+}
+
+/**
  * 过滤系统窗口和通知窗口，返回非系统窗口列表。
  * @param {Array} sources - 窗口源列表。
  * @returns {Array} 过滤后的非系统窗口列表。
@@ -129,6 +275,7 @@ function filterSystemWindows(sources) {
  * 3. 在所有游戏窗口中，找到正在被聚焦的那个
  * 4. 截图聚焦的游戏窗口
  * 5. 如果没有聚焦的游戏窗口，但只有一个游戏在运行，截图那个游戏
+ * 6. 按游戏名一个窗口都匹配不到时，改用聚焦窗口、最大非黑名单窗口、当前活动窗口兜底
  * 
  * @param {string|null} customDirectory - 自定义截图目录。
  * @param {string} format - 图片格式（png、jpg、jpeg、webp）。
@@ -389,6 +536,30 @@ async function takeScreenshot(customDirectory, format = 'png', quality = 90, run
       // 如果没有找到匹配的窗口，记录日志
       if (!matchedSource) {
         console.log(`  ❌ 未找到匹配的窗口，尝试过的窗口标题:`, allWindowTitles)
+      }
+    }
+
+    // 按游戏名和标题都匹配不到时进入兜底。MTool 等 NW.js 启动器的窗口名经常和存档不一致，旧逻辑会直接失败或截到黑屏。
+    if (gameWindows.length === 0) {
+      console.log('⚠️ 按游戏名未匹配到任何窗口，进入兜底逻辑')
+      const fallbackEntry = pickFallbackRunningGame(runningGamesInfo, focusedWindowPID)
+      if (fallbackEntry) {
+        const [fallbackGameId, fallbackGameData] = fallbackEntry
+        const fallbackSource = pickFallbackScreenshotSource({
+          sources,
+          nonSystemWindows,
+          focusedWindowTitle
+        })
+        if (fallbackSource) {
+          gameWindows.push({
+            gameId: fallbackGameId,
+            gameData: fallbackGameData,
+            windowTitle: fallbackSource.name,
+            source: fallbackSource,
+            isFocused: true
+          })
+          console.log(`  ✅ 兜底添加截图窗口: "${fallbackSource.name}"`)
+        }
       }
     }
 

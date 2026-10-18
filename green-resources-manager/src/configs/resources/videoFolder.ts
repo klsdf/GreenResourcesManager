@@ -97,6 +97,7 @@ export class VideoFolder extends BaseResources {
 	getSaveData(): any {
 		return {
 			id: this.id.value || this.id.defaultValue || '',
+			fingerprint: this.fingerprint.value || '',
 			resourceType: this.resourceType.value || this.resourceType.defaultValue || 'videoFolder',
 			name: this.name.value || '',
 			description: this.description.value || '',

@@ -2,14 +2,13 @@
   <div class="page-management-settings">
     <div class="settings-section">
       <h3>页面管理</h3>
-      <p class="section-desc">管理侧边栏显示的页面，可以排序或隐藏不需要的页面。</p>
+      <p class="section-desc">管理侧边栏显示的页面，可以新增、编辑、排序、隐藏或删除。</p>
 
       <div class="actions-bar">
-        <!-- 注释掉添加新页面按钮 -->
-        <!-- <button class="btn-primary" @click="showAddPageDialog">
+        <button class="btn-primary" @click="openAddDialog">
           <span class="icon">➕</span> 添加新页面
-        </button> -->
-        <button class="btn-primary" @click="openConfigDirectory">
+        </button>
+        <button class="btn-secondary" @click="openConfigDirectory">
           <span class="icon">📁</span> 打开配置目录
         </button>
       </div>
@@ -69,10 +68,57 @@
             <button class="btn-icon" title="编辑" @click="editPage(page)">
               ✏️
             </button>
+            <button class="btn-icon delete" title="删除页面" @click="openDeleteDialog(page)">
+              🗑️
+            </button>
           </div>
         </div>
       </div>
     </div>
+
+    <fun-modal v-model="showAddDialog" title="添加新页面" max-width="720px">
+      <p class="dialog-desc">先选一种内容模板，新页面会按这个类型来管理资源。</p>
+      <div class="template-grid">
+        <button
+          v-for="template in pageTemplates"
+          :key="template.id"
+          type="button"
+          class="template-card"
+          :class="{ selected: selectedTemplateId === template.id }"
+          @click="selectTemplate(template.id)"
+        >
+          <span class="template-icon">{{ template.icon }}</span>
+          <span class="template-label">{{ template.label }}</span>
+          <span class="template-desc">{{ template.description }}</span>
+        </button>
+      </div>
+      <div class="form-group">
+        <label>页面名称</label>
+        <fun-input v-model="newPageName" type="text" placeholder="例如：我的电影" />
+      </div>
+      <template #footer>
+        <button class="btn-secondary" type="button" @click="closeAddDialog">取消</button>
+        <button class="btn-primary" type="button" :disabled="!canCreatePage || isCreating" @click="confirmCreatePage">
+          {{ isCreating ? '正在添加...' : '添加' }}
+        </button>
+      </template>
+    </fun-modal>
+
+    <fun-modal v-model="showDeleteDialog" title="删除页面" max-width="520px">
+      <p class="dialog-desc danger-text">
+        将删除「{{ deletingPageName }}」以及这一页里的全部内容。删除后无法恢复。
+      </p>
+      <p class="dialog-desc">请输入「{{ deleteConfirmText }}」后再确认。</p>
+      <div class="form-group">
+        <fun-input v-model="deleteConfirmInput" type="text" :placeholder="deleteConfirmText" />
+      </div>
+      <template #footer>
+        <button class="btn-secondary" type="button" @click="closeDeleteDialog">取消</button>
+        <button class="btn-danger" type="button" :disabled="!canDeletePage || isDeleting" @click="confirmDeletePage">
+          {{ isDeleting ? '正在删除...' : '确认删除' }}
+        </button>
+      </template>
+    </fun-modal>
 
     <PageConfigEditor
       :visible="showEditor"
@@ -89,6 +135,8 @@ import pageConfigManager from '../../utils/PageConfigManager'
 import alertService from '../../utils/AlertService.ts'
 import { PageConfig } from '../../types/page'
 import PageConfigEditor from '../PageConfigEditor.vue'
+import { pageConfigLoader } from '../../configs/pages/PageConfigLoader'
+import { DELETE_PAGE_CONFIRM_TEXT, PAGE_TEMPLATES } from '../../configs/pages/pageTemplates'
 
 const TYPE_NAME_MAP: Record<string, string> = {
   Game: '游戏',
@@ -115,6 +163,33 @@ export default defineComponent({
     const draggingId = ref<string | null>(null)
     const showEditor = ref(false)
     const editingPageId = ref<string>('')
+    /** 预设模板列表，供新增页面时选择 */
+    const pageTemplates = PAGE_TEMPLATES
+    /** 删除确认时必须输入的原句 */
+    const deleteConfirmText = DELETE_PAGE_CONFIRM_TEXT
+    /** 是否显示新增页面窗口 */
+    const showAddDialog = ref(false)
+    /** 当前选中的模板 ID */
+    const selectedTemplateId = ref('')
+    /** 新页面名称 */
+    const newPageName = ref('')
+    /** 正在创建页面，避免重复提交 */
+    const isCreating = ref(false)
+    /** 是否显示删除确认窗口 */
+    const showDeleteDialog = ref(false)
+    /** 准备删除的页面 */
+    const deletingPage = ref<PageConfig | null>(null)
+    /** 用户输入的删除确认文字 */
+    const deleteConfirmInput = ref('')
+    /** 正在删除页面，避免重复提交 */
+    const isDeleting = ref(false)
+
+    /** 删除窗口里展示的页面名称 */
+    const deletingPageName = computed(() => deletingPage.value?.name || '这个页面')
+    /** 选了模板并且写了名称后才允许创建 */
+    const canCreatePage = computed(() => !!selectedTemplateId.value && newPageName.value.trim().length > 0)
+    /** 确认文字完全一致后才允许删除 */
+    const canDeletePage = computed(() => deleteConfirmInput.value.trim() === deleteConfirmText)
 
     const loadPages = async () => {
       pages.value = await pageConfigManager.getPages()
@@ -208,6 +283,117 @@ export default defineComponent({
       emit('pages-updated')
     }
 
+    /**
+     * 给新页面挑一个不重名的默认名称。
+     * 已经有同名页面时，在后面加上数字。
+     */
+    const suggestPageName = (label: string) => {
+      const usedNames = new Set(pages.value.map(page => page.name))
+      if (!usedNames.has(label)) return label
+      let suffix = 2
+      while (usedNames.has(`${label} ${suffix}`)) suffix += 1
+      return `${label} ${suffix}`
+    }
+
+    /** 打开新增窗口，并默认选中第一个模板。 */
+    const openAddDialog = () => {
+      const firstTemplate = pageTemplates[0]
+      selectedTemplateId.value = firstTemplate?.id || ''
+      newPageName.value = firstTemplate ? suggestPageName(firstTemplate.label) : ''
+      showAddDialog.value = true
+    }
+
+    /** 关闭新增窗口。 */
+    const closeAddDialog = () => {
+      showAddDialog.value = false
+    }
+
+    /**
+     * 切换模板时，把名称改成这个模板的建议名。
+     * 用户已经改过的名称不覆盖，避免把正在输入的字清掉。
+     */
+    const selectTemplate = (templateId: string) => {
+      const previous = pageTemplates.find(template => template.id === selectedTemplateId.value)
+      const next = pageTemplates.find(template => template.id === templateId)
+      if (!next) return
+      const previousSuggestion = previous ? suggestPageName(previous.label) : ''
+      const stillUsingSuggestion = !newPageName.value.trim() || newPageName.value === previousSuggestion || newPageName.value === previous?.label
+      selectedTemplateId.value = templateId
+      if (stillUsingSuggestion) {
+        newPageName.value = suggestPageName(next.label)
+      }
+    }
+
+    /** 按选中的模板创建页面，并刷新侧边栏。 */
+    const confirmCreatePage = async () => {
+      if (!canCreatePage.value || isCreating.value) return
+      isCreating.value = true
+      try {
+        const result = await pageConfigLoader.createPageFromTemplate(selectedTemplateId.value, newPageName.value)
+        if (!result.success) {
+          await alertService.error(result.error || '添加页面失败', '错误')
+          return
+        }
+        await pageConfigManager.reloadAsync()
+        await loadPages()
+        showAddDialog.value = false
+        emit('pages-updated')
+      } catch (error) {
+        console.error('添加页面失败:', error)
+        await alertService.error('添加页面失败', '错误')
+      } finally {
+        isCreating.value = false
+      }
+    }
+
+    /** 打开删除确认窗口，要求用户手动输入风险提示。 */
+    const openDeleteDialog = (page: PageConfig) => {
+      deletingPage.value = page
+      deleteConfirmInput.value = ''
+      showDeleteDialog.value = true
+    }
+
+    /** 关闭删除确认窗口。 */
+    const closeDeleteDialog = () => {
+      if (isDeleting.value) return
+      showDeleteDialog.value = false
+      deletingPage.value = null
+      deleteConfirmInput.value = ''
+    }
+
+    /**
+     * 先清掉页面里的资源，再从页面列表移除。
+     * 数据没删掉时不移除页面，避免列表里没了、内容还在。
+     */
+    const confirmDeletePage = async () => {
+      const page = deletingPage.value
+      if (!page || !canDeletePage.value || isDeleting.value) return
+      isDeleting.value = true
+      try {
+        const dataResult = await window.electronAPI?.sqliteDeletePageData(page.id)
+        if (!dataResult?.ok) {
+          await alertService.error(dataResult?.message || '删除页面数据失败', '错误')
+          return
+        }
+        const removeResult = await pageConfigLoader.removePage(page.id)
+        if (!removeResult.success) {
+          await alertService.error(removeResult.error || '页面数据已删除，但页面配置移除失败', '错误')
+          return
+        }
+        await pageConfigManager.reloadAsync()
+        await loadPages()
+        showDeleteDialog.value = false
+        deletingPage.value = null
+        deleteConfirmInput.value = ''
+        emit('pages-updated')
+      } catch (error) {
+        console.error('删除页面失败:', error)
+        await alertService.error('删除页面失败', '错误')
+      } finally {
+        isDeleting.value = false
+      }
+    }
+
     const resetDragState = () => {
       draggedIndex.value = null
       dragTargetIndex.value = null
@@ -267,7 +453,26 @@ export default defineComponent({
       editingPageId,
       editPage,
       handleEditorClose,
-      handleEditorSave
+      handleEditorSave,
+      pageTemplates,
+      deleteConfirmText,
+      showAddDialog,
+      selectedTemplateId,
+      newPageName,
+      isCreating,
+      canCreatePage,
+      openAddDialog,
+      closeAddDialog,
+      selectTemplate,
+      confirmCreatePage,
+      showDeleteDialog,
+      deletingPageName,
+      deleteConfirmInput,
+      isDeleting,
+      canDeletePage,
+      openDeleteDialog,
+      closeDeleteDialog,
+      confirmDeletePage
     }
   }
 })
@@ -291,6 +496,8 @@ export default defineComponent({
 
 .actions-bar {
   margin-bottom: 20px;
+  display: flex;
+  gap: 10px;
 }
 
 .pages-list {
@@ -419,5 +626,80 @@ export default defineComponent({
   padding: 8px 16px;
   border-radius: 4px;
   cursor: pointer;
+}
+
+.btn-danger {
+  background: #dc2626;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-danger:disabled,
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dialog-desc {
+  color: var(--text-secondary);
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+.danger-text {
+  color: #b91c1c;
+}
+
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.template-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.template-card.selected {
+  border-color: var(--accent-color);
+  box-shadow: inset 0 0 0 1px var(--accent-color);
+}
+
+.template-icon {
+  font-size: 1.4rem;
+}
+
+.template-label {
+  font-weight: bold;
+}
+
+.template-desc {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  font-size: 0.9rem;
 }
 </style>

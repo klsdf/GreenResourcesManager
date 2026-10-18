@@ -1411,4 +1411,100 @@ async function saveUserToSqlite(user) {
   }
 }
 
-module.exports = { getAllTablesData, getPageData, getTableResources, getResourceById, getSaveDataDirectory, getDatabasePath, saveResourceToTable, addResourceToPage, savePageResources, deleteResourceFromTable, migrateOldSqlToJsonFormat, migrateAchievementsFromJson, migrateSettingsFromJson, getSettingsFromSqlite, saveSettingsToSqlite, migrateUserFromJson, getUserFromSqlite, saveUserToSqlite }
+/**
+ * 删除一个页面里的全部数据。
+ * 页面索引表会直接丢掉。资源本体只在没有被其他页面引用时删除，
+ * 避免同一条资源同时出现在两个页面时，删掉一页把另一页也清掉。
+ * @param {string} pageId - 页面 ID
+ * @returns {Promise<{ ok: boolean, message?: string }>}
+ */
+async function deletePageData(pageId) {
+  if (!pageId || typeof pageId !== 'string' || !/^[A-Za-z0-9_-]+$/.test(pageId)) {
+    return { ok: false, message: '页面 ID 不合法' }
+  }
+
+  try {
+    const Database = require('better-sqlite3')
+    const dbPath = getDatabasePath()
+    const db = new Database(dbPath)
+    tagIndex.ensureTagTables(db)
+
+    const tableName = `${pageId.replace(/-/g, '_')}_page`
+    const changedTypes = new Set()
+
+    const deleteTx = db.transaction(() => {
+      const exists = db.prepare(`
+        SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?
+      `).get(tableName)
+
+      const rows = exists
+        ? db.prepare(`SELECT resourceType, resourceId FROM "${tableName}"`).all()
+        : []
+
+      const otherPageTables = db.prepare(`
+        SELECT name FROM sqlite_master WHERE type = 'table'
+      `).all()
+        .map(row => row.name)
+        .filter(name => name.endsWith('_page') && name !== tableName && /^[A-Za-z0-9_]+$/.test(name))
+
+      for (const row of rows) {
+        const resourceType = row.resourceType ?? row.resourcetype
+        const resourceId = row.resourceId ?? row.resourceid
+        if (!resourceType || !resourceId) continue
+
+        const referencedElsewhere = otherPageTables.some(otherTable => {
+          return db.prepare(`SELECT 1 FROM "${otherTable}" WHERE resourceId = ? LIMIT 1`).get(resourceId)
+        })
+        if (referencedElsewhere) continue
+
+        const physicalTable = mapResourceTypeToTableName(String(resourceType))
+        if (!RESOURCE_TABLES.includes(physicalTable)) continue
+
+        const result = db.prepare(`DELETE FROM "${physicalTable}" WHERE id = ?`).run(resourceId)
+        if (result.changes === 0) continue
+
+        const logicalType = tagIndex.TABLE_TO_TYPE[physicalTable]
+        if (logicalType) {
+          tagIndex.removeAllRefsInTx(db, logicalType, resourceId)
+          changedTypes.add(logicalType)
+        }
+      }
+
+      if (exists) {
+        db.exec(`DROP TABLE IF EXISTS "${tableName}"`)
+      }
+
+      const pagesTable = db.prepare(`
+        SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'pages'
+      `).get()
+      if (pagesTable) {
+        db.prepare('DELETE FROM pages WHERE id = ?').run(pageId)
+      }
+    })
+
+    deleteTx()
+    db.close()
+
+    const pageJsonPath = path.join(getSaveDataDirectory(), 'pages', `${pageId}.json`)
+    if (fs.existsSync(pageJsonPath)) {
+      fs.unlinkSync(pageJsonPath)
+    }
+
+    if (changedTypes.size > 0) {
+      tagIndex.broadcast('tags:changed', {
+        resourceType: null,
+        resourceTypes: [...changedTypes],
+        adds: [],
+        removes: []
+      })
+    }
+
+    console.log(`[SQLite] 已删除页面 ${pageId} 的数据`)
+    return { ok: true }
+  } catch (err) {
+    console.error(`[SQLite] 删除页面 ${pageId} 数据失败:`, err.message)
+    return { ok: false, message: err.message }
+  }
+}
+
+module.exports = { getAllTablesData, getPageData, getTableResources, getResourceById, getSaveDataDirectory, getDatabasePath, saveResourceToTable, addResourceToPage, savePageResources, deleteResourceFromTable, deletePageData, migrateOldSqlToJsonFormat, migrateAchievementsFromJson, migrateSettingsFromJson, getSettingsFromSqlite, saveSettingsToSqlite, migrateUserFromJson, getUserFromSqlite, saveUserToSqlite }

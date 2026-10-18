@@ -64,7 +64,7 @@
     "title": "安全键",
     "description": "按下ESC键时快速最小化并打开安全网页",
     "shortcutTitle": "安全键快捷键",
-    "shortcutDesc": "输入自定义的安全键快捷键（如: Esc, Ctrl+Q）",
+    "shortcutDesc": "点击后按下想要的按键，例如 Esc 或 Ctrl+Q",
     "urlTitle": "安全网页URL",
     "urlDesc": "按下ESC键时打开的网页地址"
   },
@@ -122,7 +122,7 @@
   },
   "general": {
     "safetyKeyShortcut": "安全键快捷键",
-    "safetyKeyShortcutDesc": "输入自定义的安全键快捷键（如: Esc, Ctrl+Q）",
+    "safetyKeyShortcutDesc": "点击后按下想要的按键，例如 Esc 或 Ctrl+Q",
     "safetyKeyUrl": "安全网页URL",
     "safetyKeyUrlDesc": "按下ESC键时打开的网页地址",
     "safetyKeyUrlPlaceholder": "输入网页URL",
@@ -150,7 +150,7 @@
     "safetyKeyEnabledSuccess": "安全键全局快捷键已启用",
     "safetyKeyDisabledSuccess": "安全键全局快捷键已禁用",
     "safetyKeyFailed": "安全键设置失败",
-    "safetyKeyFailedDetail": "无法注册ESC全局快捷键，可能被其他应用占用",
+    "safetyKeyFailedDetail": "无法注册这个快捷键，可能被其他软件占用",
     "showWindowShortcutUpdated": "快捷键设置已更新",
     "showWindowShortcutEnabled": "已启用打开软件快捷键功能",
     "showWindowShortcutDisabled": "已禁用打开软件快捷键功能",

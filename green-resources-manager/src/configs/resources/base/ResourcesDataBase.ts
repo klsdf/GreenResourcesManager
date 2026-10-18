@@ -102,6 +102,15 @@ export abstract class BaseResources {
 	fileExists: ResourceField<boolean> = new ResourceField<boolean>({
 		saveable: false
 	})
+
+	/**
+	 * 内容指纹。
+	 * 不展示在编辑框里。用来在改名或移动之后认出还是不是原来那一条资源。
+	 */
+	fingerprint: ResourceField<string> = new ResourceField<string>({
+		saveable: true,
+		defaultValue: ''
+	})
 	
 	/**
 	 * 添加日期

@@ -122,6 +122,7 @@
       @close="closeAddDialog"
       @confirm="handleAddConfirm"
       @randomize-thumbnail="handleRandomizeThumbnail"
+      @video-file-selected="handleVideoFileSelected"
     />
     
     <!-- 编辑资源对话框 -->
@@ -143,6 +144,7 @@
       @close="closeEdit"
       @confirm="handleEditConfirm"
       @randomize-thumbnail="handleRandomizeThumbnail"
+      @video-file-selected="handleVideoFileSelected"
     />
     
     <!-- 漫画/图片查看器（用于 Image/Manga 资源类型） -->
@@ -369,6 +371,7 @@ import ResourcesEditDialog from './ResourcesEditDialog.vue'
 import ScraperUpdateDialog from './ScraperUpdateDialog.vue'
 import type { FilterItem } from '../types/filter'
 import coverManager from '../utils/CoverManager.ts'
+import { fingerprintKindForResource, fingerprintPageCount, isSameFingerprintIdentity, readFingerprint, writeFingerprint } from '../utils/resourceFingerprint.ts'
 
 // 刮削数据专有字段，不写入主存档
 const SCRAPER_ONLY_KEYS = ['resourceFileName', 'resourceFolderName']
@@ -509,7 +512,17 @@ export default defineComponent({
     }
 
     // 获取页面配置（从 JSON 配置加载器）
+    // 优先用当前页面自己的 ID。同一类型可以有多页，不能再按类型写死到内置页面，
+    // 否则新页面会读到旧页面的数据。
     const pageConfig = computed(() => {
+      const ownPageId = props.pageConfig?.id
+      if (ownPageId) {
+        const ownConfig = pageConfigLoader.getPageConfig(ownPageId)
+        if (!ownConfig) {
+          console.error(`未找到页面配置 ID ${ownPageId} 的配置`)
+        }
+        return ownConfig
+      }
       const pageId = resourceTypeToPageIdMap[resourceType.value]
       if (!pageId) {
         console.error(`未找到资源类型 ${resourceType.value} 对应的页面配置 ID`)
@@ -611,6 +624,8 @@ export default defineComponent({
         let addedCount = 0
         let failedCount = 0
         let typeMismatchCount = 0
+        /** 这次拖入里，第一个「同名但原文件已丢失」的文件，留给路径更新对话框 */
+        let pendingPathUpdate: { existingItem: any; newPath: string; newFileName: string } | null = null
         
         for (const file of files) {
           const filePath = (file as any).path || file.name
@@ -653,6 +668,17 @@ export default defineComponent({
               console.log(`[GenericResourceView] 资源已存在: ${file.name}`)
               failedCount++
               continue
+            }
+
+            // 换了文件夹再拖进来时，完整路径变了，但文件名还是原来的。旧文件已经丢失就改地址，不另建一条。
+            const relocatedItem = await findMissingResourceByFileName(filePath) || await findMissingResourceByFingerprint(filePath)
+            if (relocatedItem) {
+              pendingPathUpdate = {
+                existingItem: relocatedItem,
+                newPath: filePath,
+                newFileName: file.name
+              }
+              break
             }
             
             // 根据页面配置的 resourceTypes 自动匹配资源类型
@@ -771,6 +797,23 @@ export default defineComponent({
               
               console.log('[GenericResourceView] 封面设置完成')
             }
+
+            // 电影是单个视频文件。拖进来时顺手截一帧当封面，并读时长。
+            // 以前这里只建一条空 thumbnail 的记录，卡片就会一直停在默认图。
+            if (matchedResourceType === 'Video' && !isFolder) {
+              try {
+                const duration = await getVideoDuration(filePath)
+                if (duration > 0) {
+                  resourceData.duration = duration
+                }
+                const thumb = await videoThumbnailComposable.generateThumbnail(filePath, resourceData.name)
+                if (thumb) {
+                  resourceData.thumbnail = thumb
+                }
+              } catch (error) {
+                console.warn('[GenericResourceView] 拖拽电影时生成封面失败:', error)
+              }
+            }
             
             // 获取文件大小（失败则抛出，不静默吞错）
             if (isElectronEnvironment.value && window.electronAPI) {
@@ -790,6 +833,15 @@ export default defineComponent({
             // 使用匹配到的资源类创建实例
             const resource = MatchedResourceClass.fromJSON(resourceData)
             console.log(`[GenericResourceView] 创建资源对象 (类型: ${matchedResourceType}):`, resource)
+
+            // 把封面复制进存档目录。这样以后原文件或原文件夹没了，卡片仍然能显示这张封面。
+            const resourceId = BaseResources.extractPrimitiveValue(resource.id?.value || resource.id || resourceData.id)
+            if (resourceId) {
+              const processed = await coverManager.processCoverForResource(resource, matchedResourceType, String(resourceId))
+              if (processed) Object.assign(resource, processed)
+            }
+
+            await attachFingerprint(resource, filePath)
             
             // 添加到列表
           items.value.push(resource)
@@ -815,6 +867,10 @@ export default defineComponent({
             '添加失败',
             `${failedCount} 个文件添加失败（可能已存在）`
           )
+        }
+
+        if (pendingPathUpdate) {
+          resourcePage.showPathUpdateDialogHandler(pendingPathUpdate)
         }
       } catch (error: any) {
         console.error('[GenericResourceView] 处理拖拽失败:', error)
@@ -1830,6 +1886,8 @@ export default defineComponent({
           }
         }
 
+        await attachFingerprint(existingItem, newPath)
+
         // 保存更新后的数据
         await saveData()
 
@@ -2064,7 +2122,7 @@ export default defineComponent({
         buttonAction: 'showAddDialog'
       },
       toolbar: {
-        ...pageConfigLoader.getToolbarConfig(resourceTypeToPageIdMap[resourceType.value]),
+        ...pageConfigLoader.getToolbarConfig(pageConfig.value?.id || resourceTypeToPageIdMap[resourceType.value]),
         sortOptions: sortOptions.map(option => ({
           id: option.id,
           label: option.label
@@ -2116,6 +2174,127 @@ export default defineComponent({
         }
       }
       return null
+    }
+
+    /**
+     * 按文件名找出可以改地址的旧资源。
+     * 只认「文件名一样、旧路径已经打不开」的那条。路径完全相同的不算，文件还在原处的也不算，避免两部同名电影被并成一条。
+     * @param filePath 这次上传的新路径
+     * @returns 旧资源；没有可合并的记录时返回 null
+     */
+    const findMissingResourceByFileName = async (filePath: string): Promise<any | null> => {
+      const newFileName = filePath.split(/[\\/]/).pop()?.toLowerCase() || ''
+      if (!newFileName) return null
+
+      for (const item of items.value) {
+        const itemPath = getResourceFilePath(item)
+        if (!itemPath || itemPath === filePath) continue
+        const itemFileName = String(itemPath).split(/[\\/]/).pop()?.toLowerCase() || ''
+        if (itemFileName !== newFileName) continue
+
+        let missing = !getFileExists(item)
+        if (!missing && isElectronEnvironment.value && window.electronAPI?.checkFileExists) {
+          try {
+            const result = await window.electronAPI.checkFileExists(itemPath)
+            missing = !result?.exists
+            if (missing) setFileExists(item, false)
+          } catch (error) {
+            console.warn('[GenericResourceView] 检查旧路径是否存在失败:', itemPath, error)
+          }
+        }
+        if (missing) return item
+      }
+      return null
+    }
+
+    /**
+     * 路径是否指向同一个位置。比较时忽略斜杠方向和大小写。
+     * @param left 路径一
+     * @param right 路径二
+     * @returns 是否相同
+     */
+    const isSameResourcePath = (left: string, right: string): boolean => {
+      const normalize = (value: string) => value.replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase()
+      return normalize(left || '') === normalize(right || '')
+    }
+
+    /**
+     * 把资源路径改到新位置。只改那些目前还记着旧路径的字段。
+     * @param item 资源
+     * @param oldPath 旧路径
+     * @param newPath 新路径
+     */
+    const setResourceFilePath = (item: any, oldPath: string, newPath: string): void => {
+      const pathFields = ['resourcePath', 'filePath', 'executablePath']
+      for (const field of pathFields) {
+        const current = BaseResources.extractPrimitiveValue(item[field])
+        if (!current || !isSameResourcePath(String(current), oldPath)) continue
+        if (item[field] && typeof item[field] === 'object' && 'value' in item[field]) {
+          item[field].value = newPath
+        } else {
+          item[field] = newPath
+        }
+      }
+    }
+
+    /**
+     * 给一条资源补上指纹。文件还在的时候记下来，之后改名才能认出来。
+     * @param item 资源
+     * @param filePath 当前真实路径
+     */
+    const attachFingerprint = async (item: any, filePath: string): Promise<void> => {
+      const kind = fingerprintKindForResource(item?.constructor?.name || resourceType.value)
+      if (!kind || !filePath || !window.electronAPI?.computeResourceFingerprint) return
+      try {
+        const result = await window.electronAPI.computeResourceFingerprint(filePath, kind)
+        if (result?.success && result.fingerprint) {
+          writeFingerprint(item, result.fingerprint)
+        }
+      } catch (error) {
+        console.warn('[GenericResourceView] 计算资源指纹失败:', filePath, error)
+      }
+    }
+
+    /**
+     * 按指纹找出可以改地址的旧资源。
+     * 文件名已经变了，但项目文件名、漫画页或文件大小还能对上，并且旧路径打不开，才认为是同一条。
+     * 对上多条时不猜，避免把两部页数一样的漫画并错。
+     * @param filePath 这次上传的新路径
+     * @returns 旧资源；没有唯一匹配时返回 null
+     */
+    const findMissingResourceByFingerprint = async (filePath: string): Promise<any | null> => {
+      const kind = fingerprintKindForResource(resourceType.value)
+      if (!kind || !window.electronAPI?.computeResourceFingerprint) return null
+
+      let incoming = ''
+      try {
+        const result = await window.electronAPI.computeResourceFingerprint(filePath, kind)
+        incoming = result?.fingerprint || ''
+      } catch (error) {
+        console.warn('[GenericResourceView] 计算上传文件指纹失败:', filePath, error)
+        return null
+      }
+      if (!incoming) return null
+
+      const matches: any[] = []
+      for (const item of items.value) {
+        const itemPath = getResourceFilePath(item)
+        if (!itemPath || isSameResourcePath(itemPath, filePath)) continue
+        if (!isSameFingerprintIdentity(readFingerprint(item), incoming)) continue
+
+        let missing = !getFileExists(item)
+        if (!missing && window.electronAPI?.checkFileExists) {
+          try {
+            const result = await window.electronAPI.checkFileExists(itemPath)
+            missing = !result?.exists
+            if (missing) setFileExists(item, false)
+          } catch (error) {
+            console.warn('[GenericResourceView] 检查旧路径是否存在失败:', itemPath, error)
+          }
+        }
+        if (missing) matches.push(item)
+      }
+      return matches.length === 1 ? matches[0] : null
     }
 
     /**
@@ -2300,9 +2479,6 @@ export default defineComponent({
         return
       }
       
-      let checkedCount = 0
-      let missingCount = 0
-      
       for (const item of items.value) {
         // 获取文件路径
         const filePath = getResourceFilePath(item)
@@ -2310,8 +2486,6 @@ export default defineComponent({
         // 如果没有找到路径，标记为不存在
         if (!filePath) {
           setFileExists(item, false)
-          missingCount++
-          checkedCount++
           continue
         }
         
@@ -2321,25 +2495,87 @@ export default defineComponent({
           
           // 更新 fileExists 字段
           setFileExists(item, exists)
-          
-          if (!exists) {
-            missingCount++
-          }
         } catch (error) {
           const itemName = BaseResources.extractPrimitiveValue(item.name?.value || item.name) || '未知资源'
           console.error(`[GenericResourceView] ❌ 检测文件存在性失败: ${itemName}`, error)
           
           // 出错时标记为不存在
           setFileExists(item, false)
-          missingCount++
         }
-        
-        checkedCount++
       }
-      
-      // 如果有丢失的文件，显示提醒
-      if (missingCount > 0) {
-        notify.toast('warning', '文件检测完成', `检测到 ${missingCount} 个文件不存在`)
+
+      // 文件还在、但还没记过指纹的，补记一次。以后改名或在同级目录移动，就能认出还是这一条。
+      let fingerprintDirty = false
+      for (const item of items.value) {
+        if (!getFileExists(item) || readFingerprint(item)) continue
+        const filePath = getResourceFilePath(item)
+        if (!filePath) continue
+        const before = readFingerprint(item)
+        await attachFingerprint(item, filePath)
+        if (readFingerprint(item) && readFingerprint(item) !== before) fingerprintDirty = true
+      }
+
+      // 路径打不开时，只在原来的父目录里找指纹相同的新位置。搬去别的磁盘不会在这里全盘搜索。
+      const missingItems = items.value.filter((item: any) => !getFileExists(item) && readFingerprint(item) && getResourceFilePath(item))
+      const pageCountOwners = new Map<number, number>()
+      for (const item of missingItems) {
+        const count = fingerprintPageCount(readFingerprint(item))
+        if (count > 0) pageCountOwners.set(count, (pageCountOwners.get(count) || 0) + 1)
+      }
+
+      /** 新路径到认领它的旧资源。两条旧记录抢同一个新路径时不自动改。 */
+      const claimed = new Map<string, Array<{ item: any, oldPath: string, newPath: string }>>()
+      if (window.electronAPI?.findRelocatedResource) {
+        for (const item of missingItems) {
+          const oldPath = getResourceFilePath(item) || ''
+          const fingerprint = readFingerprint(item)
+          const pageCount = fingerprintPageCount(fingerprint)
+          const allowPageCountOnly = pageCount > 0 && pageCountOwners.get(pageCount) === 1
+          try {
+            const found = await window.electronAPI.findRelocatedResource(oldPath, fingerprint, allowPageCountOnly)
+            if (!found?.newPath || isSameResourcePath(found.newPath, oldPath)) continue
+            const key = found.newPath.replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase()
+            const owners = claimed.get(key) || []
+            owners.push({ item, oldPath, newPath: found.newPath })
+            claimed.set(key, owners)
+          } catch (error) {
+            console.warn('[GenericResourceView] 按指纹查找新路径失败:', oldPath, error)
+          }
+        }
+      }
+
+      let relinkedCount = 0
+      for (const owners of claimed.values()) {
+        if (owners.length !== 1) continue
+        const { item, oldPath, newPath } = owners[0]
+        const taken = items.value.some((other: any) => {
+          if (other === item) return false
+          const otherPath = getResourceFilePath(other)
+          return !!otherPath && isSameResourcePath(otherPath, newPath)
+        })
+        if (taken) continue
+        setResourceFilePath(item, oldPath, newPath)
+        setFileExists(item, true)
+        await attachFingerprint(item, newPath)
+        relinkedCount++
+        fingerprintDirty = true
+      }
+
+      if (fingerprintDirty) {
+        try {
+          await saveData()
+        } catch (error) {
+          console.warn('[GenericResourceView] 保存资源指纹失败:', error)
+        }
+      }
+
+      const stillMissing = items.value.filter((item: any) => !getFileExists(item)).length
+      if (relinkedCount > 0 && stillMissing === 0) {
+        notify.toast('success', '已认出原资源', `有 ${relinkedCount} 个资源只是改了名字或移动了位置，已更新路径`)
+      } else if (relinkedCount > 0 && stillMissing > 0) {
+        notify.toast('warning', '文件检测完成', `已更新 ${relinkedCount} 个改名或移动的资源，还有 ${stillMissing} 个文件不存在`)
+      } else if (stillMissing > 0) {
+        notify.toast('warning', '文件检测完成', `检测到 ${stillMissing} 个文件不存在`)
       }
       
       // 更新筛选器数量（特别是"丢失的资源"筛选器）
@@ -2535,6 +2771,104 @@ export default defineComponent({
       if (updatedCount > 0) {
         await saveData()
         console.log(`[GenericResourceView] 已刷新 ${updatedCount} 个视频时长并保存`)
+      }
+    }
+
+    /**
+     * 把还放在资源原路径上的封面复制进存档目录，并改成相对路径。
+     * 已经在存档里的封面不会再复制。原文件已经丢了的封面补不回来，只能继续显示默认图。
+     */
+    const persistCoversIntoSaveData = async () => {
+      let changedCount = 0
+      for (const item of items.value) {
+        const resourceId = BaseResources.extractPrimitiveValue(item.id?.value || item.id)
+        const coverInfo = coverManager.extractCoverFromResource(item)
+        if (!resourceId || !coverInfo || !coverManager.shouldProcessCover(coverInfo.value)) continue
+        try {
+          const processed = await coverManager.processCoverForResource(item, resourceType.value, String(resourceId))
+          const nextCover = coverManager.extractCoverFromResource(processed)
+          if (nextCover && nextCover.value !== coverInfo.value) {
+            Object.assign(item, processed)
+            changedCount++
+          }
+        } catch (error) {
+          console.warn('[GenericResourceView] 把封面写入存档失败:', resourceId, error)
+        }
+      }
+      if (changedCount > 0) {
+        await saveData()
+        console.log(`[GenericResourceView] 已将 ${changedCount} 个封面复制进存档`)
+      }
+    }
+
+    /**
+     * 给还没有封面的电影补一帧截图。
+     * 时长可以事后读出来，封面以前没有这条补救，所以上传后卡片一直是默认图。
+     * 只处理 thumbnail 为空、但视频文件还在的条目，已有封面的不动。
+     */
+    const refreshMissingVideoThumbnails = async () => {
+      const toUpdate = items.value.filter((item: any) => {
+        const thumbnail = BaseResources.extractPrimitiveValue(item.thumbnail?.value ?? item.thumbnail)
+        const path = BaseResources.extractPrimitiveValue(item.resourcePath?.value || item.resourcePath)
+        const hasThumbnail = typeof thumbnail === 'string' && thumbnail.trim() !== ''
+        return !hasThumbnail && typeof path === 'string' && path.trim() !== ''
+      })
+      if (toUpdate.length === 0) return
+      console.log(`[GenericResourceView] 开始为 ${toUpdate.length} 个电影补封面...`)
+      let updatedCount = 0
+      for (const item of toUpdate) {
+        const path = BaseResources.extractPrimitiveValue(item.resourcePath?.value || item.resourcePath)
+        const name = BaseResources.extractPrimitiveValue(item.name?.value || item.name) || ''
+        if (!path || typeof path !== 'string') continue
+        try {
+          const thumb = await videoThumbnailComposable.generateThumbnail(path, name)
+          if (!thumb) continue
+          if (item.thumbnail && typeof item.thumbnail === 'object' && 'value' in item.thumbnail) {
+            item.thumbnail.value = thumb
+          } else {
+            item.thumbnail = thumb
+          }
+          updatedCount++
+        } catch (error) {
+          console.warn('[GenericResourceView] 补电影封面失败:', path, error)
+        }
+      }
+      if (updatedCount > 0) {
+        await saveData()
+        console.log(`[GenericResourceView] 已补上 ${updatedCount} 个电影封面并保存`)
+      }
+    }
+
+    /**
+     * 添加或编辑电影时，选中视频文件后写入名称、时长和封面。
+     * 对话框只会抛出 video-file-selected。不接这个事件的话，表单里的封面一直是空的，保存后卡片就是默认图。
+     * @param _key 表单字段名，目前固定是 resourcePath
+     * @param filePath 选中的视频绝对路径
+     * @param formData 对话框里的表单对象，直接改它才能让预览跟着变
+     */
+    const handleVideoFileSelected = async (_key: string, filePath: string, formData: Record<string, any>) => {
+      if (!filePath || !formData) return
+      if (!formData.name || !String(formData.name).trim()) {
+        formData.name = extractNameFromPath(filePath)
+      }
+      try {
+        const duration = await getVideoDuration(filePath)
+        if (duration > 0) {
+          formData.duration = duration
+        }
+      } catch (error) {
+        console.warn('[GenericResourceView] 获取视频时长失败:', error)
+      }
+      const currentThumbnail = typeof formData.thumbnail === 'string' ? formData.thumbnail.trim() : ''
+      if (!currentThumbnail) {
+        try {
+          const thumb = await videoThumbnailComposable.generateThumbnail(filePath, formData.name || '')
+          if (thumb) {
+            formData.thumbnail = thumb
+          }
+        } catch (error) {
+          console.warn('[GenericResourceView] 生成视频封面失败:', error)
+        }
       }
     }
 
@@ -2776,7 +3110,8 @@ export default defineComponent({
       
       // 组件挂载后自动检查文件存在性
       // 注意：数据加载在前面已经处理了，这里的 items.value 检查是为了处理传入 props.items 的情况
-      if (items.value && items.value.length > 0) {
+        if (items.value && items.value.length > 0) {
+        await persistCoversIntoSaveData()
         await checkFileExistence()
         // 自动计算资源大小
         await calculateResourceSizes()
@@ -2787,6 +3122,7 @@ export default defineComponent({
         // 视频页：首次进入时刷新所有未知时长的视频（已有时长的不刷新）
         if (resourceType.value === 'Video') {
           refreshUnknownVideoDurations()
+          refreshMissingVideoThumbnails()
         }
         // 音频页：首次进入时刷新所有未知时长的音频（已有时长的不刷新）
         if (resourceType.value === 'Audio' || pageConfig.value?.id === 'audio') {
@@ -2826,12 +3162,14 @@ export default defineComponent({
         if (newLength > 0 && (oldLength === 0 || newLength !== oldLength)) {
           // 延迟一点执行，确保数据已经更新完成
           await new Promise(resolve => setTimeout(resolve, 100))
+          await persistCoversIntoSaveData()
           await checkFileExistence()
           await calculateResourceSizes()
           await calculateMangaPagesCounts()
           await calculateAnimeVideoCounts()
           if (resourceType.value === 'Video') {
             refreshUnknownVideoDurations()
+            refreshMissingVideoThumbnails()
           }
           if (resourceType.value === 'Audio' || pageConfig.value?.id === 'audio') {
             refreshUnknownAudioDurations()
@@ -3248,6 +3586,8 @@ export default defineComponent({
       try {
         let addedCount = 0
         let failedCount = 0
+        /** 批量导入里遇到的第一部「同名且原文件已丢失」的资源 */
+        let pendingPathUpdate: { existingItem: any; newPath: string; newFileName: string } | null = null
 
         // 获取当前页面支持的资源类型
         const pageResourceTypes = pageConfig.value?.resourceTypes || [resourceType.value]
@@ -3321,6 +3661,7 @@ export default defineComponent({
 
           // 使用匹配到的资源类创建实例
           const resource = MatchedResourceClass.fromJSON(resourceData)
+          await attachFingerprint(resource, fullFilePath)
           
           // 检查是否已存在相同路径
           const existingItem = items.value.find((item: any) => {
@@ -3333,6 +3674,17 @@ export default defineComponent({
           if (existingItem) {
             failedCount++
             continue
+          }
+
+          const relocatedItem = await findMissingResourceByFileName(fullFilePath) || await findMissingResourceByFingerprint(fullFilePath)
+          if (relocatedItem) {
+            const newFileName = fullFilePath.split(/[\\/]/).pop() || fullFilePath
+            pendingPathUpdate = {
+              existingItem: relocatedItem,
+              newPath: fullFilePath,
+              newFileName
+            }
+            break
           }
 
           // 添加到列表
@@ -3354,6 +3706,10 @@ export default defineComponent({
               ? `成功导入 ${addedCount} 个资源${failedCount > 0 ? `，${failedCount} 个失败` : ''}`
               : `没有资源被导入（${failedCount} 个失败）`
           )
+        }
+
+        if (pendingPathUpdate) {
+          resourcePage.showPathUpdateDialogHandler(pendingPathUpdate)
         }
 
         // 关闭对话框
@@ -3525,6 +3881,7 @@ export default defineComponent({
       handleFolderVideoThumbnailError,
       generateFolderVideoThumbnail,
       handleRandomizeThumbnail,
+      handleVideoFileSelected,
       // 详情页图片预览相关（完全复刻 ImageView.vue）
       // 图片缓存相关
       ...imageCacheComposable,

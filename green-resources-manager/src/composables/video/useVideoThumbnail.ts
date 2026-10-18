@@ -229,6 +229,21 @@ export function useVideoThumbnail(options: VideoThumbnailOptions = {}) {
   }
 
   /**
+   * 给用来截帧的 video 元素设置地址。
+   * 本地文件不能加 crossOrigin。file:// 没有 CORS 响应头，设成 anonymous 之后，
+   * 画面能播，但画进 canvas 会被当成跨域，toDataURL 直接抛错，封面就存不下来，卡片只能留默认图。
+   * @param video 临时创建的视频元素
+   * @param src 已经转成可加载地址的视频路径
+   */
+  const assignVideoSourceForCapture = (video: HTMLVideoElement, src: string) => {
+    const isLocalFile = src.startsWith('file:') || /^[A-Za-z]:[\\/]/.test(src)
+    if (!isLocalFile) {
+      video.crossOrigin = 'anonymous'
+    }
+    video.src = src
+  }
+
+  /**
    * 生成缩略图文件名：视频名+cover+_序号
    */
   const generateThumbnailFilename = async (videoName: string | null, filePath: string): Promise<string> => {
@@ -432,8 +447,7 @@ export function useVideoThumbnail(options: VideoThumbnailOptions = {}) {
         video.style.top = '-9999px'
         video.muted = true
         video.preload = 'metadata'
-        video.crossOrigin = 'anonymous'
-        video.src = src
+        assignVideoSourceForCapture(video, src)
 
         // 设置超时，避免长时间等待
         const timeout = setTimeout(() => {
@@ -636,8 +650,7 @@ export function useVideoThumbnail(options: VideoThumbnailOptions = {}) {
         video.style.top = '-9999px'
         video.muted = true
         video.preload = 'metadata'
-        video.crossOrigin = 'anonymous'
-        video.src = src
+        assignVideoSourceForCapture(video, src)
 
         // 设置超时
         const timeout = setTimeout(() => {

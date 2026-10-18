@@ -3,7 +3,7 @@
     "fileName": "singleImagePage.json",
     "order": 1,
     "isDefault": true,
-    "isHidden": true
+    "isHidden": false
   },
   {
     "fileName": "websitePage.json",
@@ -12,13 +12,13 @@
     "isHidden": false
   },
   {
-    "fileName": "imagePage.json",
+    "fileName": "custom-games-mve7uyfl.json",
     "order": 3,
-    "isDefault": true,
+    "isDefault": false,
     "isHidden": false
   },
   {
-    "fileName": "softwarePage.json",
+    "fileName": "imagePage.json",
     "order": 4,
     "isDefault": true,
     "isHidden": false

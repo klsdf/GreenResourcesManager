@@ -1115,8 +1115,13 @@ export default {
       if (filePath.startsWith('data:') || filePath.startsWith('file:')) {
         return filePath
       }
+      // 中文文件名不编码的话，file:// 地址加载失败，预览会掉成占位图，看起来像封面没识别出来
       const normalizedPath = String(filePath).replace(/\\/g, '/')
-      return `file:///${normalizedPath}`
+      const encodedPath = normalizedPath.split('/').map(segment => {
+        if (/^[A-Za-z]:$/.test(segment)) return segment
+        return encodeURIComponent(segment)
+      }).join('/')
+      return `file:///${encodedPath}`
     },
     extractGameNameFromPath(filePath: string) {
       const fileName = filePath.split(/[\\/]/).pop() || ''

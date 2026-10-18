@@ -37,6 +37,8 @@ let currentGlobalShortcut = null
 // 存储安全键相关设置
 let safetyKeyEnabled = false
 let safetyKeyUrl = ''
+/** 当前真正注册到系统里的安全键。注销时必须用同一串，不能写死 Escape。 */
+let currentSafetyShortcut = null
 // 存储打开软件快捷键相关设置
 let currentShowWindowShortcut = null
 
@@ -142,32 +144,40 @@ function updateGlobalShortcut(newKey, getMainWindow) {
 
 /**
  * 更新安全键设置。
+ * 快捷键由设置页按下录入，不能再写死 Escape，否则用户改完按新键没有反应。
  * @param {boolean} enabled - 是否启用安全键。
  * @param {string} url - 安全网页URL。
+ * @param {string} shortcut - 要注册的快捷键，例如 Esc、Ctrl+Q。
  * @param {Function} getMainWindow - 获取主窗口的函数。
  * @param {Function} getGameProcess - 获取游戏进程模块的函数。
  * @returns {{success: boolean, error?: string}} 更新结果。
  */
-function updateSafetyKey(enabled, url, getMainWindow, getGameProcess) {
+function updateSafetyKey(enabled, url, shortcut, getMainWindow, getGameProcess) {
   try {
     safetyKeyEnabled = enabled
     safetyKeyUrl = url || ''
 
-    // 先注销 ESC 快捷键（如果已注册）
+    if (currentSafetyShortcut) {
+      globalShortcut.unregister(currentSafetyShortcut)
+      currentSafetyShortcut = null
+    }
+    // 旧版本只注册过 Escape，这里一并清掉，避免改键后 Esc 仍然触发。
     globalShortcut.unregister('Escape')
+    globalShortcut.unregister('Esc')
 
     if (enabled) {
-      // 注册 ESC 全局快捷键
-      const registered = globalShortcut.register('Escape', () => {
+      const key = shortcut || 'Esc'
+      const registered = globalShortcut.register(key, () => {
         handleSafetyKeyTrigger(getMainWindow, getGameProcess)
       })
 
       if (registered) {
-        console.log('✅ 安全键 (ESC) 全局快捷键注册成功')
+        currentSafetyShortcut = key
+        console.log('✅ 安全键全局快捷键注册成功:', key)
         return { success: true }
       } else {
-        console.log('⚠️ 安全键 (ESC) 全局快捷键注册失败，可能被其他应用占用')
-        return { success: false, error: 'ESC 快捷键被其他应用占用' }
+        console.log('⚠️ 安全键全局快捷键注册失败，可能被其他应用占用:', key)
+        return { success: false, error: '快捷键被其他应用占用' }
       }
     } else {
       console.log('安全键已禁用')
@@ -258,9 +268,12 @@ function unregisterAllShortcuts() {
       currentGlobalShortcut = null
     }
     // 注销安全键
-    if (safetyKeyEnabled) {
-      globalShortcut.unregister('Escape')
+    if (currentSafetyShortcut) {
+      globalShortcut.unregister(currentSafetyShortcut)
+      currentSafetyShortcut = null
     }
+    globalShortcut.unregister('Escape')
+    globalShortcut.unregister('Esc')
     // 注销显示窗口快捷键
     if (currentShowWindowShortcut) {
       globalShortcut.unregister(currentShowWindowShortcut)
@@ -297,9 +310,9 @@ function registerIpcHandlers(ipcMain, getMainWindow, getGameProcess, showAndFocu
   })
 
   // 设置安全键
-  ipcMain.handle('set-safety-key', async (event, enabled, url) => {
+  ipcMain.handle('set-safety-key', async (event, enabled, url, shortcut) => {
     try {
-      const result = updateSafetyKey(enabled, url, getMainWindow, getGameProcess)
+      const result = updateSafetyKey(enabled, url, shortcut, getMainWindow, getGameProcess)
       return result
     } catch (error) {
       console.error('设置安全键失败:', error)

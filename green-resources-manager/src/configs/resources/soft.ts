@@ -116,6 +116,7 @@ export class Software extends BaseResources {
 		getSaveData(): any {
 		return {
 			id: this.id.value || this.id.defaultValue || '',
+			fingerprint: this.fingerprint.value || '',
 			resourceType: this.resourceType.value || this.resourceType.defaultValue || 'software',
 			name: this.name.value || '',
 			nickname: this.nickname.value || '',

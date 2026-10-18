@@ -63,7 +63,7 @@
     "title": "セーフティキー",
     "description": "ESCキーを押すと素早く最小化してセーフティウェブページを開く",
     "shortcutTitle": "セーフティキーショートカット",
-    "shortcutDesc": "カスタムセーフティキーショートカットを入力（例: Esc, Ctrl+Q）",
+    "shortcutDesc": "クリックしてから希望のキーを押してください（例: Esc, Ctrl+Q）",
     "urlTitle": "セーフティウェブページURL",
     "urlDesc": "ESCキーを押した時に開くウェブページのURL"
   },
@@ -121,7 +121,7 @@
   },
   "general": {
     "safetyKeyShortcut": "セーフティキーショートカット",
-    "safetyKeyShortcutDesc": "カスタムセーフティキーショートカットを入力（例: Esc, Ctrl+Q）",
+    "safetyKeyShortcutDesc": "クリックしてから希望のキーを押してください（例: Esc, Ctrl+Q）",
     "safetyKeyUrl": "セーフティウェブページURL",
     "safetyKeyUrlDesc": "ESCキーを押した時に開くウェブページのURL",
     "safetyKeyUrlPlaceholder": "ウェブページURLを入力",
@@ -149,7 +149,7 @@
     "safetyKeyEnabledSuccess": "セーフティキーグローバルショートカットが有効になりました",
     "safetyKeyDisabledSuccess": "セーフティキーグローバルショートカットが無効になりました",
     "safetyKeyFailed": "セーフティキー設定に失敗しました",
-    "safetyKeyFailedDetail": "ESCグローバルショートカットを登録できません、他のアプリケーションで使用されている可能性があります",
+    "safetyKeyFailedDetail": "このショートカットを登録できません。他のアプリで使用されている可能性があります",
     "showWindowShortcutUpdated": "ショートカット設定が更新されました",
     "showWindowShortcutEnabled": "ウィンドウ表示ショートカット機能が有効になりました",
     "showWindowShortcutDisabled": "ウィンドウ表示ショートカット機能が無効になりました",

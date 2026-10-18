@@ -56,7 +56,11 @@ export function useVideoDuration(options: VideoDurationOptions = {}) {
         video.style.top = '-9999px'
         video.muted = true
         video.preload = 'metadata'
-        video.crossOrigin = 'anonymous'
+        // 只读时长，不截帧。本地文件同样不加 crossOrigin，避免 file:// 被 CORS 拦掉，时长和封面一起失败
+        const isLocalFile = src.startsWith('file:') || /^[A-Za-z]:[\\/]/.test(src)
+        if (!isLocalFile) {
+          video.crossOrigin = 'anonymous'
+        }
         video.src = src
 
         // 设置超时，避免长时间等待

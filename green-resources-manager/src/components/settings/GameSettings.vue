@@ -4,12 +4,13 @@
       <div class="setting-item">
         <label class="setting-label">
           <span class="setting-title">截图快捷键</span>
-          <span class="setting-desc">设置截图功能的快捷键（如: Ctrl+Shift+S）</span>
+          <span class="setting-desc">点击按键后直接按下想要的组合，例如 Ctrl+Shift+S。设好后立即生效</span>
         </label>
         <div class="setting-control">
           <FunShortcutInput
-            v-model="settings.screenshotKey"
+            :model-value="settings.screenshotKey"
             :default-shortcut="'Ctrl+F12'"
+            @update:model-value="onScreenshotKeyChange"
           />
         </div>
       </div>
@@ -128,7 +129,6 @@
 
 <script lang="ts">
 import notify from '../../utils/NotificationService'
-import alertService from '../../utils/AlertService.ts'
 import SettingToggle from './SettingToggle.vue'
 import SettingSelect from './SettingSelect.vue'
 import SettingSlider from './SettingSlider.vue'
@@ -169,22 +169,32 @@ export default {
       this.$emit('update:settings', { key, value })
     },
     
+    /**
+     * 截图快捷键改完就向主进程注册。
+     * 以前只改了界面上的文字，没有调用注册，所以按新键没有反应。
+     * 注册失败时把界面退回原来的键，避免显示一个实际按了没用的组合。
+     */
     async onScreenshotKeyChange(newKey: string) {
+      const previousKey = this.settings.screenshotKey
       this.updateSetting('screenshotKey', newKey)
-      // 实时更新全局快捷键
       try {
         if (window.electronAPI && window.electronAPI.updateGlobalShortcut) {
           const result = await window.electronAPI.updateGlobalShortcut(newKey)
           if (result.success) {
-            console.log('全局快捷键更新成功:', result.key)
+            notify.success('截图快捷键已更新', `现在按 ${newKey.replace(/\+/g, ' + ')} 即可截图`)
+            this.$emit('action', { type: 'save-settings' })
           } else {
-            console.error('全局快捷键更新失败:', result.error)
-            await alertService.warning(`快捷键设置失败: ${result.error}\n将使用应用内快捷键。`, '快捷键设置失败')
+            this.updateSetting('screenshotKey', previousKey)
+            notify.error('快捷键没有生效', result.error || '这个组合可能被其他软件占用')
           }
+        } else {
+          this.$emit('action', { type: 'save-settings' })
+          notify.success('截图快捷键已保存', `已设为 ${newKey.replace(/\+/g, ' + ')}`)
         }
       } catch (error: any) {
         console.error('更新全局快捷键失败:', error)
-        await alertService.error('更新快捷键失败: ' + error.message, '错误')
+        this.updateSetting('screenshotKey', previousKey)
+        notify.error('快捷键没有生效', error.message)
       }
     },
     

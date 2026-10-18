@@ -65,6 +65,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listImageFilesInArchive: (archivePath) => ipcRenderer.invoke('list-image-files-in-archive', archivePath),
   getFolderSize: (filePath) => ipcRenderer.invoke('get-folder-size', filePath),
   checkFileExists: (filePath) => ipcRenderer.invoke('check-file-exists', filePath),
+  computeResourceFingerprint: (filePath, kind) => ipcRenderer.invoke('compute-resource-fingerprint', filePath, kind),
+  findRelocatedResource: (oldPath, fingerprint, allowPageCountOnly) => ipcRenderer.invoke('find-relocated-resource', oldPath, fingerprint, allowPageCountOnly),
   
   // 文件URL处理
   getFileUrl: (filePath) => ipcRenderer.invoke('get-file-url', filePath),
@@ -101,6 +103,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   sqliteSavePageResources: (pageId, resources) => ipcRenderer.invoke('sqlite-save-page-resources', pageId, resources),
   // 从数据库删除资源
   sqliteDeleteResource: (tableName, resourceId) => ipcRenderer.invoke('sqlite-delete-resource', tableName, resourceId),
+  // 删除页面及其资源数据
+  sqliteDeletePageData: (pageId) => ipcRenderer.invoke('sqlite-delete-page-data', pageId),
   // 将旧格式 SQL 迁移为 id+jsonData 格式
   sqliteMigrateToJsonFormat: () => ipcRenderer.invoke('sqlite-migrate-to-json-format'),
   // 从 JSON 迁移成就数据到 SQLite
@@ -247,7 +251,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onUpdateError: (callback) => ipcRenderer.on('update-error', callback),
   
   // 安全键功能
-  setSafetyKey: (enabled, url) => ipcRenderer.invoke('set-safety-key', enabled, url),
+  setSafetyKey: (enabled, url, shortcut) => ipcRenderer.invoke('set-safety-key', enabled, url, shortcut),
   onSafetyKeyTriggered: (callback) => ipcRenderer.on('safety-key-triggered', callback),
   
   // 备份整个存档目录

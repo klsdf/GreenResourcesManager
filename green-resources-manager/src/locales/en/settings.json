@@ -63,7 +63,7 @@
     "title": "Safety Key",
     "description": "Quickly minimize and open a safety webpage when pressing ESC",
     "shortcutTitle": "Safety Key Shortcut",
-    "shortcutDesc": "Enter a custom safety key shortcut (e.g., Esc, Ctrl+Q)",
+    "shortcutDesc": "Click, then press the keys you want, such as Esc or Ctrl+Q",
     "urlTitle": "Safety Webpage URL",
     "urlDesc": "The webpage URL to open when pressing ESC"
   },
@@ -121,7 +121,7 @@
   },
   "general": {
     "safetyKeyShortcut": "Safety Key Shortcut",
-    "safetyKeyShortcutDesc": "Enter a custom safety key shortcut (e.g., Esc, Ctrl+Q)",
+    "safetyKeyShortcutDesc": "Click, then press the keys you want, such as Esc or Ctrl+Q",
     "safetyKeyUrl": "Safety Webpage URL",
     "safetyKeyUrlDesc": "The webpage URL to open when pressing ESC",
     "safetyKeyUrlPlaceholder": "Enter webpage URL",
@@ -149,7 +149,7 @@
     "safetyKeyEnabledSuccess": "Safety key global shortcut enabled",
     "safetyKeyDisabledSuccess": "Safety key global shortcut disabled",
     "safetyKeyFailed": "Safety Key Settings Failed",
-    "safetyKeyFailedDetail": "Cannot register ESC global shortcut, may be occupied by another application",
+    "safetyKeyFailedDetail": "Cannot register this shortcut. It may be used by another application",
     "showWindowShortcutUpdated": "Shortcut Settings Updated",
     "showWindowShortcutEnabled": "Show window shortcut feature enabled",
     "showWindowShortcutDisabled": "Show window shortcut feature disabled",

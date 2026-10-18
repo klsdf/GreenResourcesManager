@@ -149,6 +149,7 @@ export class Game extends BaseResources {
 		const idValue = this.id.value || this.generateId();
 		return {
 			id: idValue,
+			fingerprint: this.fingerprint.value || '',
 			resourceType: this.resourceType.value || this.resourceType.defaultValue || 'game',
 			name: this.name.value || '',
 			nickname: this.nickname.value || '',

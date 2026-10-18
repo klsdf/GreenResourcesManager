@@ -38,6 +38,7 @@ const { shell } = require('electron')
 const AdmZip = require('adm-zip')
 const { SUPPORTED_IMAGE_FORMATS, MAX_BACKUP_FILES } = require('../utils/constants')
 const { normalizePath } = require('../utils/path-utils')
+const { computeResourceFingerprint, findRelocatedResource } = require('../utils/resource-fingerprint')
 
 /** CBZ/ZIP 漫画包扩展名 */
 const CBZ_ARCHIVE_EXT = ['.cbz', '.zip']
@@ -357,6 +358,16 @@ function registerIpcHandlers(ipcMain, fileUtils, pathUtils) {
       console.error('备份存档目录失败:', error)
       return { success: false, error: error.message }
     }
+  })
+
+  // 计算资源指纹。kind 由界面按资源类型传入：names / pages / size。
+  ipcMain.handle('compute-resource-fingerprint', async (event, filePath, kind) => {
+    return computeResourceFingerprint(filePath, kind)
+  })
+
+  // 在原路径的父目录里找改名或同级移动后的新路径。
+  ipcMain.handle('find-relocated-resource', async (event, oldPath, fingerprint, allowPageCountOnly) => {
+    return findRelocatedResource(oldPath, fingerprint, !!allowPageCountOnly)
   })
 }
 

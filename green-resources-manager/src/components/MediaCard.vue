@@ -1013,11 +1013,8 @@ export default {
       if (!imagePath || (typeof imagePath === 'string' && imagePath.trim() === '')) {
         return this.getDefaultImage()
       }
-      
-      // 对于图片类型，如果文件不存在，直接返回默认图片（感叹号会通过 showFileError 显示）
-      if (this.type === 'image' && this.fileExists === false) {
-        return this.getDefaultImage()
-      }
+
+      // 资源文件丢了只在角标上提示。封面如果已经复制进存档，这里仍然去读那张图，不因为 fileExists 为 false 就换成默认图标。
       
       // 检查是否启用伪装模式（对所有类型有效）
       // 依赖 disguiseModeState 以确保响应式更新

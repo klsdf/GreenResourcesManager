@@ -8,6 +8,8 @@ import saveManager from '../utils/SaveManager'
 export function useSafetyKey() {
   const safetyKeyEnabled = ref(false)
   const safetyKeyUrl = ref('https://www.bilibili.com/video/BV1jR4y1M78W/?p=17&share_source=copy_web&vd_source=7de8c277f16e8e03b48a5328dddfe2ce&t=466')
+  /** 设置页录入的安全键。注册时带上它，避免主进程退回写死的 Esc。 */
+  const safetyKeyShortcut = ref('Esc')
 
   /**
    * 设置安全键监听
@@ -15,7 +17,7 @@ export function useSafetyKey() {
   async function setupSafetyKeyListener() {
     try {
       if (window.electronAPI && window.electronAPI.setSafetyKey) {
-        const result = await window.electronAPI.setSafetyKey(safetyKeyEnabled.value, safetyKeyUrl.value)
+        const result = await window.electronAPI.setSafetyKey(safetyKeyEnabled.value, safetyKeyUrl.value, safetyKeyShortcut.value)
         if (result.success) {
           console.log('✅ 安全键全局快捷键已', safetyKeyEnabled.value ? '启用' : '禁用', '(ESC)')
         } else {
@@ -36,6 +38,7 @@ export function useSafetyKey() {
       if (settings) {
         safetyKeyEnabled.value = settings.safetyKeyEnabled || false
         safetyKeyUrl.value = settings.safetyKeyUrl || 'https://www.bilibili.com/video/BV1jR4y1M78W/?p=17&share_source=copy_web&vd_source=7de8c277f16e8e03b48a5328dddfe2ce&t=466'
+        safetyKeyShortcut.value = settings.safetyKeyShortcut || 'Esc'
         await setupSafetyKeyListener()
       }
     } catch (error) {
@@ -46,10 +49,13 @@ export function useSafetyKey() {
   /**
    * 更新安全键设置
    */
-  async function updateSafetyKey(enabled: boolean, url?: string) {
+  async function updateSafetyKey(enabled: boolean, url?: string, shortcut?: string) {
     safetyKeyEnabled.value = enabled
     if (url !== undefined) {
       safetyKeyUrl.value = url
+    }
+    if (shortcut) {
+      safetyKeyShortcut.value = shortcut
     }
     await setupSafetyKeyListener()
   }
@@ -74,8 +80,8 @@ export function useSafetyKey() {
   function initSafetyKeyListener() {
     // 监听安全键设置变化事件
     const handleSafetyKeyChanged = async (event: CustomEvent) => {
-      const { enabled, url } = event.detail
-      await updateSafetyKey(enabled, url)
+      const { enabled, url, shortcut } = event.detail
+      await updateSafetyKey(enabled, url, shortcut)
     }
 
     // 监听安全键触发事件（来自主进程）

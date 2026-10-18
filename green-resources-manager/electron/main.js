@@ -251,6 +251,9 @@ if (!gotTheLock) {
     
     // 从数据库删除资源
     ipcMain.handle('sqlite-delete-resource', (event, tableName, resourceId) => sqlite.deleteResourceFromTable(tableName, resourceId))
+
+    // 删除页面及其资源数据
+    ipcMain.handle('sqlite-delete-page-data', (event, pageId) => sqlite.deletePageData(pageId))
     
     // 将旧格式 SQL（多列）迁移为 id+jsonData 格式
     ipcMain.handle('sqlite-migrate-to-json-format', () => sqlite.migrateOldSqlToJsonFormat())

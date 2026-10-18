@@ -1,6 +1,6 @@
 <template>
   <div id="app">
-    <!-- 应用缩放提示（菜单/快捷键改变整体缩放时显示） -->
+    <!-- 应用缩放提示（菜单、快捷键或 Ctrl+滚轮改变整体缩放时显示） -->
     <div v-if="appZoomHintVisible" class="app-zoom-hint" role="status" aria-live="polite">
       {{ $t('app.zoomTo') }} {{ appZoomHintPercent }}%
     </div>
@@ -325,6 +325,8 @@ export default {
       // 安全键相关
       safetyKeyEnabled: false,
       safetyKeyUrl: '',
+      /** 用户在设置里按下录入的安全键，启动时要拿它去注册，不能写死 Esc。 */
+      safetyKeyShortcut: 'Esc',
       // 应用缩放提示（菜单放大/缩小/实际大小时顶部中央短暂显示）
       appZoomHintVisible: false,
       appZoomHintPercent: 100,
@@ -646,9 +648,11 @@ export default {
           await updateDynamicRoutes(this.$router)
         }
 
-        // 当前页面如果变为隐藏/已删除（仅资源视图会有 pageConfig）则回退
+        // 当前正在看的资源页被隐藏或删除后，回到还存在的页面
         const currentRouteName = this.$route.name as string
-        if (this.mainNavViewIds.includes(currentRouteName) && currentRouteName !== 'home' && !this.currentPageConfig) {
+        const isResourceRoute = !!this.$route.meta?.pageConfig
+        const stillVisible = this.pages.some(page => page.id === currentRouteName && !page.isHidden)
+        if (isResourceRoute && !stillVisible) {
           const firstVisible = this.pages.find(p => !p.isHidden)?.id
           if (firstVisible) {
             this.$router.push({ name: firstVisible })
@@ -1260,6 +1264,7 @@ export default {
         if (settings) {
           this.safetyKeyEnabled = settings.safetyKeyEnabled || false
           this.safetyKeyUrl = settings.safetyKeyUrl || 'https://www.bilibili.com/video/BV1jR4y1M78W/?p=17&share_source=copy_web&vd_source=7de8c277f16e8e03b48a5328dddfe2ce&t=466'
+          this.safetyKeyShortcut = settings.safetyKeyShortcut || 'Esc'
           this.setupSafetyKeyListener()
         }
       } catch (error) {
@@ -1380,7 +1385,7 @@ export default {
     async setupSafetyKeyListener() {
       try {
         if (window.electronAPI && window.electronAPI.setSafetyKey) {
-          const result = await window.electronAPI.setSafetyKey(this.safetyKeyEnabled, this.safetyKeyUrl)
+          const result = await window.electronAPI.setSafetyKey(this.safetyKeyEnabled, this.safetyKeyUrl, this.safetyKeyShortcut)
           if (result.success) {
             console.log('✅ 安全键全局快捷键已', this.safetyKeyEnabled ? '启用' : '禁用', '(ESC)')
           } else {
@@ -1393,11 +1398,15 @@ export default {
     }
   },
   async mounted() {
-    // 监听应用整体缩放变化（菜单/快捷键），显示“缩放至 XX%”提示
+    // 监听应用整体缩放变化（菜单、快捷键、Ctrl+滚轮），显示“缩放至 XX%”提示
     if (window.electronAPI && typeof window.electronAPI.onAppZoomChanged === 'function') {
       this.removeAppZoomChanged = window.electronAPI.onAppZoomChanged((data) => {
         const zoomLevel = data && typeof data.zoomLevel === 'number' ? data.zoomLevel : 0
-        const percent = Math.round(Math.pow(2, zoomLevel) * 100)
+        // Electron 实际比例是 1.2^level。以前用 2^level，放大一档会把 120% 显示成 200%
+        const zoomFactor = data && typeof data.zoomFactor === 'number'
+          ? data.zoomFactor
+          : Math.pow(1.2, zoomLevel)
+        const percent = Math.round(zoomFactor * 100)
         this.appZoomHintPercent = percent
         this.appZoomHintVisible = true
         if (this.appZoomHintTimer) clearTimeout(this.appZoomHintTimer)
@@ -1649,10 +1658,13 @@ export default {
     
     // 监听安全键设置变化事件
     window.addEventListener('safety-key-changed', async (event: CustomEvent) => {
-      const { enabled, url } = event.detail
+      const { enabled, url, shortcut } = event.detail
       this.safetyKeyEnabled = enabled
       if (url) {
         this.safetyKeyUrl = url
+      }
+      if (shortcut) {
+        this.safetyKeyShortcut = shortcut
       }
       await this.setupSafetyKeyListener()
     })
@@ -1740,7 +1752,7 @@ export default {
 </script>
 
 <style scoped>
-/* 应用缩放提示：屏幕上方中央，菜单/快捷键改变整体缩放时短暂显示 */
+/* 应用缩放提示：屏幕上方中央，菜单、快捷键或 Ctrl+滚轮改变整体缩放时短暂显示 */
 .app-zoom-hint {
   position: fixed;
   top: 16px;

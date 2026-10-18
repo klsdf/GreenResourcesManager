@@ -27,6 +27,7 @@
  */
 
 const { Menu, app } = require('electron')
+const { setMainWindowZoom } = require('../window/main-window')
 
 /**
  * 创建并设置应用程序菜单栏。
@@ -89,11 +90,8 @@ function createMenu(getMainWindow) {
           label: '实际大小',
           accelerator: 'CmdOrCtrl+0',
           click: () => {
-            const win = getMainWindow && getMainWindow()
-            if (win && !win.isDestroyed() && win.webContents) {
-              win.webContents.setZoomLevel(0)
-              win.webContents.send('app-zoom-changed', { zoomLevel: 0 })
-            }
+            // 走统一入口，这样会记住 100%，并弹出和滚轮相同的缩放提示
+            setMainWindowZoom(0)
           }
         },
         {
@@ -102,10 +100,8 @@ function createMenu(getMainWindow) {
           click: () => {
             const win = getMainWindow && getMainWindow()
             if (win && !win.isDestroyed() && win.webContents) {
-              const current = win.webContents.getZoomLevel()
-              const next = current + 0.1
-              win.webContents.setZoomLevel(next)
-              win.webContents.send('app-zoom-changed', { zoomLevel: next })
+              // 键盘用 0.1 微调；滚轮用更大的步长，两者最后都进 setMainWindowZoom
+              setMainWindowZoom(win.webContents.getZoomLevel() + 0.1)
             }
           }
         },
@@ -115,10 +111,7 @@ function createMenu(getMainWindow) {
           click: () => {
             const win = getMainWindow && getMainWindow()
             if (win && !win.isDestroyed() && win.webContents) {
-              const current = win.webContents.getZoomLevel()
-              const next = current - 0.1
-              win.webContents.setZoomLevel(next)
-              win.webContents.send('app-zoom-changed', { zoomLevel: next })
+              setMainWindowZoom(win.webContents.getZoomLevel() - 0.1)
             }
           }
         },

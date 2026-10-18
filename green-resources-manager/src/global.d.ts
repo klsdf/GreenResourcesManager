@@ -88,7 +88,7 @@ declare global {
       zoomIn: () => Promise<void>
       zoomOut: () => Promise<void>
       resetZoom: () => Promise<void>
-      onAppZoomChanged: (callback: (data: { zoomLevel: number }) => void) => () => void
+      onAppZoomChanged: (callback: (data: { zoomLevel: number; zoomFactor?: number }) => void) => () => void
       
       // 文件操作
       selectExecutableFile: () => Promise<string | null>
@@ -104,6 +104,10 @@ declare global {
       
       // 文件系统操作
       checkFileExists: (filePath: string) => Promise<{ success: boolean; exists?: boolean; error?: string }>
+      /** 按资源类型计算内容指纹，用来认出改名或移动后的同一个资源 */
+      computeResourceFingerprint: (filePath: string, kind: 'names' | 'pages' | 'size') => Promise<{ success: boolean; fingerprint?: string; error?: string }>
+      /** 在原路径的父目录里查找指纹相同的新位置 */
+      findRelocatedResource: (oldPath: string, fingerprint: string, allowPageCountOnly?: boolean) => Promise<{ success: boolean; newPath?: string | null; ambiguous?: boolean; error?: string }>
       ensureDirectory: (dirPath: string) => Promise<{ success: boolean; error?: string }>
       getFolderSize: (filePath: string) => Promise<{ success: boolean; size?: number; error?: string }>
       openFileFolder: (filePath: string) => Promise<{ success: boolean; folderPath?: string; error?: string }>
@@ -147,6 +151,7 @@ declare global {
       showNotification: (title: string, body: string) => Promise<void>
       takeScreenshot: (directory?: string, format?: string, quality?: number, runningGamesInfo?: Record<string, { id: string; pid: number; windowTitles?: string[]; gameName?: string | null; startTime?: number }>) => Promise<{ success: boolean; filepath?: string; filename?: string; windowName?: string; gameFolder?: string; screenshotsDir?: string; matchedGame?: string | null; gameId?: string | null; error?: string }>
       updateGlobalShortcut: (newKey: string) => Promise<{ success: boolean; key?: string; error?: string }>
+      setSafetyKey: (enabled: boolean, url: string, shortcut?: string) => Promise<{ success: boolean; error?: string }>
       checkGlobalShortcutAvailable: (key: string) => Promise<{ success: boolean; available?: boolean; error?: string }>
       
       // 截图目录管理
@@ -217,6 +222,7 @@ declare global {
       sqliteGetAllTablesData: () => Promise<{ ok: boolean; tables?: Array<{ tableName: string; rows: Array<any> }>; message?: string }>
       sqliteGetPageData: (pageId: string) => Promise<{ ok: boolean; data?: Array<any>; message?: string }>
       sqliteDeleteResource: (tableName: string, resourceId: string) => Promise<{ ok: boolean; message?: string }>
+      sqliteDeletePageData: (pageId: string) => Promise<{ ok: boolean; message?: string }>
       sqliteSaveResource: (resourceType: string, resource: any) => Promise<{ ok: boolean; message?: string }>
       sqliteAddResourceToPage: (pageId: string, resourceType: string, resourceId: string) => Promise<{ ok: boolean; message?: string }>
       sqliteSavePageResources: (pageId: string, resources: Array<any>) => Promise<{ ok: boolean; message?: string }>

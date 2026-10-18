@@ -61,12 +61,8 @@ class PageConfigManager {
         createdAt: now,
         updatedAt: now
       };
-      
-      console.log(`[PageConfigManager] 加载页面: ${pageConfig.id} (${pageConfig.name}), type: ${resourceType}`);
       return pageConfig;
     });
-    
-    console.log(`[PageConfigManager] 成功加载 ${this.pages.length} 个页面配置`);
     this.initialized = true;
   }
 

@@ -62,6 +62,24 @@ interface UnifiedResource {
   }
 }
 
+/**
+ * 已经抽中的推荐，只记类型和 id。
+ * 主页组件每次进入都会重建，把名单放在 localStorage 里，回来时按这份名单还原，不再重新随机。
+ */
+interface RecommendationKey {
+  type: UnifiedResourceType
+  id: string
+}
+
+/** 为您推荐的固定名单。只有点击「再来一批」才覆盖。 */
+const RECOMMENDATION_STORAGE_KEY = 'home-recommended-batch'
+
+/**
+ * 为您推荐只从这三类里抽。
+ * image 对应漫画页，game 是游戏，video 是视频。小说、音频、网站、番剧等不进推荐。
+ */
+const RECOMMENDATION_TYPES: UnifiedResourceType[] = ['image', 'game', 'video']
+
 export default {
   name: 'HomeView',
   components: {
@@ -82,32 +100,81 @@ export default {
         }
       })
     },
+    /**
+     * 读出上次固定的推荐名单。没有记录或格式坏了就返回空数组，交给调用方重新抽一批。
+     */
+    readSavedRecommendationKeys(): RecommendationKey[] {
+      try {
+        const raw = localStorage.getItem(RECOMMENDATION_STORAGE_KEY)
+        if (!raw) return []
+        const parsed = JSON.parse(raw)
+        if (!Array.isArray(parsed)) return []
+        return parsed.filter((item: RecommendationKey) => item && item.type && item.id)
+      } catch (error) {
+        console.warn('读取固定推荐失败:', error)
+        return []
+      }
+    },
+    /**
+     * 把当前这批推荐的类型和 id 写下去。下次进主页按这个顺序还原，不再随机。
+     */
+    saveRecommendationKeys(resources: UnifiedResource[]) {
+      const keys: RecommendationKey[] = resources.map(resource => ({
+        type: resource.type,
+        id: resource.id
+      }))
+      localStorage.setItem(RECOMMENDATION_STORAGE_KEY, JSON.stringify(keys))
+    },
+    /**
+     * 按已保存的名单从当前资源里取回同一批。已删除的跳过，剩下的保持原来的顺序。
+     */
+    restoreSavedRecommendations(resources: UnifiedResource[]): UnifiedResource[] {
+      const savedKeys = this.readSavedRecommendationKeys()
+      if (savedKeys.length === 0) return []
+      const resourceMap = new Map(resources.map(resource => [`${resource.type}:${resource.id}`, resource]))
+      const restored: UnifiedResource[] = []
+      savedKeys.forEach(key => {
+        const resource = resourceMap.get(`${key.type}:${key.id}`)
+        if (resource) restored.push(resource)
+      })
+      return restored
+    },
+    /**
+     * 从各资源页读出全部条目，供推荐和最近浏览共用。
+     */
+    async fetchAllResources(): Promise<UnifiedResource[]> {
+      const api = (window as any).electronAPI
+      if (!api?.sqliteGetPageData) return []
+      const pageIds = ['games', 'images', 'videos', 'anime-series', 'novels', 'websites', 'audio'] as const
+      const results = await Promise.all(pageIds.map((id) => api.sqliteGetPageData(id)))
+      const [games, images, videos, animeFolders, novels, websites, audios] = results.map((result: any) => (result?.ok ? (result.data ?? []) : []))
+      return [
+        ...games.map((game: any) => this.normalizeGame(game)),
+        ...images.map((image: any) => this.normalizeImage(image)),
+        ...videos.map((video: any) => this.normalizeVideo(video)),
+        ...animeFolders.map((anime: any) => this.normalizeAnime(anime)),
+        ...novels.map((novel: any) => this.normalizeNovel(novel)),
+        ...websites.map((website: any) => this.normalizeWebsite(website)),
+        ...audios.map((audio: any) => this.normalizeAudio(audio))
+      ]
+    },
+    /**
+     * 推荐候选只留漫画、游戏和视频。最近浏览仍然用全部资源，不受这个限制。
+     */
+    filterRecommendationResources(resources: UnifiedResource[]): UnifiedResource[] {
+      const allowedTypes = new Set(RECOMMENDATION_TYPES)
+      return resources.filter(resource => allowedTypes.has(resource.type))
+    },
+    /**
+     * 「再来一批」才重新随机。平时进入主页不走这里。
+     */
     async refreshRecommendations() {
-      // 刷新推荐内容（统一从 SQLite 加载）
       try {
         this.isLoading = true
-        const api = (window as any).electronAPI
-        if (!api?.sqliteGetPageData) {
-          this.isLoading = false
-          return
-        }
-        const pageIds = ['games', 'images', 'videos', 'anime-series', 'novels', 'websites', 'audio'] as const
-        const results = await Promise.all(pageIds.map((id) => api.sqliteGetPageData(id)))
-        const [games, images, videos, animeFolders, novels, websites, audios] = results.map((r: any) => (r?.ok ? (r.data ?? []) : []))
-        
-        const allResources: UnifiedResource[] = [
-          ...games.map((g: any) => this.normalizeGame(g)),
-          ...images.map((img: any) => this.normalizeImage(img)),
-          ...videos.map((v: any) => this.normalizeVideo(v)),
-          ...animeFolders.map((a: any) => this.normalizeAnime(a)),
-          ...novels.map((n: any) => this.normalizeNovel(n)),
-          ...websites.map((w: any) => this.normalizeWebsite(w)),
-          ...audios.map((a: any) => this.normalizeAudio(a))
-        ]
-
-        // 生成新的随机推荐（只显示6个）
-        this.recommendedResources = this.generateRandomRecommendations(allResources, 6)
-        
+        const allResources = await this.fetchAllResources()
+        const recommendationPool = this.filterRecommendationResources(allResources)
+        this.recommendedResources = this.generateRandomRecommendations(recommendationPool, 6)
+        this.saveRecommendationKeys(this.recommendedResources)
         this.isLoading = false
       } catch (error) {
         console.error('刷新推荐失败:', error)
@@ -121,29 +188,20 @@ export default {
     async loadAllResources() {
       try {
         this.isLoading = true
-        const api = (window as any).electronAPI
-        if (!api?.sqliteGetPageData) {
-          this.isLoading = false
-          return
+        const allResources = await this.fetchAllResources()
+        const recommendationPool = this.filterRecommendationResources(allResources)
+
+        // 旧名单里如果夹着小说、音频等，整批作废，按三类重新抽一次并固定下来。
+        const savedKeys = this.readSavedRecommendationKeys()
+        const savedTypesAllowed = savedKeys.every(key => RECOMMENDATION_TYPES.includes(key.type))
+        const restored = savedTypesAllowed ? this.restoreSavedRecommendations(recommendationPool) : []
+        if (restored.length > 0) {
+          this.recommendedResources = restored
+        } else {
+          this.recommendedResources = this.generateRandomRecommendations(recommendationPool, 6)
+          this.saveRecommendationKeys(this.recommendedResources)
         }
-        const pageIds = ['games', 'images', 'videos', 'anime-series', 'novels', 'websites', 'audio'] as const
-        const results = await Promise.all(pageIds.map((id) => api.sqliteGetPageData(id)))
-        const [games, images, videos, animeFolders, novels, websites, audios] = results.map((r: any) => (r?.ok ? (r.data ?? []) : []))
 
-        const allResources: UnifiedResource[] = [
-          ...games.map((g: any) => this.normalizeGame(g)),
-          ...images.map((img: any) => this.normalizeImage(img)),
-          ...videos.map((v: any) => this.normalizeVideo(v)),
-          ...animeFolders.map((a: any) => this.normalizeAnime(a)),
-          ...novels.map((n: any) => this.normalizeNovel(n)),
-          ...websites.map((w: any) => this.normalizeWebsite(w)),
-          ...audios.map((a: any) => this.normalizeAudio(a))
-        ]
-
-        // 生成随机推荐（只显示6个）
-        this.recommendedResources = this.generateRandomRecommendations(allResources, 6)
-        
-        // 获取最近访问的资源（至少6个）
         this.recentResources = this.getRecentResources(allResources, 6)
         
         this.isLoading = false
