@@ -1,0 +1,59 @@
+name: Build & Release
+
+# 推送 v 开头的标签时自动构建并把附件挂到 Release 草稿；也可在 Actions 页面手动触发
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 为 Electron 重编译 better-sqlite3 原生模块
+        run: npx electron-rebuild -f -w better-sqlite3
+
+      - name: 构建前端
+        run: npm run build
+
+      - name: 打包 Windows 安装包（不上传）
+        run: npx electron-builder --win
+
+      - name: 打包绿色版 zip 并汇总发布附件
+        shell: powershell
+        run: |
+          $ver = (node -p "require('./package.json').version")
+          $out = "dist-electron/v$ver"
+          # win-unpacked 里已有的旧 zip 不打进新包
+          $items = Get-ChildItem "$out/win-unpacked" | Where-Object { $_.Extension -ne '.zip' }
+          $items | Compress-Archive -DestinationPath "$out/GRM_$ver.zip" -Force
+          New-Item -ItemType Directory -Force release-assets | Out-Null
+          Copy-Item "$out/GreenResourcesManager_Setup_$ver.exe" release-assets/
+          Copy-Item "$out/GreenResourcesManager_Portable_$ver.exe" release-assets/
+          Copy-Item "$out/latest.yml" release-assets/
+          Copy-Item "$out/*.blockmap" release-assets/
+          Copy-Item "$out/GRM_$ver.zip" release-assets/
+
+      - name: 挂到 Release 草稿（不自动发布）
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          draft: true
+          generate_release_notes: true
