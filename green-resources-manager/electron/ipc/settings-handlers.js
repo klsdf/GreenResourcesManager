@@ -20,6 +20,30 @@
 
 const fs = require('fs')
 const path = require('path')
+const {
+  readSaveLocationPointer,
+  writeSaveLocationPointer,
+  resolveSaveDataDirectory
+} = require('../utils/save-location')
+
+/**
+ * 从真正的存档里去掉「自己放在哪」。
+ * 这份信息只留在项目根目录，存档搬走时才不会带着旧路径。
+ * @param {string} saveDataDir 真正的存档目录
+ */
+function stripSavePathFromArchive(saveDataDir) {
+  const settingsPath = path.join(saveDataDir, 'Settings', 'settings.json')
+  if (!fs.existsSync(settingsPath)) return
+  try {
+    const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'))
+    if (!settings.settings) return
+    delete settings.settings.saveDataLocation
+    delete settings.settings.saveDataPath
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8')
+  } catch (error) {
+    console.warn('清理存档内的路径记录失败:', error.message)
+  }
+}
 
 /**
  * 复制存档数据到新目录。
@@ -31,8 +55,8 @@ async function copySaveDataToNewDirectory(newDirectory) {
     console.log('=== 开始复制存档数据 ===')
     console.log('目标目录:', newDirectory)
 
-    // 获取当前存档目录
-    const currentSaveDataDir = path.join(process.cwd(), 'SaveData')
+    // 从当前位置记录找到正在使用的存档，而不是总从程序旁边那份复制
+    const currentSaveDataDir = resolveSaveDataDirectory()
     console.log('当前存档目录:', currentSaveDataDir)
 
     // 检查当前存档目录是否存在
@@ -57,26 +81,12 @@ async function copySaveDataToNewDirectory(newDirectory) {
       }
     }
 
-    // 检查是否与当前使用的自定义目录相同
-    try {
-      const settingsPath = path.join(currentSaveDataDir, 'Settings', 'settings.json')
-      if (fs.existsSync(settingsPath)) {
-        const settingsData = fs.readFileSync(settingsPath, 'utf8')
-        const settings = JSON.parse(settingsData)
-
-        if (settings.settings && settings.settings.saveDataLocation === 'custom' && settings.settings.saveDataPath) {
-          const currentCustomDir = path.resolve(path.join(settings.settings.saveDataPath, 'SaveData'))
-          if (currentCustomDir === newDirNormalized) {
-            console.log('选择了与当前自定义目录相同的存档目录，无需复制')
-            return {
-              success: false,
-              error: '不能选择与当前存档目录相同的目录。请选择其他目录。'
-            }
-          }
-        }
+    const recordedPath = readSaveLocationPointer().saveDataPath
+    if (recordedPath && path.resolve(path.join(recordedPath, 'SaveData')) === newDirNormalized) {
+      return {
+        success: false,
+        error: '不能选择与当前存档目录相同的目录。请选择其他目录。'
       }
-    } catch (error) {
-      console.warn('检查当前自定义目录失败:', error)
     }
 
     // 检查目标目录是否已经包含存档数据
@@ -127,44 +137,9 @@ async function copySaveDataToNewDirectory(newDirectory) {
       console.log('跳过复制，使用现有存档数据')
     }
 
-    // 复制完成后，更新设置文件
-    try {
-      const settingsPath = path.join(currentSaveDataDir, 'Settings', 'settings.json')
-      const newSettingsPath = path.join(newSaveDataDir, 'Settings', 'settings.json')
-
-      let settings = {}
-      if (fs.existsSync(settingsPath)) {
-        const settingsData = fs.readFileSync(settingsPath, 'utf8')
-        settings = JSON.parse(settingsData)
-      }
-
-      // 更新设置，指向新的自定义目录
-      if (settings.settings) {
-        settings.settings.saveDataLocation = 'custom'
-        settings.settings.saveDataPath = newDirectory
-      } else {
-        settings.settings = {
-          saveDataLocation: 'custom',
-          saveDataPath: newDirectory
-        }
-      }
-
-      // 确保新设置目录存在
-      const newSettingsDir = path.dirname(newSettingsPath)
-      if (!fs.existsSync(newSettingsDir)) {
-        fs.mkdirSync(newSettingsDir, { recursive: true })
-      }
-
-      // 保存设置到新位置
-      fs.writeFileSync(newSettingsPath, JSON.stringify(settings, null, 2))
-      console.log('✅ 新位置设置文件已更新')
-
-      // 同时更新根目录的设置文件（保持同步）
-      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2))
-      console.log('✅ 根目录设置文件已同步')
-    } catch (error) {
-      console.warn('更新设置文件失败:', error)
-    }
+    // 路径只写在项目根目录。存档里的设置不再记录自己放在哪。
+    writeSaveLocationPointer(newDirectory)
+    stripSavePathFromArchive(newSaveDataDir)
 
     console.log('=== 存档目录设置完成 ===')
     console.log('操作统计:')
@@ -205,10 +180,17 @@ async function copySaveDataToNewDirectory(newDirectory) {
  * @param {Function} getMainWindow - 获取主窗口的函数。
  */
 function registerIpcHandlers(ipcMain, app, dialog, getMainWindow) {
-  // 获取存档目录路径
-  ipcMain.handle('get-save-data-directory', () => {
-    return path.join(process.cwd(), 'SaveData')
+  // 读取项目根目录里的存档位置。空路径表示使用程序旁边的 SaveData。
+  ipcMain.handle('get-save-location', () => readSaveLocationPointer())
+
+  // 只改位置记录。切回本地存档时用，不改存档里的主题和截图设置。
+  ipcMain.handle('set-save-location', (event, saveDataPath) => {
+    writeSaveLocationPointer(saveDataPath || '')
+    return { success: true, directory: resolveSaveDataDirectory() }
   })
+
+  // 获取真正的存档目录路径
+  ipcMain.handle('get-save-data-directory', () => resolveSaveDataDirectory())
 
   // 设置存档文件夹目录
   ipcMain.handle('set-save-data-directory', async () => {

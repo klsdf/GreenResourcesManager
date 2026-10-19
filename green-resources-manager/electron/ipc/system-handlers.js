@@ -874,37 +874,13 @@ $results | ConvertTo-Json -Depth 10
     }
   })
 
-  // 获取真正的 SaveData 目录路径（考虑自定义路径）
+  /**
+   * 真正的存档目录。位置来自项目根目录的记录。
+   * @returns {string} SaveData 目录路径
+   */
   function getSaveDataDirectory() {
-    try {
-      // 先尝试从设置文件读取自定义路径
-      const defaultSaveDataPath = path.join(process.cwd(), 'SaveData')
-      const settingsPath = path.join(defaultSaveDataPath, 'Settings', 'settings.json')
-      
-      if (fs.existsSync(settingsPath)) {
-        try {
-          const settingsData = fs.readFileSync(settingsPath, 'utf8')
-          const settings = JSON.parse(settingsData)
-          
-          if (settings.settings && settings.settings.saveDataLocation === 'custom' && settings.settings.saveDataPath) {
-            // 使用自定义路径
-            const customPath = path.join(settings.settings.saveDataPath, 'SaveData')
-            console.log('使用自定义 SaveData 路径:', customPath)
-            return customPath
-          }
-        } catch (error) {
-          console.warn('读取设置文件失败，使用默认路径:', error)
-        }
-      }
-      
-      // 使用默认路径
-      console.log('使用默认 SaveData 路径:', defaultSaveDataPath)
-      return defaultSaveDataPath
-    } catch (error) {
-      console.error('获取 SaveData 路径失败:', error)
-      // 降级到默认路径
-      return path.join(process.cwd(), 'SaveData')
-    }
+    const { resolveSaveDataDirectory } = require('../utils/save-location')
+    return resolveSaveDataDirectory()
   }
 
   // 测试压缩包密码（不实际解压，只验证密码）

@@ -93,22 +93,21 @@
       <SettingSelect
         :title="$t('settings.saveData.title')"
         :description="$t('settings.saveData.description')"
-        :model-value="settings.saveDataLocation"
+        :model-value="saveLocationMode"
         :options="saveDataLocationOptions"
         @update:model-value="onSaveDataLocationChange"
       />
-      
+
       <SettingFilePicker
-        v-if="settings.saveDataLocation === 'custom'"
+        v-if="saveLocationMode === 'custom'"
         :title="$t('settings.saveData.customPathTitle')"
         :description="$t('settings.saveData.customPathDesc')"
-        :model-value="settings.saveDataPath"
+        :model-value="saveLocationPath"
         :placeholder="$t('settings.saveData.customPathPlaceholder')"
         picker-type="saveData"
-        @update:model-value="updateSetting('saveDataPath', $event)"
         @browse="handleSaveDataBrowse"
       />
-      
+
       <SettingToggle
         :title="$t('settings.autoBackup.title')"
         :description="$t('settings.autoBackup.description')"
@@ -207,7 +206,11 @@ export default {
   data() {
     return {
       currentLanguage: getCurrentLanguage(),
-      languageOptions: availableLanguages
+      languageOptions: availableLanguages,
+      /** 存档位置只来自项目根目录的记录，不放进真正的存档。 */
+      saveLocationMode: 'default',
+      /** 自定义存档的父目录。空字符串表示使用程序旁边的 SaveData。 */
+      saveLocationPath: ''
     }
   },
   computed: {
@@ -232,6 +235,9 @@ export default {
         { value: 'custom', label: this.t('settings.saveData.custom') }
       ]
     }
+  },
+  mounted() {
+    this.loadSaveLocation()
   },
 
   
@@ -517,12 +523,33 @@ export default {
       }
     },
     
-    onSaveDataLocationChange(newLocation: string) {
-      this.updateSetting('saveDataLocation', newLocation)
-      if (newLocation === 'default') {
-        console.log('已切换到默认存档目录')
-        notify.success(this.t('settings.general.saveDataLocationUpdated'), this.t('settings.general.saveDataLocationDefault'))
+    /**
+     * 从项目根目录读取存档位置，用来显示设置项。
+     */
+    async loadSaveLocation() {
+      if (!window.electronAPI?.getSaveLocation) return
+      const location = await window.electronAPI.getSaveLocation()
+      const saveDataPath = location?.saveDataPath || ''
+      this.saveLocationPath = saveDataPath
+      this.saveLocationMode = saveDataPath ? 'custom' : 'default'
+    },
+
+    /**
+     * 切回本地存档时只改位置记录。主题和截图目录仍留在原来的存档里。
+     * @param newLocation 默认或自定义
+     */
+    async onSaveDataLocationChange(newLocation: string) {
+      this.saveLocationMode = newLocation
+      if (newLocation !== 'default') return
+      this.saveLocationPath = ''
+      if (window.electronAPI?.setSaveLocation) {
+        await window.electronAPI.setSaveLocation('')
       }
+      const directory = window.electronAPI?.getSaveDataDirectory
+        ? await window.electronAPI.getSaveDataDirectory()
+        : 'SaveData'
+      saveManager.setDataDirectory(directory)
+      notify.success(this.t('settings.general.saveDataLocationUpdated'), this.t('settings.general.saveDataLocationDefault'))
     },
     
     onAutoBackupEnabledChange(newValue: boolean) {
@@ -583,20 +610,15 @@ export default {
     
     async handleSaveDataBrowse({ result }: { result: any }) {
       if (result && result.success) {
-        this.updateSetting('saveDataPath', result.directory)
-        this.updateSetting('saveDataLocation', 'custom')
-        
+        this.saveLocationPath = result.directory
+        this.saveLocationMode = 'custom'
+
         const newSaveDataPath = result.directory + '/SaveData'
         const saveManagerUpdated = saveManager.setDataDirectory(newSaveDataPath)
         if (saveManagerUpdated) {
           console.log('SaveManager数据目录已更新为:', newSaveDataPath)
         }
-        
-        const success = await saveManager.saveSettings(this.settings)
-        if (success) {
-          console.log('存档目录设置已保存')
-        }
-        
+
         const message = result.message || this.t('settings.general.saveDataDirectoryUpdated')
         let detailMessage = this.t('settings.general.saveDataDirectorySet', { directory: result.directory })
         
@@ -626,17 +648,9 @@ export default {
     async openSaveDataFolder() {
       try {
         if (window.electronAPI && window.electronAPI.openFolder) {
-          let saveDataPath = ''
-          
-          if (this.settings.saveDataLocation === 'default') {
-            saveDataPath = 'SaveData'
-          } else if (this.settings.saveDataLocation === 'custom') {
-            saveDataPath = this.settings.saveDataPath
-          }
-          
-          if (!saveDataPath || saveDataPath.trim() === '') {
-            saveDataPath = 'SaveData'
-          }
+          const saveDataPath = window.electronAPI.getSaveDataDirectory
+            ? await window.electronAPI.getSaveDataDirectory()
+            : 'SaveData'
           
           console.log('尝试打开存档文件夹:', saveDataPath)
           
@@ -660,10 +674,7 @@ export default {
             notify.error(this.t('settings.general.folderOpenFailed'), this.t('settings.general.folderOpenFailedDetail', { error: result.error }))
           }
         } else {
-          const saveDataPath = this.settings.saveDataLocation === 'default' 
-            ? 'SaveData' 
-            : (this.settings.saveDataPath || 'SaveData')
-          notify.info(this.t('settings.general.folderPath'), `${saveDataPath}\n\n${this.t('settings.general.browserEnvironmentNote')}`)
+          notify.info(this.t('settings.general.folderPath'), `SaveData\n\n${this.t('settings.general.browserEnvironmentNote')}`)
         }
       } catch (error: any) {
         console.error('打开存档文件夹失败:', error)

@@ -148,28 +148,8 @@ class SaveManager {
     try {
       // 获取应用版本号
       this.version = await this.getAppVersion()
-      
-      // 首先从根目录读取设置，确定真正的存档位置
-      try {
-        const rootSettingsPath = `${this.dataDirectory}/Settings/settings.json`
-        const rootSettings = await this.readJsonFile(rootSettingsPath)
-        
-        if (rootSettings && rootSettings.settings) {
-          const settings = rootSettings.settings
-          if (settings.saveDataLocation === 'custom' && settings.saveDataPath) {
-            // 切换到自定义存档目录
-            const customPath = settings.saveDataPath + '/SaveData'
-            console.log('检测到自定义存档目录设置，切换到:', customPath)
-            this.setDataDirectory(customPath)
-          } else {
-            console.log('使用默认存档目录')
-          }
-        } else {
-          console.log('未找到设置文件，使用默认存档目录')
-        }
-      } catch (error) {
-        console.warn('读取根目录设置失败，使用默认目录:', error)
-      }
+      // 先读项目根目录的位置记录，再打开真正的存档
+      await this.applySaveDataDirectory()
       
       // 检查主存档目录是否存在
       const mainDirExists = await this.ensureDataDirectory()
@@ -205,6 +185,30 @@ class SaveManager {
       console.error('初始化存档系统失败:', error)
       return false
     }
+  }
+
+  /**
+   * 按项目根目录的位置记录切换正在使用的存档目录。
+   * @returns {Promise<void>}
+   */
+  async applySaveDataDirectory() {
+    if (!window.electronAPI?.getSaveDataDirectory) return
+    const directory = await window.electronAPI.getSaveDataDirectory()
+    if (!directory || directory === this.dataDirectory) return
+    this.setDataDirectory(directory)
+  }
+
+  /**
+   * 从真正的存档设置里去掉路径。
+   * 存档位置只放在项目根目录，不跟主题、截图目录混在一起。
+   * @param {Object} settings - 即将写入存档的设置
+   * @returns {Object} 去掉路径后的设置
+   */
+  omitSaveLocation(settings) {
+    if (!settings) return settings
+    delete settings.saveDataLocation
+    delete settings.saveDataPath
+    return settings
   }
 
   /**
@@ -1438,6 +1442,7 @@ class SaveManager {
     try {
       // 更新缓存
       this.settingsCache = JSON.parse(JSON.stringify(settings))
+      this.omitSaveLocation(this.settingsCache)
       this.settingsCacheDirty = true
       
       // 只保存到 SQLite
@@ -1451,6 +1456,7 @@ class SaveManager {
       if (sqliteResult?.ok) {
         console.log('设置数据已保存到 SQLite')
         this.settingsCacheDirty = false
+        await this.applySaveDataDirectory()
         return true
       } else {
         console.error('保存设置到 SQLite 失败:', sqliteResult?.message)
@@ -1486,7 +1492,9 @@ class SaveManager {
         console.log('从 SQLite 加载设置数据成功')
         const sqliteSettings = result.settings
         const resultSettings = { ...this.defaultData.settings, ...sqliteSettings }
+        this.omitSaveLocation(resultSettings)
         this.settingsCache = resultSettings
+        await this.applySaveDataDirectory()
         return JSON.parse(JSON.stringify(resultSettings))
       } else {
         // SQLite 中未找到设置数据，返回默认设置
@@ -2257,8 +2265,6 @@ class SaveManager {
       }
       
       await this.saveUserProfile(userProfile)
-      console.log('开始使用时长跟踪')
-      
       return true
     } catch (error) {
       console.error('开始使用时长跟踪失败:', error)

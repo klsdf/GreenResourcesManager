@@ -747,21 +747,9 @@ export default {
     async openSaveDataFolder() {
       try {
         if (window.electronAPI && window.electronAPI.openFolder) {
-          // 获取存档文件夹路径
-          let saveDataPath = ''
-          
-          if (this.settings.saveDataLocation === 'default') {
-            // 使用默认路径
-            saveDataPath = 'SaveData'
-          } else if (this.settings.saveDataLocation === 'custom') {
-            // 使用自定义路径
-            saveDataPath = this.settings.saveDataPath
-          }
-          
-          // 如果自定义路径为空，回退到默认路径
-          if (!saveDataPath || saveDataPath.trim() === '') {
-            saveDataPath = 'SaveData'
-          }
+          const saveDataPath = window.electronAPI.getSaveDataDirectory
+            ? await window.electronAPI.getSaveDataDirectory()
+            : 'SaveData'
           
           console.log('尝试打开存档文件夹:', saveDataPath)
           
@@ -787,10 +775,7 @@ export default {
           }
         } else {
           // 降级处理：在浏览器中显示路径信息
-          const saveDataPath = this.settings.saveDataLocation === 'default' 
-            ? 'SaveData' 
-            : (this.settings.saveDataPath || 'SaveData')
-          this.showToastNotification(`存档文件夹路径: ${saveDataPath}\n\n在浏览器环境中无法直接打开文件夹，请手动导航到该路径`)
+          this.showToastNotification('存档文件夹路径: SaveData\n\n在浏览器环境中无法直接打开文件夹，请手动导航到该路径')
         }
       } catch (error) {
         console.error('打开存档文件夹失败:', error)
@@ -1079,44 +1064,6 @@ export default {
             // 加载设置后立即应用主题
             if (this.settings.theme) {
               this.applyTheme(this.settings.theme)
-            }
-            
-            // 初始化存档设置（如果未设置）
-            if (!this.settings.saveDataLocation) {
-              this.settings.saveDataLocation = 'default'
-            }
-            
-            // 如果使用自定义目录但没有设置路径，尝试获取（后台异步，不阻塞UI）
-            if (this.settings.saveDataLocation === 'custom' && !this.settings.saveDataPath) {
-              try {
-                if (window.electronAPI && window.electronAPI.getSaveDataDirectory) {
-                  const path = await window.electronAPI.getSaveDataDirectory()
-                  if (path) {
-                    this.settings.saveDataPath = path
-                  }
-                }
-              } catch (error) {
-                console.error('获取默认存档目录失败:', error)
-              }
-            }
-            
-            // 根据设置更新SaveManager的数据目录
-            try {
-              let saveDataPath = ''
-              if (this.settings.saveDataLocation === 'default') {
-                saveDataPath = 'SaveData' // 默认根目录下的SaveData
-              } else if (this.settings.saveDataLocation === 'custom' && this.settings.saveDataPath) {
-                saveDataPath = this.settings.saveDataPath + '/SaveData' // 自定义目录下的SaveData
-              }
-              
-              if (saveDataPath) {
-                const saveManagerUpdated = saveManager.setDataDirectory(saveDataPath)
-                if (saveManagerUpdated) {
-                  console.log('SaveManager数据目录已设置为:', saveDataPath)
-                }
-              }
-            } catch (error) {
-              console.error('设置SaveManager数据目录失败:', error)
             }
             
             // 初始化自动备份设置（如果未设置）

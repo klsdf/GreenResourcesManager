@@ -159,6 +159,8 @@ declare global {
       setScreenshotsDirectory: () => Promise<string | null>
       
       // 存档目录管理
+      getSaveLocation: () => Promise<{ saveDataPath: string }>
+      setSaveLocation: (saveDataPath: string) => Promise<{ success: boolean; directory?: string }>
       getSaveDataDirectory: () => Promise<string>
       setSaveDataDirectory: () => Promise<{ success: boolean; directory?: string; message?: string; copiedFiles?: number; error?: string } | null>
       

@@ -191,6 +191,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setScreenshotsDirectory: () => ipcRenderer.invoke('set-screenshots-directory'),
   
   // 存档文件夹功能
+  getSaveLocation: () => ipcRenderer.invoke('get-save-location'),
+  setSaveLocation: (saveDataPath) => ipcRenderer.invoke('set-save-location', saveDataPath),
   getSaveDataDirectory: () => ipcRenderer.invoke('get-save-data-directory'),
   setSaveDataDirectory: () => ipcRenderer.invoke('set-save-data-directory'),
   

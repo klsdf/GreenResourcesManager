@@ -101,6 +101,21 @@ export function useGameScreenshot(
   const lastScreenshotTime = ref(0)
 
   /**
+   * 把本地截图路径转成通知里能显示的地址。
+   * 每一段单独编码，中文文件名也不会把预览变成空白。
+   * @param filePath 截图文件的本地路径
+   * @returns 供 img 使用的地址
+   */
+  function toScreenshotPreviewUrl(filePath: string): string {
+    const normalizedPath = String(filePath || '').replace(/\\/g, '/')
+    const encodedPath = normalizedPath.split('/').map(segment => {
+      if (/^[A-Za-z]:$/.test(segment)) return segment
+      return encodeURIComponent(segment)
+    }).join('/')
+    return `file:///${encodedPath}`
+  }
+
+  /**
    * 播放截图音效
    */
   function playScreenshotSound() {
@@ -238,13 +253,15 @@ export function useGameScreenshot(
 
           if (settings.showNotification) {
             setTimeout(() => {
-              const folderInfo = result.matchedGame
-                ? `游戏文件夹: ${result.gameFolder}`
-                : `文件夹: ${result.gameFolder}`
               notify.toast(
                 'success',
                 '截图成功',
-                `截图已保存为: ${result.filepath}\n${folderInfo}\n窗口: ${result.windowName}`
+                `保存到：${result.filepath}`,
+                null,
+                {
+                  image: toScreenshotPreviewUrl(result.filepath),
+                  duration: 6000
+                }
               )
             }, 100)
           }

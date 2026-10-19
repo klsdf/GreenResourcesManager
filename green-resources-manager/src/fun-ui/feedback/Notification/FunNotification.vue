@@ -16,6 +16,12 @@
         </div>
         <div class="fun-notification-toast__content">
           <div class="fun-notification-toast__title">{{ toast.title }}</div>
+          <img
+            v-if="toast.image"
+            class="fun-notification-toast__preview"
+            :src="toast.image"
+            alt="截图预览"
+          />
           <div class="fun-notification-toast__message" v-if="toast.message">{{ toast.message }}</div>
         </div>
         <button class="fun-notification-toast__close" @click.stop="removeToast(toast.id)">×</button>
@@ -35,6 +41,8 @@ export interface NotificationOptions {
   type?: NotificationType
   title?: string
   message?: string
+  /** 可选的预览图地址。截图成功时用来直接展示刚保存的图片。 */
+  image?: string
   duration?: number
   persistent?: boolean
 }
@@ -44,6 +52,8 @@ export interface Notification {
   type: NotificationType
   title: string
   message: string
+  /** 预览图地址。没有时不显示图片。 */
+  image: string
   duration: number
   timestamp: number
   persistent: boolean
@@ -60,6 +70,7 @@ const showToast = (options: NotificationOptions = {}): number => {
     type: options.type || 'info',
     title: options.title || '通知',
     message: options.message || '',
+    image: options.image || '',
     duration: options.duration || 3000,
     timestamp: Date.now(),
     persistent: options.persistent || false
@@ -183,6 +194,16 @@ defineExpose({
   color: var(--text-primary, #333333);
   margin-bottom: 4px;
   line-height: 1.4;
+}
+
+.fun-notification-toast__preview {
+  display: block;
+  width: 100%;
+  max-height: 160px;
+  margin: 8px 0;
+  object-fit: contain;
+  border-radius: 8px;
+  background: var(--bg-tertiary, #f3f3f3);
 }
 
 .fun-notification-toast__message {

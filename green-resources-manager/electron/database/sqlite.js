@@ -6,6 +6,7 @@
 const path = require('path')
 const fs = require('fs')
 const tagIndex = require('./tagIndex')
+const { resolveSaveDataDirectory } = require('../utils/save-location')
 
 // 资源表名列表（使用 id + jsonData + timestamp + version 存储）
 const RESOURCE_TABLES = [
@@ -14,49 +15,11 @@ const RESOURCE_TABLES = [
 ]
 
 /**
- * 获取 SaveData 目录路径（考虑自定义路径）
+ * 获取真正的存档目录。位置只从项目根目录的记录里读。
  * @returns {string} SaveData 目录路径
  */
 function getSaveDataDirectory() {
-  try {
-    // 先尝试从设置文件读取自定义路径
-    const defaultSaveDataPath = path.join(process.cwd(), 'SaveData')
-    const settingsPath = path.join(defaultSaveDataPath, 'Settings', 'settings.json')
-
-    if (fs.existsSync(settingsPath)) {
-      try {
-        const settingsData = fs.readFileSync(settingsPath, 'utf8')
-        const settings = JSON.parse(settingsData)
-
-        if (settings.settings && settings.settings.saveDataLocation === 'custom' && settings.settings.saveDataPath) {
-          // 使用自定义路径
-          const customPath = path.join(settings.settings.saveDataPath, 'SaveData')
-          // 检查自定义路径是否存在或能否创建
-          try {
-            if (!fs.existsSync(settings.settings.saveDataPath)) {
-              console.warn('[SQLite] 自定义存档目录不存在:', settings.settings.saveDataPath)
-              console.warn('[SQLite] 回退到默认路径')
-              return defaultSaveDataPath
-            }
-            console.log('[SQLite] 使用自定义 SaveData 路径:', customPath)
-            return customPath
-          } catch (pathError) {
-            console.warn('[SQLite] 检查自定义路径失败，使用默认路径:', pathError)
-          }
-        }
-      } catch (error) {
-        console.warn('[SQLite] 读取设置文件失败，使用默认路径:', error)
-      }
-    }
-
-    // 使用默认路径
-    console.log('[SQLite] 使用默认 SaveData 路径:', defaultSaveDataPath)
-    return defaultSaveDataPath
-  } catch (error) {
-    console.error('[SQLite] 获取 SaveData 路径失败:', error)
-    // 降级到默认路径
-    return path.join(process.cwd(), 'SaveData')
-  }
+  return resolveSaveDataDirectory()
 }
 
 /**

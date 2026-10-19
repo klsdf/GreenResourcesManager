@@ -4144,13 +4144,6 @@ export default defineComponent({
         })
         // 特别检查 developers 筛选器的状态
         const developersFilter = filtersDetail.find((f: any) => f.key === 'developers')
-        if (developersFilter) {
-          console.log('[GenericResourceView] developers 筛选器状态:', {
-            selected: developersFilter.selected,
-            excluded: developersFilter.excluded,
-            itemsCount: developersFilter.itemsCount
-          })
-        }
         this.$emit('filter-data-updated', filterData)
       } else {
         console.warn('[GenericResourceView] getFilterData 方法不存在，无法更新筛选器数据')

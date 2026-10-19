@@ -291,12 +291,6 @@ export abstract class BaseResources {
 		jsonData: any
 	): T {
 		const instance = new this()
-		
-		console.log('[BaseResources.fromJSON] 开始解析:', {
-			jsonData,
-			jsonDataKeys: Object.keys(jsonData || {})
-		})
-		
 		// 遍历实例的所有属性，将 JSON 数据赋值给 ResourceField.value
 		for (const key in instance) {
 			const field = (instance as any)[key]
