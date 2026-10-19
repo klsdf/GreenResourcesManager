@@ -1,0 +1,99 @@
+优秀组件库应该抽离的内容
+一、应该抽离的组件类型
+1. Basic（基础组件）
+Tag（标签）
+Icon（图标）
+Divider（分割线）
+Badge（徽章）
+Avatar（头像）
+2. Data Input（数据录入）
+Textarea（多行输入）
+Select（选择器）
+Checkbox（复选框）
+Radio（单选框）
+DatePicker（日期选择）
+Upload（上传）
+3. Data Display（数据展示）
+Table（表格）
+List（列表）
+Timeline（时间线）
+Progress（进度条）
+Statistic（统计数值）
+4. Navigation（导航）
+Menu（菜单）
+Tabs（标签页）
+Breadcrumb（面包屑）
+Pagination（分页）
+Steps（步骤条）
+5. Feedback（反馈）
+Message（消息）
+Dialog（对话框）
+Drawer（抽屉）
+Loading（加载）
+Tooltip（工具提示）
+Popover（弹出框）
+6. Layout（布局）
+Container（容器）
+Grid（栅格）
+Space（间距）
+Layout（布局）
+二、判断标准
+应该抽离的条件（满足 2-3 项即可）
+通用性：在多个页面/场景使用
+独立性：不依赖特定业务逻辑
+可配置：通过 props 控制行为
+可复用：样式和逻辑可复用
+原子性：功能单一、职责清晰
+不应该抽离的情况
+业务组件：如 GameDetailPanel、AddGameDialog
+页面级组件：如 GameView、VideoView
+高度定制：仅在一个地方使用
+强业务耦合：依赖特定数据模型或业务逻辑
+三、当前项目建议抽离的组件
+基于你的代码库，建议抽离：
+高优先级
+FormField → fun-input、fun-textarea、fun-select
+
+通用提示组件
+ContextMenu → fun-context-menu
+通用右键菜单
+中优先级
+LayoutControl → fun-layout-control
+布局控制组件
+TagSelectionPanel → fun-tag-selector
+标签选择面板（如果通用性足够）
+低优先级（需评估）
+DetailCard → fun-card
+如果样式足够通用
+FilterSidebar → fun-sidebar
+如果可抽象为通用侧边栏
+四、组件库组织原则
+fun-ui/├── basic/              # 基础组件（原子级）├── data-input/         # 数据录入（表单相关）├── data-display/       # 数据展示（展示类）├── navigation/         # 导航组件（路由/导航）├── feedback/           # 反馈组件（交互反馈）└── layout/             # 布局组件（可选）
+五、设计原则
+1. API 设计
+Props 命名清晰、语义化
+支持 v-model
+提供插槽扩展
+事件命名规范（如 @change、@update:modelValue）
+2. 样式系统
+使用 CSS 变量（设计令牌）
+遵循 BEM 命名
+支持主题切换
+响应式设计
+3. 类型安全
+完整的 TypeScript 类型定义
+Props 类型约束
+事件类型定义
+4. 文档和示例
+每个组件有 README
+提供使用示例
+说明 Props、Events、Slots
+六、具体建议
+立即抽离
+FormField → 拆分为 fun-input、fun-textarea、fun-select
+PaginationNav → fun-pagination
+ToastNotification → fun-message
+后续考虑
+ContextMenu → fun-context-menu
+LayoutControl → fun-layout-control
+
