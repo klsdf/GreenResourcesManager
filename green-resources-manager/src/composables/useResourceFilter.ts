@@ -202,6 +202,33 @@ export function useResourceFilter<T = any>(
     // 将"丢失的资源"筛选添加到配置的开头
     filterConfigs = [missingResourcesFilter, ...filterConfigs]
   }
+
+  // 星级写在所有资源上，和「丢失的资源」一样每个页面都提供。
+  // 页面配置里已经声明过时沿用配置，避免和自动补上的筛选项重复。
+  const hasRatingFilter = filterConfigs.some(config => config.key === 'rating')
+
+  if (!hasRatingFilter) {
+    const ratingFunctions = getFilterFunctions('rating', {})
+    /** 未在页面配置里声明时使用的默认星级筛选。 */
+    const ratingFilter: FilterConfig<T> = {
+      key: 'rating',
+      title: '星级筛选',
+      filterType: 'rating',
+      params: {},
+      extractFn: ratingFunctions.extractFn,
+      matchFn: ratingFunctions.matchFn
+    }
+    const missingIndex = filterConfigs.findIndex(config => config.key === 'missing-resources')
+    if (missingIndex >= 0) {
+      filterConfigs = [
+        ...filterConfigs.slice(0, missingIndex + 1),
+        ratingFilter,
+        ...filterConfigs.slice(missingIndex + 1)
+      ]
+    } else {
+      filterConfigs = [ratingFilter, ...filterConfigs]
+    }
+  }
   
   // ========== 标签索引接入 ==========
   // resourceField 型筛选器的候选不再遍历资源，而是从主进程 SQLite 标签索引读取

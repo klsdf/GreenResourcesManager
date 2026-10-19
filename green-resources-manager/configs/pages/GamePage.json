@@ -118,6 +118,12 @@
       }
     },
     {
+      "key": "rating",
+      "title": "星级筛选",
+      "filterType": "rating",
+      "params": {}
+    },
+    {
       "key": "tags",
       "title": "标签筛选",
       "filterType": "resourceField",

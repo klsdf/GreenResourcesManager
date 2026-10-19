@@ -103,8 +103,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   sqliteSavePageResources: (pageId, resources) => ipcRenderer.invoke('sqlite-save-page-resources', pageId, resources),
   // 从数据库删除资源
   sqliteDeleteResource: (tableName, resourceId) => ipcRenderer.invoke('sqlite-delete-resource', tableName, resourceId),
-  // 删除页面及其资源数据
+  // 删除页面名单，资源正文保留
   sqliteDeletePageData: (pageId) => ipcRenderer.invoke('sqlite-delete-page-data', pageId),
+  // 按文件路径查找已经入库的资源，供别的页面接上同一条记录
+  sqliteFindResourceByPath: (filePath) => ipcRenderer.invoke('sqlite-find-resource-by-path', filePath),
   // 将旧格式 SQL 迁移为 id+jsonData 格式
   sqliteMigrateToJsonFormat: () => ipcRenderer.invoke('sqlite-migrate-to-json-format'),
   // 从 JSON 迁移成就数据到 SQLite

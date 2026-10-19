@@ -38,7 +38,7 @@
               <span v-if="page.isDefault" class="badge system">系统</span>
               <span v-if="page.isHidden" class="badge hidden">已隐藏</span>
             </div>
-            <div class="page-type">{{ getTypeName(page.type) }}</div>
+            <div class="page-type">{{ formatPageTypes(page) }}</div>
           </div>
 
           <div class="page-actions">
@@ -106,7 +106,7 @@
 
     <fun-modal v-model="showDeleteDialog" title="删除页面" max-width="520px">
       <p class="dialog-desc danger-text">
-        将删除「{{ deletingPageName }}」以及这一页里的全部内容。删除后无法恢复。
+        将从侧边栏去掉「{{ deletingPageName }}」。这一页的名单会清掉，资源本身还留着，之后拖进别的页面会接回原来的记录。
       </p>
       <p class="dialog-desc">请输入「{{ deleteConfirmText }}」后再确认。</p>
       <div class="form-group">
@@ -137,6 +137,7 @@ import { PageConfig } from '../../types/page'
 import PageConfigEditor from '../PageConfigEditor.vue'
 import { pageConfigLoader } from '../../configs/pages/PageConfigLoader'
 import { DELETE_PAGE_CONFIRM_TEXT, PAGE_TEMPLATES } from '../../configs/pages/pageTemplates'
+import { defaultAcceptedKindIds, findBasicKind } from '../../configs/resources/resourceKindCatalog'
 
 const TYPE_NAME_MAP: Record<string, string> = {
   Game: '游戏',
@@ -198,6 +199,13 @@ export default defineComponent({
     onMounted(loadPages)
 
     const getTypeName = (type: string) => TYPE_NAME_MAP[type] || type
+
+    /** 页面接受的基本资源类型 */
+    const formatPageTypes = (page: PageConfig) => {
+      const legacyTypes = page.resourceTypes?.length ? page.resourceTypes : [page.type]
+      const kindIds = page.acceptedKinds?.length ? page.acceptedKinds : defaultAcceptedKindIds(legacyTypes)
+      return kindIds.map(kindId => findBasicKind(kindId)?.label || kindId).join('、')
+    }
 
     const previewPages = computed(() => {
       if (draggedIndex.value === null) {
@@ -437,6 +445,7 @@ export default defineComponent({
     return {
       pages,
       getTypeName,
+      formatPageTypes,
       previewPages,
       onDragStart,
       onDragOver,

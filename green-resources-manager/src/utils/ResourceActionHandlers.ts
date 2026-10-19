@@ -88,7 +88,6 @@ const actionHandlers = new Map<string, ActionHandler>()
  */
 export function registerActionHandler(handlerName: string, handler: ActionHandler) {
   actionHandlers.set(handlerName, handler)
-  console.log(`[ResourceActionHandlers] 已注册 handler: ${handlerName}`)
 }
 
 /**

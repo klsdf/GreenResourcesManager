@@ -53,7 +53,10 @@ class PageConfigManager {
         id: config.id,                        // 从 JSON 配置读取 id
         name: config.name,                    // 从 JSON 配置读取 name
         icon: config.icon,                    // 从 JSON 配置读取 icon
-        type: resourceType,                         // 从 resourceTypes[0] 推导
+        type: resourceType,                         // 从 resourceTypes[0] 推导，只给旧的单类型展示用
+        resourceTypes: Array.isArray(config.resourceTypes) ? [...config.resourceTypes] : [resourceType],
+        acceptedKinds: Array.isArray(config.acceptedKinds) ? [...config.acceptedKinds] : undefined,
+        pageFields: Array.isArray(config.pageFields) ? [...config.pageFields] : undefined,
         description: config.description || '', // 从 JSON 配置读取 description
         isDefault: meta.isDefault !== false,
         isHidden: meta.isHidden || false,

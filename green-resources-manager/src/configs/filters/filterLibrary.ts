@@ -14,6 +14,35 @@ export interface RunningStatusParams {
 }
 
 /**
+ * 星级筛选器参数。
+ * 显示名称是固定的，调用方不用再传文案。
+ */
+export interface RatingFilterParams {}
+
+/**
+ * 星级筛选器里每一档的显示名称。
+ * 下标 0 是未评分，1 到 5 是对应星级。名称同时作为筛选状态的保存值。
+ */
+const RATING_LABELS = ['未评分', '1 星', '2 星', '3 星', '4 星', '5 星']
+
+/**
+ * 读取资源评分，并收成 0 到 5 的整数。
+ * 评分存在 ResourceField 上，旧数据也可能是普通数字。0、空值和超出 1 到 5 的值都算未评分。
+ */
+function readRating(item: any): number {
+	/** 评分字段。可能是带 value 的字段对象，也可能是直接存的数字。 */
+	const raw = item?.rating
+	/** 从字段对象或原始值里取出的评分。 */
+	const value = raw && typeof raw === 'object' && 'value' in raw ? raw.value : raw
+	/** 转成数字后的评分。无法转换时视为未评分。 */
+	const rating = Number(value)
+	if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+		return 0
+	}
+	return Math.round(rating)
+}
+
+/**
  * 资源字段筛选器参数
  */
 export interface ResourceFieldParams {
@@ -93,6 +122,51 @@ export const filterLibrary = {
 					}
 					return false
 				})
+			}
+
+			return true
+		}
+	}),
+
+	/**
+	 * 星级筛选器。
+	 * 评分写在所有资源的基类上，所以每个页面都能用同一套星级，不必按资源类型各写一份。
+	 * 星级是固定的 1 到 5，外加未评分。候选项始终列全，数量为 0 也保留，避免某一档暂时没有资源时筛选项消失。
+	 */
+	rating: (_params?: RatingFilterParams) => ({
+		/**
+		 * 按星级统计当前列表里的资源数量。
+		 * 从高到低排列，未评分放在最后，方便先看到高分资源。
+		 */
+		extractFn: (items: any[]): FilterItem[] => {
+			/** 各星级的数量。下标 0 表示未评分，1 到 5 表示对应星级。 */
+			const counts = [0, 0, 0, 0, 0, 0]
+
+			items.forEach((item: any) => {
+				const rating = readRating(item)
+				counts[rating] += 1
+			})
+
+			return [5, 4, 3, 2, 1, 0].map(rating => ({
+				name: RATING_LABELS[rating],
+				count: counts[rating]
+			}))
+		},
+
+		/**
+		 * 按选中的星级保留资源，按排除的星级去掉资源。
+		 * 多选是「或」：同时选 4 星和 5 星时，这两档都会留下。
+		 */
+		matchFn: (item: any, selected: string[], excluded: string[]): boolean => {
+			/** 这条资源对应的星级名称，用来和侧栏里点中的项比较。 */
+			const label = RATING_LABELS[readRating(item)]
+
+			if (excluded.includes(label)) {
+				return false
+			}
+
+			if (selected.length > 0) {
+				return selected.includes(label)
 			}
 
 			return true

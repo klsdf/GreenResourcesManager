@@ -6,7 +6,9 @@
   "settingsKey": "games-mve7uyfl",
   "defaultPageSize": 8,
   "resourceTypes": [
-    "Game"
+    "Game",
+    "Image",
+    "Software"
   ],
   "displayLayoutConfig": {
     "minWidth": 80,
@@ -116,6 +118,12 @@
       "params": {
         "missingLabel": "丢失的资源"
       }
+    },
+    {
+      "key": "rating",
+      "title": "星级筛选",
+      "filterType": "rating",
+      "params": {}
     },
     {
       "key": "tags",

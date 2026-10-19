@@ -1412,9 +1412,62 @@ async function saveUserToSqlite(user) {
 }
 
 /**
- * 删除一个页面里的全部数据。
- * 页面索引表会直接丢掉。资源本体只在没有被其他页面引用时删除，
- * 避免同一条资源同时出现在两个页面时，删掉一页把另一页也清掉。
+ * 把路径收成同一套写法，方便判断是不是同一个文件。
+ * Windows 上大小写和斜杠不同仍算同一条路径。
+ * @param {unknown} filePath
+ * @returns {string}
+ */
+function normalizeResourcePath(filePath) {
+  if (typeof filePath !== 'string' || !filePath.trim()) return ''
+  return filePath.replace(/\//g, '\\').replace(/\\+$/, '').toLowerCase()
+}
+
+/**
+ * 在所有资源正文表里按路径找已经保存过的资源。
+ * 页面只存索引。同一个文件再拖进别的页面时，用这条记录接回去，而不是新建一份。
+ * @param {string} filePath
+ * @returns {Promise<{ ok: boolean, resource?: any, tableName?: string, message?: string }>}
+ */
+async function findResourceByPath(filePath) {
+  const target = normalizeResourcePath(filePath)
+  if (!target) return { ok: true, resource: null }
+
+  try {
+    const Database = require('better-sqlite3')
+    const db = new Database(getDatabasePath())
+    ensureResourceTablesExist(db)
+    try {
+      for (const tableName of RESOURCE_TABLES) {
+        const exists = db.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`).get(tableName)
+        if (!exists) continue
+        const rows = db.prepare(`SELECT id, jsonData FROM "${tableName}"`).all()
+        for (const row of rows) {
+          let data
+          try {
+            data = JSON.parse(row.jsonData)
+          } catch {
+            continue
+          }
+          const candidates = [data.resourcePath, data.executablePath, data.filePath, data.folderPath]
+          const matched = candidates.some(candidate => normalizeResourcePath(candidate) === target)
+          if (!matched) continue
+          if (!data.id) data.id = row.id
+          return { ok: true, tableName, resource: data }
+        }
+      }
+      return { ok: true, resource: null }
+    } finally {
+      db.close()
+    }
+  } catch (err) {
+    console.error('[SQLite] 按路径查找资源失败:', err.message)
+    return { ok: false, message: err.message }
+  }
+}
+
+/**
+ * 删掉页面的名单表。
+ * 资源正文留在原来的表里。别的页面还指着它就继续用；之后把同一个文件拖进新页面，会接回这一条。
  * @param {string} pageId - 页面 ID
  * @returns {Promise<{ ok: boolean, message?: string }>}
  */
@@ -1427,48 +1480,12 @@ async function deletePageData(pageId) {
     const Database = require('better-sqlite3')
     const dbPath = getDatabasePath()
     const db = new Database(dbPath)
-    tagIndex.ensureTagTables(db)
 
     const tableName = `${pageId.replace(/-/g, '_')}_page`
-    const changedTypes = new Set()
-
     const deleteTx = db.transaction(() => {
       const exists = db.prepare(`
         SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?
       `).get(tableName)
-
-      const rows = exists
-        ? db.prepare(`SELECT resourceType, resourceId FROM "${tableName}"`).all()
-        : []
-
-      const otherPageTables = db.prepare(`
-        SELECT name FROM sqlite_master WHERE type = 'table'
-      `).all()
-        .map(row => row.name)
-        .filter(name => name.endsWith('_page') && name !== tableName && /^[A-Za-z0-9_]+$/.test(name))
-
-      for (const row of rows) {
-        const resourceType = row.resourceType ?? row.resourcetype
-        const resourceId = row.resourceId ?? row.resourceid
-        if (!resourceType || !resourceId) continue
-
-        const referencedElsewhere = otherPageTables.some(otherTable => {
-          return db.prepare(`SELECT 1 FROM "${otherTable}" WHERE resourceId = ? LIMIT 1`).get(resourceId)
-        })
-        if (referencedElsewhere) continue
-
-        const physicalTable = mapResourceTypeToTableName(String(resourceType))
-        if (!RESOURCE_TABLES.includes(physicalTable)) continue
-
-        const result = db.prepare(`DELETE FROM "${physicalTable}" WHERE id = ?`).run(resourceId)
-        if (result.changes === 0) continue
-
-        const logicalType = tagIndex.TABLE_TO_TYPE[physicalTable]
-        if (logicalType) {
-          tagIndex.removeAllRefsInTx(db, logicalType, resourceId)
-          changedTypes.add(logicalType)
-        }
-      }
 
       if (exists) {
         db.exec(`DROP TABLE IF EXISTS "${tableName}"`)
@@ -1490,16 +1507,7 @@ async function deletePageData(pageId) {
       fs.unlinkSync(pageJsonPath)
     }
 
-    if (changedTypes.size > 0) {
-      tagIndex.broadcast('tags:changed', {
-        resourceType: null,
-        resourceTypes: [...changedTypes],
-        adds: [],
-        removes: []
-      })
-    }
-
-    console.log(`[SQLite] 已删除页面 ${pageId} 的数据`)
+    console.log(`[SQLite] 已删除页面 ${pageId} 的名单，资源正文仍保留`)
     return { ok: true }
   } catch (err) {
     console.error(`[SQLite] 删除页面 ${pageId} 数据失败:`, err.message)
@@ -1507,4 +1515,4 @@ async function deletePageData(pageId) {
   }
 }
 
-module.exports = { getAllTablesData, getPageData, getTableResources, getResourceById, getSaveDataDirectory, getDatabasePath, saveResourceToTable, addResourceToPage, savePageResources, deleteResourceFromTable, deletePageData, migrateOldSqlToJsonFormat, migrateAchievementsFromJson, migrateSettingsFromJson, getSettingsFromSqlite, saveSettingsToSqlite, migrateUserFromJson, getUserFromSqlite, saveUserToSqlite }
+module.exports = { getAllTablesData, getPageData, getTableResources, getResourceById, getSaveDataDirectory, getDatabasePath, saveResourceToTable, addResourceToPage, savePageResources, deleteResourceFromTable, deletePageData, findResourceByPath, migrateOldSqlToJsonFormat, migrateAchievementsFromJson, migrateSettingsFromJson, getSettingsFromSqlite, saveSettingsToSqlite, migrateUserFromJson, getUserFromSqlite, saveUserToSqlite }

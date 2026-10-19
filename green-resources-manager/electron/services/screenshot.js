@@ -38,10 +38,41 @@
  * - 使用时间戳生成唯一的文件名。
  */
 
-const { desktopCapturer, app, dialog } = require('electron')
+const { desktopCapturer, BrowserWindow, nativeImage, protocol, session, app, dialog } = require('electron')
 const fs = require('fs')
 const path = require('path')
 const windowsUtils = require('../utils/windows-utils')
+
+/**
+ * 捕获页必须是安全来源，否则浏览器不提供 mediaDevices，单窗口抓取会直接失败。
+ * 这个注册只能在 app ready 之前做，所以放在模块加载时。
+ */
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'grm-capture',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      stream: true
+    }
+  }
+])
+
+/** 捕获页协议是否已经挂上。 */
+let captureProtocolReady = false
+
+/**
+ * 隐藏的捕获窗口。只创建一次，避免每次截图都新开一个窗口再吃掉几百毫秒。
+ * @type {BrowserWindow|null}
+ */
+let captureWindow = null
+
+/**
+ * 捕获任务排队。全局快捷键连按时不能两个画面同时抢这一个窗口。
+ * @type {Promise<void>}
+ */
+let captureQueue = Promise.resolve()
 
 /**
  * 查找并重命名游戏截图文件夹（如果需要）
@@ -267,6 +298,137 @@ function filterSystemWindows(sources) {
 }
 
 /**
+ * 列出窗口时不要带画面。
+ * desktopCapturer 会按 thumbnailSize 给每一个窗口出一张图。设成 1920×1080 时，
+ * 桌面上每一个窗口都会先被整帧抓下来，窗口一多就要将近 3 秒，而最后只用其中一张。
+ * 宽高都为 0 表示只要窗口名字和 id，用来对上游戏窗口。
+ * @returns {Promise<Electron.DesktopCapturerSource[]>}
+ */
+async function listWindowSources() {
+  return desktopCapturer.getSources({
+    types: ['window'],
+    thumbnailSize: { width: 0, height: 0 },
+    fetchWindowIcons: false
+  })
+}
+
+/**
+ * 准备用来抓单个窗口的隐藏页。
+ * 必须关沙箱并允许媒体权限，否则 getUserMedia 拿不到 desktopCapturer 给出的源。
+ * @returns {Promise<BrowserWindow>}
+ */
+async function ensureCaptureWindow() {
+  if (captureWindow && !captureWindow.isDestroyed()) {
+    return captureWindow
+  }
+  captureWindow = new BrowserWindow({
+    show: false,
+    width: 2,
+    height: 2,
+    skipTaskbar: true,
+    focusable: false,
+    paintWhenInitiallyHidden: true,
+    webPreferences: {
+      sandbox: false,
+      contextIsolation: false,
+      nodeIntegration: false,
+      backgroundThrottling: false,
+      partition: 'screenshot-capture'
+    }
+  })
+  captureWindow.on('closed', () => {
+    captureWindow = null
+  })
+  const captureSession = session.fromPartition('screenshot-capture')
+  captureSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    callback(permission === 'media' || permission === 'display-capture')
+  })
+  captureSession.setPermissionCheckHandler(() => true)
+  if (!captureProtocolReady) {
+    captureSession.protocol.registerStringProtocol('grm-capture', (_request, callback) => {
+      callback({ mimeType: 'text/html', data: '<!doctype html><title>capture</title>' })
+    })
+    captureProtocolReady = true
+  }
+  await captureWindow.loadURL('grm-capture://local/index.html')
+  return captureWindow
+}
+
+/**
+ * 只抓已经认准的那一个窗口。
+ * 以前的缩略图接口会把所有窗口都抓一遍；这里用源 id 让系统只回这一帧。
+ * @param {string} sourceId desktopCapturer 返回的窗口源 id
+ * @returns {Promise<Electron.NativeImage>}
+ */
+async function captureWindowNativeImage(sourceId) {
+  const run = captureQueue.then(() => captureWindowNativeImageNow(sourceId))
+  captureQueue = run.then(() => {}, () => {})
+  return run
+}
+
+/**
+ * 实际抓取一帧。失败时关掉隐藏窗口，下次重新建，避免卡在一个坏页面上。
+ * @param {string} sourceId 窗口源 id
+ * @returns {Promise<Electron.NativeImage>}
+ */
+async function captureWindowNativeImageNow(sourceId) {
+  const win = await ensureCaptureWindow()
+  const startedAt = Date.now()
+  try {
+    const dataUrl = await win.webContents.executeJavaScript(`
+      (async () => {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            mandatory: {
+              chromeMediaSource: 'desktop',
+              chromeMediaSourceId: ${JSON.stringify(sourceId)}
+            }
+          }
+        })
+        const video = document.createElement('video')
+        video.srcObject = stream
+        video.muted = true
+        await new Promise((resolve, reject) => {
+          video.onloadedmetadata = () => resolve()
+          video.onerror = () => reject(new Error('窗口画面加载失败'))
+        })
+        await video.play()
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+        const canvas = document.createElement('canvas')
+        canvas.width = video.videoWidth
+        canvas.height = video.videoHeight
+        canvas.getContext('2d').drawImage(video, 0, 0)
+        stream.getTracks().forEach((track) => track.stop())
+        return canvas.toDataURL('image/png')
+      })()
+    `, true)
+    const image = nativeImage.createFromDataURL(dataUrl)
+    if (image.isEmpty()) {
+      throw new Error('截到的画面是空的')
+    }
+    console.log('[截图] 单窗口捕获耗时', Date.now() - startedAt, 'ms，尺寸', image.getSize())
+    return image
+  } catch (error) {
+    console.warn('[截图] 单窗口捕获失败，改回整表缩略图:', error.message)
+    if (captureWindow && !captureWindow.isDestroyed()) {
+      captureWindow.destroy()
+      captureWindow = null
+    }
+    const sources = await desktopCapturer.getSources({
+      types: ['window'],
+      thumbnailSize: { width: 1920, height: 1080 },
+      fetchWindowIcons: false
+    })
+    const matched = sources.find((source) => source.id === sourceId)
+    if (!matched || matched.thumbnail.isEmpty()) {
+      throw error
+    }
+    return matched.thumbnail
+  }
+}
+
+/**
  * 执行截图操作。
  * 
  * 截图逻辑（修正版）：
@@ -293,11 +455,10 @@ async function takeScreenshot(customDirectory, format = 'png', quality = 90, run
       throw new Error('没有运行中的游戏')
     }
 
-    // 获取所有窗口源
-    const sources = await desktopCapturer.getSources({
-      types: ['window'],
-      thumbnailSize: { width: 1920, height: 1080 }
-    })
+    // 只取窗口名单。整帧画面留到认准目标窗口之后再抓。
+    const listedAt = Date.now()
+    const sources = await listWindowSources()
+    console.log('[截图] 列出窗口耗时', Date.now() - listedAt, 'ms，数量', sources.length)
 
     if (sources.length === 0) {
       throw new Error('无法获取窗口源')
@@ -306,32 +467,10 @@ async function takeScreenshot(customDirectory, format = 'png', quality = 90, run
     // 过滤掉系统窗口和通知窗口
     const nonSystemWindows = filterSystemWindows(sources)
 
-    // 获取当前聚焦窗口的 PID（Windows 平台）
+    // 先用启动游戏时记下的标题匹配。只有一个游戏对上时，不必再问系统谁在前台。
+    // 问前台窗口会启动 PowerShell，每次都要一两秒，这是截图发闷的另一个原因。
     let focusedWindowPID = null
     let focusedWindowTitle = null
-    if (process.platform === 'win32') {
-      try {
-        focusedWindowPID = await windowsUtils.getActiveWindowPID()
-        console.log('当前聚焦窗口的 PID:', focusedWindowPID)
-        
-        // 获取聚焦窗口的标题（用于后续匹配）
-        focusedWindowTitle = await windowsUtils.getWindowTitleByPID(focusedWindowPID)
-        console.log('当前聚焦窗口的标题:', focusedWindowTitle)
-      } catch (error) {
-        console.warn('获取聚焦窗口 PID 失败:', error.message)
-        // 如果获取失败，使用第一个非系统窗口作为聚焦窗口的备用方案
-        if (nonSystemWindows.length > 0) {
-          focusedWindowTitle = nonSystemWindows[0].name
-          console.log('使用第一个非系统窗口作为聚焦窗口:', focusedWindowTitle)
-        }
-      }
-    } else {
-      // 非 Windows 平台，使用第一个非系统窗口作为聚焦窗口
-      if (nonSystemWindows.length > 0) {
-        focusedWindowTitle = nonSystemWindows[0].name
-        console.log('非 Windows 平台，使用第一个非系统窗口作为聚焦窗口:', focusedWindowTitle)
-      }
-    }
 
     // 添加调试：打印所有窗口源
     console.log('------------------------------')
@@ -361,20 +500,8 @@ async function takeScreenshot(customDirectory, format = 'png', quality = 90, run
       // 检查游戏的 PID 是否匹配聚焦窗口的 PID（如果匹配，说明该游戏的某个窗口是聚焦的）
       const gamePidMatchesFocused = focusedWindowPID && gamePid === focusedWindowPID
 
-      // 先尝试通过PID获取正确的窗口标题（处理编码问题）
+      // 不再为每个游戏另开 PowerShell 问标题。启动时已经记下窗口标题，对不上再走后面的兜底。
       let pidWindowTitles = []
-      if (gamePid && process.platform === 'win32') {
-        try {
-          // 通过PID获取窗口标题（使用正确的编码）
-          const pidTitle = await windowsUtils.getWindowTitleByPID(gamePid)
-          if (pidTitle) {
-            pidWindowTitles.push(pidTitle)
-            console.log(`  📋 通过PID获取到的窗口标题: "${pidTitle}"`)
-          }
-        } catch (error) {
-          console.warn(`  获取PID ${gamePid} 的窗口标题失败:`, error.message)
-        }
-      }
 
       // 合并窗口标题列表（优先使用PID获取的标题）
       const allWindowTitles = [...new Set([...pidWindowTitles, ...gameWindowTitles])]
@@ -539,6 +666,26 @@ async function takeScreenshot(customDirectory, format = 'png', quality = 90, run
       }
     }
 
+    // 多个游戏，或一个标题都没对上时，才查前台窗口。单个已对上的游戏不再付这笔开销。
+    if (gameWindows.length !== 1 && process.platform === 'win32') {
+      try {
+        const foreground = await windowsUtils.getForegroundWindowInfo()
+        focusedWindowPID = foreground.pid
+        focusedWindowTitle = foreground.title
+        console.log('当前聚焦窗口:', focusedWindowPID, focusedWindowTitle)
+        gameWindows.forEach((gameWindow) => {
+          const samePid = focusedWindowPID && gameWindow.gameData.pid === focusedWindowPID
+          const sameTitle = windowTitlesReferToSameWindow(gameWindow.source.name, focusedWindowTitle)
+          gameWindow.isFocused = !!(samePid || sameTitle)
+        })
+      } catch (error) {
+        console.warn('获取聚焦窗口失败:', error.message)
+        if (nonSystemWindows.length > 0) {
+          focusedWindowTitle = nonSystemWindows[0].name
+        }
+      }
+    }
+
     // 按游戏名和标题都匹配不到时进入兜底。MTool 等 NW.js 启动器的窗口名经常和存档不一致，旧逻辑会直接失败或截到黑屏。
     if (gameWindows.length === 0) {
       console.log('⚠️ 按游戏名未匹配到任何窗口，进入兜底逻辑')
@@ -590,7 +737,7 @@ async function takeScreenshot(customDirectory, format = 'png', quality = 90, run
     const windowName = targetSource.name
     // 获取游戏ID（唯一标识符）
     const gameId = targetGameWindow.gameId || gameData.id || 'unknown'
-    const thumbnail = targetSource.thumbnail
+    const thumbnail = await captureWindowNativeImage(targetSource.id)
 
     console.log('------------------------------')
     console.log('最终选择截图窗口:')

@@ -11,6 +11,10 @@ export interface PageConfig {
 	settingsKey: string
 	defaultPageSize: number
 	resourceTypes: string[]
+	/** 页面接受的基本资源类型，例如可执行文件、图片文件夹 */
+	acceptedKinds?: string[]
+	/** 这个页面编辑时显示的字段名 */
+	pageFields?: string[]
 	displayLayoutConfig: {
 		minWidth: number
 		maxWidth: number

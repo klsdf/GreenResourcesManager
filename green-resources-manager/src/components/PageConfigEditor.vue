@@ -31,6 +31,58 @@
             placeholder="例如：管理我喜欢的资源"
           />
         </div>
+        <h4 class="section-title">接受的资源</h4>
+        <p class="field-hint">只按文件本身来分，比如可执行文件、图片、视频。和这个页面有没有发行商、标签无关。改这里不会改动已经保存的内容。同一种文件会归到列表里靠前的那一种。</p>
+        <div class="type-list">
+          <div
+            v-for="(kindId, index) in editingPage.acceptedKinds"
+            :key="kindId"
+            class="type-row"
+          >
+            <div class="type-text">
+              <span class="type-label">{{ kindLabel(kindId) }}</span>
+              <span class="type-desc">{{ kindDescription(kindId) }}</span>
+            </div>
+            <div class="type-actions">
+              <button class="btn-icon" type="button" title="上移" :disabled="index === 0" @click="moveKind(index, -1)">▲</button>
+              <button class="btn-icon" type="button" title="下移" :disabled="index === editingPage.acceptedKinds.length - 1" @click="moveKind(index, 1)">▼</button>
+              <button class="btn-icon delete" type="button" title="移除" @click="removeKind(index)">✕</button>
+            </div>
+          </div>
+        </div>
+        <div class="add-type-row">
+          <select v-model="kindToAdd" class="type-select">
+            <option value="">选择要接受的资源</option>
+            <option v-for="kind in kindsToAdd" :key="kind.id" :value="kind.id">{{ kind.label }}</option>
+          </select>
+          <button class="btn-secondary" type="button" :disabled="!kindToAdd" @click="addKind">添加</button>
+        </div>
+
+        <h4 class="section-title">页面字段</h4>
+        <p class="field-hint">这个页面编辑资源时能看到哪些字段。取消勾选不会删掉已经保存的内容，只是这个页面不再显示它。</p>
+        <div class="check-grid">
+          <label v-for="field in fieldCatalog" :key="field.key" class="check-item">
+            <input type="checkbox" :checked="editingPage.pageFields.includes(field.key)" @change="togglePageField(field.key)" />
+            <span>{{ field.label }}</span>
+          </label>
+        </div>
+
+        <h4 class="section-title">筛选器</h4>
+        <p class="field-hint">侧边栏用哪些条件筛选。这里同样只改页面，不改资源数据。</p>
+        <div class="type-list">
+          <div v-for="(filter, index) in editingPage.filterConfig" :key="filter.key" class="type-row">
+            <span class="type-label">{{ filter.title || filter.key }}</span>
+            <button class="btn-icon delete" type="button" title="移除" @click="removeFilter(index)">✕</button>
+          </div>
+        </div>
+        <div class="add-type-row">
+          <select v-model="filterToAdd" class="type-select">
+            <option value="">选择要添加的筛选器</option>
+            <option v-for="preset in filterPresetsToAdd" :key="preset.id" :value="preset.id">{{ preset.title }}</option>
+          </select>
+          <button class="btn-secondary" type="button" :disabled="!filterToAdd" @click="addFilter">添加筛选器</button>
+        </div>
+
         <div class="form-group">
           <label>默认每页显示数量</label>
           <fun-input
@@ -194,7 +246,8 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, watch } from 'vue'
+import { computed, defineComponent, ref, watch } from 'vue'
+import { BASIC_RESOURCE_KINDS, collectFieldCatalog, defaultAcceptedKindIds, defaultFieldKeys, findBasicKind, makeFieldFilter } from '../configs/resources/resourceKindCatalog'
 import alertService from '../utils/AlertService.ts'
 import { pageConfigLoader } from '../configs/pages/PageConfigLoader'
 
@@ -231,6 +284,12 @@ interface EditingPage {
   name: string
   icon: string
   description: string
+  /** 页面接受的基本资源类型 */
+  acceptedKinds: string[]
+  /** 这个页面编辑时显示的字段 */
+  pageFields: string[]
+  /** 侧边栏筛选器 */
+  filterConfig: any[]
   defaultPageSize: number
   displayLayoutConfig: DisplayLayoutConfig
   emptyStateConfig: EmptyStateConfig
@@ -257,6 +316,9 @@ export default defineComponent({
       name: '',
       icon: '',
       description: '',
+      acceptedKinds: [],
+      pageFields: [],
+      filterConfig: [],
       defaultPageSize: 12,
       displayLayoutConfig: {
         minWidth: 150,
@@ -280,6 +342,108 @@ export default defineComponent({
 
     const originalConfig = ref<any>(null)
     const currentFileName = ref<string>('')
+    /** 准备添加的基本资源类型 */
+    const kindToAdd = ref('')
+    /** 准备添加的筛选器 */
+    const filterToAdd = ref('')
+    /** 全部可勾选字段 */
+    const fieldCatalog = collectFieldCatalog()
+    /** 还没放进这个页面的基本资源类型 */
+    const kindsToAdd = computed(() => {
+      const selected = new Set(editingPage.value.acceptedKinds)
+      return BASIC_RESOURCE_KINDS.filter(kind => !selected.has(kind.id))
+    })
+    /** 还没放进这个页面的筛选器 */
+    const filterPresetsToAdd = computed(() => {
+      const used = new Set(editingPage.value.filterConfig.map((item: any) => item.key))
+      const presets = [
+        { id: 'missing-resources', title: '丢失的资源' },
+        { id: 'rating', title: '星级' },
+        { id: 'running-status', title: '正在使用' }
+      ]
+      const fieldPresets = fieldCatalog
+        .filter(field => field.filterable && editingPage.value.pageFields.includes(field.key))
+        .map(field => ({ id: `field:${field.key}`, title: `${field.label}筛选` }))
+      return [...presets, ...fieldPresets].filter(preset => !used.has(preset.id.startsWith('field:') ? preset.id.slice(6) : preset.id))
+    })
+
+    /** 基本资源类型的显示名 */
+    const kindLabel = (kindId: string) => findBasicKind(kindId)?.label || kindId
+    /** 基本资源类型的说明 */
+    const kindDescription = (kindId: string) => findBasicKind(kindId)?.description || ''
+
+    /**
+     * 调整接受顺序。
+     * 扩展名重叠时，靠前的类型会先匹配到文件。
+     */
+    const moveKind = (index: number, offset: number) => {
+      const nextIndex = index + offset
+      const list = editingPage.value.acceptedKinds
+      if (nextIndex < 0 || nextIndex >= list.length) return
+      const [item] = list.splice(index, 1)
+      list.splice(nextIndex, 0, item)
+    }
+
+    /** 从页面接受列表里拿掉一种资源。至少留一种。 */
+    const removeKind = async (index: number) => {
+      if (editingPage.value.acceptedKinds.length <= 1) {
+        await alertService.warning('页面至少要接受一种资源', '提示')
+        return
+      }
+      editingPage.value.acceptedKinds.splice(index, 1)
+    }
+
+    /** 把选中的基本资源类型加到页面上。 */
+    const addKind = () => {
+      if (!kindToAdd.value || editingPage.value.acceptedKinds.includes(kindToAdd.value)) return
+      editingPage.value.acceptedKinds.push(kindToAdd.value)
+      kindToAdd.value = ''
+    }
+
+    /** 勾选或取消一个页面字段。不改已经保存的资源。 */
+    const togglePageField = (fieldKey: string) => {
+      const fields = editingPage.value.pageFields
+      const index = fields.indexOf(fieldKey)
+      if (index >= 0) fields.splice(index, 1)
+      else fields.push(fieldKey)
+    }
+
+    /** 去掉一个筛选器。 */
+    const removeFilter = (index: number) => {
+      editingPage.value.filterConfig.splice(index, 1)
+    }
+
+    /** 按预设加上一个筛选器。 */
+    const addFilter = () => {
+      const presetId = filterToAdd.value
+      if (!presetId) return
+      if (presetId === 'missing-resources') {
+        editingPage.value.filterConfig.push({
+          key: 'missing-resources',
+          title: '丢失的资源',
+          filterType: 'missingResources',
+          params: { missingLabel: '丢失的资源' }
+        })
+      } else if (presetId === 'rating') {
+        editingPage.value.filterConfig.push({
+          key: 'rating',
+          title: '星级筛选',
+          filterType: 'rating',
+          params: {}
+        })
+      } else if (presetId === 'running-status') {
+        editingPage.value.filterConfig.push({
+          key: 'running-status',
+          title: '正在使用',
+          filterType: 'runningStatus',
+          params: { runningLabel: '正在使用' }
+        })
+      } else if (presetId.startsWith('field:')) {
+        const field = fieldCatalog.find(item => item.key === presetId.slice(6))
+        if (field) editingPage.value.filterConfig.push(makeFieldFilter(field))
+      }
+      filterToAdd.value = ''
+    }
 
     const loadPageConfig = async (pageId: string) => {
       try {
@@ -294,10 +458,18 @@ export default defineComponent({
         if (configResult?.success && configResult.data) {
           const config = JSON.parse(JSON.stringify(configResult.data))
           originalConfig.value = config
+          const legacyTypes = Array.isArray(config.resourceTypes) ? config.resourceTypes : []
           editingPage.value = {
             name: config.name || '',
             icon: config.icon || '',
             description: config.description || '',
+            acceptedKinds: Array.isArray(config.acceptedKinds) && config.acceptedKinds.length
+              ? [...config.acceptedKinds]
+              : defaultAcceptedKindIds(legacyTypes),
+            pageFields: Array.isArray(config.pageFields)
+              ? [...config.pageFields]
+              : defaultFieldKeys(legacyTypes),
+            filterConfig: Array.isArray(config.filterConfig) ? JSON.parse(JSON.stringify(config.filterConfig)) : [],
             defaultPageSize: config.defaultPageSize || 12,
             displayLayoutConfig: config.displayLayoutConfig || {
               minWidth: 150,
@@ -335,13 +507,21 @@ export default defineComponent({
           await alertService.error('保存失败，缺少配置信息', '错误')
           return
         }
+        if (!editingPage.value.acceptedKinds.length) {
+          await alertService.warning('页面至少要接受一种资源', '提示')
+          return
+        }
 
-        // 转换为普通对象，避免Vue响应式对象无法克隆的问题
+        // 只写页面配置。接受的资源、字段和筛选器都不改已经保存的资源记录。
+        // resourceTypes 保持原样，旧数据仍按原来的结构读取。
         const updatedConfig = JSON.parse(JSON.stringify({
           ...originalConfig.value,
           name: editingPage.value.name,
           icon: editingPage.value.icon,
           description: editingPage.value.description,
+          acceptedKinds: editingPage.value.acceptedKinds,
+          pageFields: editingPage.value.pageFields,
+          filterConfig: editingPage.value.filterConfig,
           defaultPageSize: editingPage.value.defaultPageSize,
           displayLayoutConfig: editingPage.value.displayLayoutConfig,
           emptyStateConfig: editingPage.value.emptyStateConfig,
@@ -406,7 +586,20 @@ export default defineComponent({
       handleClose,
       handleSave,
       addSortOption,
-      removeSortOption
+      removeSortOption,
+      kindToAdd,
+      filterToAdd,
+      fieldCatalog,
+      kindsToAdd,
+      filterPresetsToAdd,
+      kindLabel,
+      kindDescription,
+      moveKind,
+      removeKind,
+      addKind,
+      togglePageField,
+      removeFilter,
+      addFilter
     }
   }
 })
@@ -539,6 +732,82 @@ export default defineComponent({
 
 .btn-secondary:hover {
   background: rgba(255, 255, 255, 0.05);
+}
+
+.field-hint {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin: 0 0 12px;
+}
+
+.check-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.check-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.type-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.type-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-tertiary);
+}
+
+.type-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.type-label {
+  font-weight: 600;
+}
+
+.type-desc {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.type-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.add-type-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.type-select {
+  flex: 1;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px 10px;
 }
 
 .sort-options-list {

@@ -223,6 +223,7 @@ declare global {
       sqliteGetPageData: (pageId: string) => Promise<{ ok: boolean; data?: Array<any>; message?: string }>
       sqliteDeleteResource: (tableName: string, resourceId: string) => Promise<{ ok: boolean; message?: string }>
       sqliteDeletePageData: (pageId: string) => Promise<{ ok: boolean; message?: string }>
+      sqliteFindResourceByPath: (filePath: string) => Promise<{ ok: boolean; resource?: any; tableName?: string; message?: string }>
       sqliteSaveResource: (resourceType: string, resource: any) => Promise<{ ok: boolean; message?: string }>
       sqliteAddResourceToPage: (pageId: string, resourceType: string, resourceId: string) => Promise<{ ok: boolean; message?: string }>
       sqliteSavePageResources: (pageId: string, resources: Array<any>) => Promise<{ ok: boolean; message?: string }>

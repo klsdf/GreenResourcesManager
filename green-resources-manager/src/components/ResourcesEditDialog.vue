@@ -8,6 +8,12 @@
       </div>
       <div class="modal-body">
         <!-- 调试信息：如果 resourceClass 不可用，显示警告 -->
+        <div v-if="mode === 'add' && typeChoices.length > 1" class="form-field-wrapper">
+          <label class="form-label">这种文件是</label>
+          <select class="type-choice" :value="selectedType" @change="onTypeChoiceChange">
+            <option v-for="choice in typeChoices" :key="choice.id" :value="choice.id">{{ choice.label }}</option>
+          </select>
+        </div>
         <div v-if="!resourceClass || typeof resourceClass !== 'function'" class="form-error-message">
           <p>⚠️ 资源类未正确加载，请检查 resourceClass prop 是否正确传递</p>
           <p>resourceClass: {{ resourceClass }}</p>
@@ -352,6 +358,21 @@ export default {
       type: Function,
       required: true
     } as any,
+    /** 页面接受的资源种类。多于一种时，添加窗口让用户选 */
+    typeChoices: {
+      type: Array,
+      default: () => []
+    },
+    /** 当前选中的基本资源类型 */
+    selectedType: {
+      type: String,
+      default: ''
+    },
+    /** 页面勾选的字段。不传则显示资源类上的全部编辑字段 */
+    enabledFieldKeys: {
+      type: Array as PropType<string[] | null>,
+      default: null
+    },
     // 资源数据（编辑模式）
     resourceData: {
       type: Object,
@@ -432,7 +453,7 @@ export default {
       default: null
     }
   },
-  emits: ['close', 'confirm', 'use-first-image-cover', 'select-from-folder-cover', 'select-from-folder-covers', 'randomize-thumbnail', 'video-file-selected'],
+  emits: ['close', 'confirm', 'use-first-image-cover', 'select-from-folder-cover', 'select-from-folder-covers', 'randomize-thumbnail', 'video-file-selected', 'change-type'],
   setup(props) {
     // 提取所有 FormField 类型的字段，保持类中定义的顺序
     // 支持两种形式：直接使用 FormField 或使用 ResourceField（从 editType 中提取）
@@ -457,11 +478,13 @@ export default {
       for (const key in resourceInstance) {
         const value = (resourceInstance as any)[key]
         if (value instanceof ResourceField) {
+          if (Array.isArray(props.enabledFieldKeys) && !props.enabledFieldKeys.includes(key)) continue
           // 如果是 ResourceField，使用其 editType（只有当 editType 不为 null 时才添加）
           if (value.editType) {
             fields[key] = value.editType
           }
         } else if (value instanceof FormFieldType) {
+          if (Array.isArray(props.enabledFieldKeys) && !props.enabledFieldKeys.includes(key)) continue
           // 如果是 FormField，直接使用
           fields[key] = value
         }
@@ -634,6 +657,11 @@ export default {
         })
       }
     },
+    resourceClass() {
+      if (this.visible && !this.isEditMode) {
+        this.$nextTick(() => this.resetForm())
+      }
+    },
     resourceData: {
       handler(newVal) {
         if (newVal && this.visible && this.isEditMode) {
@@ -659,6 +687,13 @@ export default {
     }
   },
   methods: {
+    /**
+     * 添加时切换资源种类。字段会跟着新的资源类重画，已填内容不保留。
+     */
+    onTypeChoiceChange(event: Event) {
+      const value = (event.target as HTMLSelectElement).value
+      this.$emit('change-type', value)
+    },
     // 安全地创建资源实例的辅助方法
     createResourceInstance() {
       if (!this.resourceClass || typeof this.resourceClass !== 'function') {
@@ -1733,6 +1768,15 @@ export default {
 
 .form-field-wrapper {
   margin-bottom: 20px;
+}
+
+.type-choice {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .form-label {

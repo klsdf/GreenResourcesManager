@@ -36,7 +36,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
 export const TEMPLATE_FILE_NAMES = new Set(PAGE_TEMPLATES.map(template => template.fileName))
 
 /** 删除页面时必须原样输入的确认文字。 */
-export const DELETE_PAGE_CONFIRM_TEXT = '我已知晓数据丢失风险'
+export const DELETE_PAGE_CONFIRM_TEXT = '我已知晓页面会被移除'
 
 /**
  * 判断配置文件名是不是安全的页面文件名。

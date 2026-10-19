@@ -52,7 +52,7 @@
           v-for="item in paginatedItems"
           :key="item.id?.value || item.id"
           :item="item"
-          :type="(resourceType || 'game').toLowerCase()"
+          :type="cardTypeForResource(item, (resourceType || 'game').toLowerCase())"
           :is-electron-environment="isElectronEnvironment"
           :file-exists="getFileExists(item)"
           :scale="scale"
@@ -108,7 +108,10 @@
     <ResourcesEditDialog
       :visible="showAddDialog"
       mode="add"
-      :resource-class="ResourceClass"
+      :resource-class="addResourceClass"
+      :type-choices="acceptedTypeChoices"
+      :selected-type="addingPageType"
+      :enabled-field-keys="pageFieldKeys"
       :is-electron-environment="isElectronEnvironment"
       :available-tags="allTags"
       :available-tags-by-field="availableTagsByField"
@@ -116,6 +119,7 @@
       :enable-screenshot-cover="dialogConfig.enableScreenshotCover"
       :enable-randomize-thumbnail="dialogConfig.enableRandomizeThumbnail"
       :add-title="dialogConfig.addTitle"
+      @change-type="addingPageType = $event"
       :edit-title="dialogConfig.editTitle"
       :add-button-text="dialogConfig.addButtonText"
       :edit-button-text="dialogConfig.editButtonText"
@@ -129,7 +133,8 @@
     <ResourcesEditDialog
       :visible="showEditDialog"
       mode="edit"
-      :resource-class="ResourceClass"
+      :resource-class="editResourceClass"
+      :enabled-field-keys="pageFieldKeys"
       :resource-data="editForm"
       :is-electron-environment="isElectronEnvironment"
       :available-tags="allTags"
@@ -372,6 +377,7 @@ import ScraperUpdateDialog from './ScraperUpdateDialog.vue'
 import type { FilterItem } from '../types/filter'
 import coverManager from '../utils/CoverManager.ts'
 import { fingerprintKindForResource, fingerprintPageCount, isSameFingerprintIdentity, readFingerprint, writeFingerprint } from '../utils/resourceFingerprint.ts'
+import { cardTypeForResource, classForKind, defaultAcceptedKindIds, extensionsForSearch, findBasicKind, getResourceClassBySavedType, matchAcceptedKind, savedTypeOfClass } from '../configs/resources/resourceKindCatalog'
 
 // 刮削数据专有字段，不写入主存档
 const SCRAPER_ONLY_KEYS = ['resourceFileName', 'resourceFolderName']
@@ -535,6 +541,71 @@ export default defineComponent({
       return config
     })
 
+    /**
+     * 这个页面接受的基本资源类型。
+     * 只决定新文件能不能放进来，以及新文件按哪种方式打开。
+     * 已经保存的记录仍按自己的 resourceType 读取。
+     */
+    const legacyResourceTypes = computed((): string[] => {
+      const configured = pageConfig.value?.resourceTypes
+      if (Array.isArray(configured) && configured.length > 0) return configured
+      const fallback = props.pageConfig?.type || props.resourceType
+      return fallback ? [String(fallback)] : []
+    })
+    const acceptedKindIds = computed((): string[] => {
+      const configured = pageConfig.value?.acceptedKinds
+      if (Array.isArray(configured) && configured.length > 0) {
+        return configured.filter((kindId: string) => !!findBasicKind(kindId))
+      }
+      return defaultAcceptedKindIds(legacyResourceTypes.value)
+    })
+    /** 页面编辑时要显示的字段。没配过就不过滤，沿用资源类上的全部字段 */
+    const pageFieldKeys = computed((): string[] | null => {
+      const fields = pageConfig.value?.pageFields
+      return Array.isArray(fields) ? fields : null
+    })
+
+    /** 添加窗口当前选中的基本资源类型 */
+    const addingPageType = ref(acceptedKindIds.value[0] || 'executable')
+    /** 添加窗口使用的资源类。打开方式由这种文件决定，字段再由页面字段名单裁剪 */
+    const addResourceClass = computed(() => classForKind(addingPageType.value, legacyResourceTypes.value) || ResourceClass)
+    /** 添加窗口里可选的基本资源类型 */
+    const acceptedTypeChoices = computed(() => {
+      return acceptedKindIds.value.map(kindId => ({
+        id: kindId,
+        label: findBasicKind(kindId)?.label || kindId
+      }))
+    })
+    /** 右键点中的那一条，菜单跟它的资源类走 */
+    const contextMenuTarget = ref<any>(null)
+
+    /**
+     * 按存档里的 resourceType 还原成对应的资源类。
+     * 认不出时才退回页面的默认类，避免整页打不开。
+     */
+    const instantiateSavedResource = (data: any) => {
+      const savedType = data?.resourceType || data?.resource_type
+      const matchedClass = getResourceClassBySavedType(savedType) || ResourceClass
+      return matchedClass.fromJSON(data)
+    }
+
+    /** 资源类构造函数名对应页面配置里的类型名，封面目录按这个分，不按页面的第一种类型分 */
+    const PAGE_TYPE_BY_CLASS_NAME: Record<string, string> = {
+      Game: 'Game',
+      Software: 'Software',
+      Manga: 'Image',
+      SingleImage: 'SingleImage',
+      Video: 'Video',
+      VideoFolder: 'Anime',
+      Novel: 'Novel',
+      Website: 'Website',
+      Audio: 'Audio',
+      Other: 'Other'
+    }
+    const pageTypeOfResource = (resource: any) => {
+      return PAGE_TYPE_BY_CLASS_NAME[resource?.constructor?.name] || resourceType.value
+    }
+
     // 获取对话框配置
     const dialogConfig = computed(() => {
       return pageConfig.value?.dialogConfig || {
@@ -610,6 +681,54 @@ export default defineComponent({
     }
     
     /**
+     * 取出资源上的文件路径。
+     */
+    const readItemPath = (item: any): string => {
+      return String(BaseResources.extractPrimitiveValue(
+        item?.resourcePath?.value || item?.resourcePath || item?.executablePath?.value || item?.executablePath || ''
+      ) || '')
+    }
+
+    /**
+     * 这一页里是不是已经有这个文件或这条记录。
+     */
+    const pageAlreadyHas = (filePath: string, resourceId?: string): boolean => {
+      return items.value.some((item: any) => {
+        if (resourceId && String(BaseResources.extractPrimitiveValue(item.id?.value || item.id)) === resourceId) return true
+        const itemPath = readItemPath(item)
+        return !!itemPath && isSameResourcePath(itemPath, filePath)
+      })
+    }
+
+    /**
+     * 按路径把已经入库的资源接进当前页面。
+     * 找不到时返回 null，调用方再新建一条。
+     */
+    const attachExistingResource = async (filePath: string): Promise<any | null> => {
+      if (!isElectronEnvironment.value || !window.electronAPI?.sqliteFindResourceByPath) return null
+      let result: { ok: boolean; resource?: any; message?: string }
+      try {
+        result = await window.electronAPI.sqliteFindResourceByPath(filePath)
+      } catch (error: any) {
+        const message = String(error?.message || error)
+        if (message.includes('No handler registered')) {
+          throw new Error('请完全退出应用后重新打开，再拖入文件。只刷新页面不会接上已有记录')
+        }
+        throw error
+      }
+      if (!result?.ok || !result.resource) return null
+
+      const saved = result.resource
+      const resourceId = String(saved.id || '')
+      if (pageAlreadyHas(filePath, resourceId)) return null
+
+      const SavedClass = getResourceClassBySavedType(saved.resourceType) || ResourceClass
+      const resource = SavedClass.fromJSON(saved)
+      items.value.push(resource)
+      return resource
+    }
+
+    /**
      * 处理拖拽文件
      */
     const handleFileDrop = async (files: File[]) => {
@@ -622,6 +741,7 @@ export default defineComponent({
         }
         
         let addedCount = 0
+        let linkedCount = 0
         let failedCount = 0
         let typeMismatchCount = 0
         /** 这次拖入里，第一个「同名但原文件已丢失」的文件，留给路径更新对话框 */
@@ -656,16 +776,8 @@ export default defineComponent({
             
             console.log(`[GenericResourceView] 处理文件: ${file.name}, 扩展名: ${fileExt}, 是否为文件夹: ${isFolder}`)
             
-            // 检查是否已存在相同路径
-            const existingItem = items.value.find((item: any) => {
-              const itemPath = BaseResources.extractPrimitiveValue(
-                item.resourcePath?.value || item.resourcePath
-              )
-              return itemPath === filePath
-            })
-            
-            if (existingItem) {
-              console.log(`[GenericResourceView] 资源已存在: ${file.name}`)
+            if (pageAlreadyHas(filePath)) {
+              console.log(`[GenericResourceView] 资源已在当前页面: ${file.name}`)
               failedCount++
               continue
             }
@@ -681,62 +793,29 @@ export default defineComponent({
               break
             }
             
-            // 根据页面配置的 resourceTypes 自动匹配资源类型
-            const pageResourceTypes = props.pageConfig?.resourceTypes || [resourceType.value]
-            console.log('[GenericResourceView] 页面支持的资源类型:', pageResourceTypes)
-            
-            let matchedResourceType: string | null = null
-            let MatchedResourceClass: any = null
-            
-            // 遍历页面支持的资源类型，找到第一个匹配的
-            for (const resType of pageResourceTypes) {
-              const config = resourceClassMap[resType]
-              if (!config) {
-                console.warn(`[GenericResourceView] 未找到资源类型配置: ${resType}`)
-                continue
-              }
-              
-              const ResourceClassToCheck = config.resourceClass
-              const acceptedExtensions = ResourceClassToCheck.acceptedExtensions || []
-              
-              console.log(`[GenericResourceView] 检查资源类型 ${resType}, 接受的扩展名:`, acceptedExtensions)
-              
-              // 检查是否接受所有文件类型
-              if (acceptedExtensions.includes('*')) {
-                matchedResourceType = resType
-                MatchedResourceClass = ResourceClassToCheck
-                console.log(`[GenericResourceView] 匹配成功（接受所有类型）: ${resType}`)
-                break
-              }
-              
-              // 如果是文件夹，检查是否接受文件夹
-              if (isFolder && acceptedExtensions.includes('<folder>')) {
-                matchedResourceType = resType
-                MatchedResourceClass = ResourceClassToCheck
-                console.log(`[GenericResourceView] 匹配成功（文件夹）: ${resType}`)
-                break
-              }
-              
-              // 检查文件扩展名是否匹配（非文件夹情况）
-              if (!isFolder && acceptedExtensions.some((ext: string) => ext.toLowerCase() === fileExt)) {
-                matchedResourceType = resType
-                MatchedResourceClass = ResourceClassToCheck
-                console.log(`[GenericResourceView] 匹配成功: ${resType}`)
-                break
-              }
-            }
-            
-            // 如果没有匹配的资源类型
-            if (!matchedResourceType || !MatchedResourceClass) {
-              console.warn(`[GenericResourceView] 文件 ${file.name} 不匹配页面的资源类型配置`)
+            const matchedKind = matchAcceptedKind(fileExt, isFolder, acceptedKindIds.value)
+            const MatchedResourceClass = matchedKind
+              ? classForKind(matchedKind.id, legacyResourceTypes.value)
+              : null
+
+            if (!matchedKind || !MatchedResourceClass) {
+              console.warn(`[GenericResourceView] 文件 ${file.name} 不在这个页面接受的资源里`)
               typeMismatchCount++
+              continue
+            }
+
+            // 别的页面，或之前从页面里拿掉的同一份文件，接回原来的记录。
+            const linked = await attachExistingResource(filePath)
+            if (linked) {
+              addedCount++
+              linkedCount++
               continue
             }
             
             // 创建匹配到的资源类型
             const resourceData: any = {
               id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              resourceType: matchedResourceType === 'Anime' ? 'videoFolder' : (matchedResourceType === 'Video' ? 'video' : matchedResourceType.toLowerCase()),
+              resourceType: savedTypeOfClass(MatchedResourceClass),
               name: extractNameFromPath(file.name),
               description: '',
               tags: [],
@@ -751,7 +830,7 @@ export default defineComponent({
             }
             
             // 自动扫描图片并设置封面（仅针对图片/漫画类型）
-            if ((matchedResourceType === 'Image' || matchedResourceType === 'Manga') && isElectronEnvironment.value && window.electronAPI) {
+            if (matchedKind.id === 'imageFolder' && isElectronEnvironment.value && window.electronAPI) {
               console.log('[GenericResourceView] 开始扫描图片并设置封面:', filePath)
               
               // 检查是否为压缩包
@@ -800,7 +879,7 @@ export default defineComponent({
 
             // 电影是单个视频文件。拖进来时顺手截一帧当封面，并读时长。
             // 以前这里只建一条空 thumbnail 的记录，卡片就会一直停在默认图。
-            if (matchedResourceType === 'Video' && !isFolder) {
+            if (matchedKind.id === 'video' && !isFolder) {
               try {
                 const duration = await getVideoDuration(filePath)
                 if (duration > 0) {
@@ -832,12 +911,12 @@ export default defineComponent({
             
             // 使用匹配到的资源类创建实例
             const resource = MatchedResourceClass.fromJSON(resourceData)
-            console.log(`[GenericResourceView] 创建资源对象 (类型: ${matchedResourceType}):`, resource)
+            console.log(`[GenericResourceView] 创建资源对象 (类型: ${matchedKind.id}):`, resource)
 
             // 把封面复制进存档目录。这样以后原文件或原文件夹没了，卡片仍然能显示这张封面。
             const resourceId = BaseResources.extractPrimitiveValue(resource.id?.value || resource.id || resourceData.id)
             if (resourceId) {
-              const processed = await coverManager.processCoverForResource(resource, matchedResourceType, String(resourceId))
+              const processed = await coverManager.processCoverForResource(resource, pageTypeOfResource(resource), String(resourceId))
               if (processed) Object.assign(resource, processed)
             }
 
@@ -853,7 +932,7 @@ export default defineComponent({
           notify.toast(
             'success',
             '添加成功',
-            `成功添加 ${addedCount} 个资源${failedCount > 0 ? `，${failedCount} 个失败` : ''}${typeMismatchCount > 0 ? `，${typeMismatchCount} 个类型不匹配` : ''}`
+            `成功添加 ${addedCount} 个资源${linkedCount > 0 ? `，其中 ${linkedCount} 个接上了已有记录` : ''}${failedCount > 0 ? `，${failedCount} 个失败` : ''}${typeMismatchCount > 0 ? `，${typeMismatchCount} 个类型不匹配` : ''}`
           )
         } else if (typeMismatchCount > 0) {
           notify.toast(
@@ -1173,7 +1252,8 @@ export default defineComponent({
           { key: 'batchDelete', icon: '🗑️', label: '批量删除文件' }
         ]
       } else {
-        return [...(ResourceClass.contextMenuItems || []), { key: 'scraper', icon: '📥', label: '刮削' }]
+        const menuClass = contextMenuTarget.value?.constructor || ResourceClass
+        return [...(menuClass.contextMenuItems || []), { key: 'scraper', icon: '📥', label: '刮削' }]
       }
     })
 
@@ -1359,8 +1439,9 @@ export default defineComponent({
           return isResourceRunning(resource)
         },
         addRunningResource: (resourceInfo: any) => {
-          // 凡配置了 launchExecutable 的资源（游戏、软件等）都登记到运行列表
-          if (supportsRunningTracking.value) {
+          // 能不能记运行时长，看这条资源自己的打开方式，不看页面的第一种类型
+          const handlerName = resource?.constructor?.getActionHandlerName?.()
+          if (handlerName === 'launchExecutable') {
             gameRunningStore.addRunningGame({
               id: resourceInfo.id,
               pid: resourceInfo.pid,
@@ -1370,9 +1451,7 @@ export default defineComponent({
           }
         },
         removeRunningResource: (resourceId: string) => {
-          if (supportsRunningTracking.value) {
-            gameRunningStore.removeRunningGame(resourceId)
-          }
+          gameRunningStore.removeRunningGame(resourceId)
         },
         getInitialPlayTime: (resourceId: string) => {
           // 获取资源启动时的初始 playTime
@@ -1726,12 +1805,24 @@ export default defineComponent({
           items.value.splice(index, 1)
         }
       },
-      scraper: async (item: any) => {
+        scraper: async (item: any) => {
         if (!isElectronEnvironment.value || !window.electronAPI?.scraperDbSearch) {
           notify.toast('error', '刮削', '当前环境不支持刮削功能')
           return
         }
-        const rt = resourceType.value
+        const classNameToPageType: Record<string, string> = {
+          Game: 'Game',
+          Software: 'Software',
+          Manga: 'Image',
+          SingleImage: 'SingleImage',
+          Video: 'Video',
+          VideoFolder: 'Anime',
+          Novel: 'Novel',
+          Website: 'Website',
+          Audio: 'Audio',
+          Other: 'Other'
+        }
+        const rt = classNameToPageType[item?.constructor?.name] || resourceType.value
         const scraperTable = RESOURCE_TYPE_TO_SCRAPER_TABLE[rt]
         if (!scraperTable) {
           notify.toast('error', '刮削', `资源类型 ${rt} 暂不支持刮削`)
@@ -1796,7 +1887,7 @@ export default defineComponent({
           const success = await calculateAndUpdateResourceSize(
             item, 
             isElectronEnvironment.value, 
-            resourceType.value === 'Game' // 游戏类型计算文件夹大小
+            pageTypeOfResource(item) === 'Game'
           )
           
           console.log('[GenericResourceView] 文件夹大小计算结果:', {
@@ -1994,7 +2085,7 @@ export default defineComponent({
       crudConfig: {
         items: items,
         onAdd: async (data: any) => {
-          const newItem = new ResourceClass()
+          const newItem = new (addResourceClass.value || ResourceClass)()
           console.log('[GenericResourceView] onAdd 开始 - data:', data)
           console.log('[GenericResourceView] onAdd 开始 - newItem 初始 id:', newItem.id?.value)
           
@@ -2015,7 +2106,7 @@ export default defineComponent({
           const resourceId = BaseResources.extractPrimitiveValue(newItem.id?.value || newItem.id)
           if (resourceId) {
             console.log('[GenericResourceView] 准备处理封面...')
-            const processedItem = await coverManager.processCoverForResource(newItem, resourceType.value, resourceId)
+            const processedItem = await coverManager.processCoverForResource(newItem, pageTypeOfResource(newItem), resourceId)
             if (processedItem) {
               Object.assign(newItem, processedItem)
               console.log('[GenericResourceView] 封面处理完成')
@@ -2031,7 +2122,7 @@ export default defineComponent({
             await calculateAndUpdateResourceSize(
               newItem, 
               isElectronEnvironment.value, 
-              resourceType.value === 'Game' // 游戏类型计算文件夹大小
+              pageTypeOfResource(newItem) === 'Game'
             )
           }
           
@@ -2064,7 +2155,7 @@ export default defineComponent({
               console.log('[GenericResourceView] 封面已更新，准备处理封面...')
               const resourceId = BaseResources.extractPrimitiveValue(item.id?.value || item.id)
               if (resourceId) {
-                const processedItem = await coverManager.processCoverForResource(item, resourceType.value, resourceId)
+                const processedItem = await coverManager.processCoverForResource(item, pageTypeOfResource(item), resourceId)
                 if (processedItem) {
                   Object.assign(item, processedItem)
                   console.log('[GenericResourceView] 封面处理完成')
@@ -2084,7 +2175,7 @@ export default defineComponent({
                   await calculateAndUpdateResourceSize(
                     item, 
                     isElectronEnvironment.value, 
-                    resourceType.value === 'Game' // 游戏类型计算文件夹大小
+                    pageTypeOfResource(item) === 'Game'
                   )
                 }
               }
@@ -2143,6 +2234,17 @@ export default defineComponent({
       //     { key: 'remove', icon: '🗑️', label: '删除', class: 'btn-remove' }
       //   ]
       // }
+    })
+
+    /**
+     * 编辑窗口用被编辑那一条自己的资源类。
+     * 编辑数据是拷贝出来的普通对象，所以要回到列表里找原来的实例。
+     */
+    const editResourceClass = computed(() => {
+      const form: any = resourcePage.editForm.value
+      const formId = form?.id?.value || form?.id
+      const item = items.value.find((entry: any) => (entry.id?.value || entry.id) === formId)
+      return item?.constructor || addResourceClass.value || ResourceClass
     })
 
     // 获取文件存在性状态（辅助函数）
@@ -2407,7 +2509,11 @@ export default defineComponent({
     const confirmScraperUpdate = async (match: any) => {
       const item = scraperCurrentItem.value
       if (!item || !window.electronAPI?.scraperDbApply || !isElectronEnvironment.value) return
-      const rt = resourceType.value
+      const classNameToPageType: Record<string, string> = {
+        Game: 'Game', Software: 'Software', Manga: 'Image', SingleImage: 'SingleImage',
+        Video: 'Video', VideoFolder: 'Anime', Novel: 'Novel', Website: 'Website', Audio: 'Audio', Other: 'Other'
+      }
+      const rt = classNameToPageType[item?.constructor?.name] || resourceType.value
       const scraperTable = RESOURCE_TYPE_TO_SCRAPER_TABLE[rt]
       const mainId = BaseResources.extractPrimitiveValue(item.id?.value ?? item.id)
       if (!mainId || !scraperTable || !match?.jsonData) {
@@ -2619,11 +2725,15 @@ export default defineComponent({
         return
       }
       
-      const updatedCount = await calculateResourceSizesBatch(
-        resourcesToCalculate,
-        isElectronEnvironment.value,
-        resourceType.value === 'Game' // 游戏类型计算文件夹大小
-      )
+      const gameResources = resourcesToCalculate.filter((item: any) => pageTypeOfResource(item) === 'Game')
+      const otherResources = resourcesToCalculate.filter((item: any) => pageTypeOfResource(item) !== 'Game')
+      let updatedCount = 0
+      if (gameResources.length > 0) {
+        updatedCount += await calculateResourceSizesBatch(gameResources, isElectronEnvironment.value, true)
+      }
+      if (otherResources.length > 0) {
+        updatedCount += await calculateResourceSizesBatch(otherResources, isElectronEnvironment.value, false)
+      }
       if (updatedCount > 0) {
         await saveData()
       }
@@ -2638,16 +2748,11 @@ export default defineComponent({
         return
       }
 
-      const cardConfig = ResourceClass.cardDisplayConfig ||
-                        (typeof ResourceClass.getCardDisplayConfig === 'function'
-                          ? ResourceClass.getCardDisplayConfig()
-                          : null)
-      if (cardConfig?.badge?.field !== 'pagesCount') {
-        return
-      }
-
-      // 筛选：有 resourcePath，且 pagesCount 为空（undefined、null 或 0）才计算
+      // 只算自己带页数字段的资源，不要求整个页面都是漫画
       const resourcesToCalculate = items.value.filter((item: any) => {
+        const cardConfig = item.constructor?.cardDisplayConfig ||
+          (typeof item.constructor?.getCardDisplayConfig === 'function' ? item.constructor.getCardDisplayConfig() : null)
+        if (cardConfig?.badge?.field !== 'pagesCount') return false
         const resourcePath = BaseResources.extractPrimitiveValue(
           item.resourcePath?.value || item.resourcePath
         )
@@ -2695,16 +2800,11 @@ export default defineComponent({
 
     // 自动计算番剧/视频文件夹的视频数量（仅针对配置了 videoCount 且尚未有数据的资源；有值则不覆盖）
     const calculateAnimeVideoCounts = async () => {
-      const cardConfig = ResourceClass.cardDisplayConfig ||
-                        (typeof ResourceClass.getCardDisplayConfig === 'function'
-                          ? ResourceClass.getCardDisplayConfig()
-                          : null)
-      if (cardConfig?.badge?.field !== 'videoCount') {
-        return
-      }
-
-      // 筛选：有 resourcePath，且 videoCount 为空（undefined、null 或 0）才计算
+      // 只算自己带视频数字段的资源
       const resourcesToCalculate = items.value.filter((item: any) => {
+        const cardConfig = item.constructor?.cardDisplayConfig ||
+          (typeof item.constructor?.getCardDisplayConfig === 'function' ? item.constructor.getCardDisplayConfig() : null)
+        if (cardConfig?.badge?.field !== 'videoCount') return false
         const resourcePath = BaseResources.extractPrimitiveValue(
           item.resourcePath?.value || item.resourcePath
         )
@@ -2785,7 +2885,7 @@ export default defineComponent({
         const coverInfo = coverManager.extractCoverFromResource(item)
         if (!resourceId || !coverInfo || !coverManager.shouldProcessCover(coverInfo.value)) continue
         try {
-          const processed = await coverManager.processCoverForResource(item, resourceType.value, String(resourceId))
+          const processed = await coverManager.processCoverForResource(item, pageTypeOfResource(item), String(resourceId))
           const nextCover = coverManager.extractCoverFromResource(processed)
           if (nextCover && nextCover.value !== coverInfo.value) {
             Object.assign(item, processed)
@@ -2979,7 +3079,7 @@ export default defineComponent({
           const converted: any[] = []
           for (let i = 0; i < (loadedData?.length || 0); i++) {
             try {
-              converted.push(ResourceClass.fromJSON(loadedData[i]))
+              converted.push(instantiateSavedResource(loadedData[i]))
             } catch (e) {
               console.error(`[GenericResourceView] fromJSON 第 ${i} 条失败:`, loadedData[i], e)
               throw e
@@ -3048,7 +3148,7 @@ export default defineComponent({
             if (!result?.ok) return
             const loadedData = result.data || []
             if (ResourceClass && ResourceClass.fromJSON) {
-              items.value = loadedData.map((d: any) => ResourceClass.fromJSON(d))
+              items.value = loadedData.map((d: any) => instantiateSavedResource(d))
             } else {
               items.value = loadedData
             }
@@ -3095,18 +3195,16 @@ export default defineComponent({
       
       // 启动定时器，定期触发行时长更新（每1秒）（凡使用 launchExecutable 的页面都参与）
       playtimeUpdateTimer = setInterval(() => {
-        if (supportsRunningTracking.value) {
-          const runningIds = gameRunningStore.runningGameIds
-          if (runningIds && runningIds.length > 0) {
-            runningIds.forEach((resourceId: string) => {
-              const event = new CustomEvent('game-request-update-playtime', {
-                detail: { gameId: resourceId }
-              })
-              window.dispatchEvent(event)
+        const runningIds = gameRunningStore.runningGameIds
+        if (runningIds && runningIds.length > 0) {
+          runningIds.forEach((resourceId: string) => {
+            const event = new CustomEvent('game-request-update-playtime', {
+              detail: { gameId: resourceId }
             })
-          }
+            window.dispatchEvent(event)
+          })
         }
-      }, 1000) // 每1秒更新一次
+      }, 1000) // 每1秒更新一次。只有自己会启动的资源才会被登记进来
       
       // 组件挂载后自动检查文件存在性
       // 注意：数据加载在前面已经处理了，这里的 items.value 检查是为了处理传入 props.items 的情况
@@ -3120,12 +3218,12 @@ export default defineComponent({
         // 番剧页：首次进入时刷新所有未设置视频数量的资源的视频数
         await calculateAnimeVideoCounts()
         // 视频页：首次进入时刷新所有未知时长的视频（已有时长的不刷新）
-        if (resourceType.value === 'Video') {
+        if (items.value.some((item: any) => item?.constructor?.name === 'Video')) {
           refreshUnknownVideoDurations()
           refreshMissingVideoThumbnails()
         }
-        // 音频页：首次进入时刷新所有未知时长的音频（已有时长的不刷新）
-        if (resourceType.value === 'Audio' || pageConfig.value?.id === 'audio') {
+        // 音频：按每条资源自己的类型刷新，不看页面是不是音频页
+        if (items.value.some((item: any) => item?.constructor?.name === 'Audio')) {
           refreshUnknownAudioDurations()
         }
       }
@@ -3167,11 +3265,11 @@ export default defineComponent({
           await calculateResourceSizes()
           await calculateMangaPagesCounts()
           await calculateAnimeVideoCounts()
-          if (resourceType.value === 'Video') {
+          if (items.value.some((item: any) => item?.constructor?.name === 'Video')) {
             refreshUnknownVideoDurations()
             refreshMissingVideoThumbnails()
           }
-          if (resourceType.value === 'Audio' || pageConfig.value?.id === 'audio') {
+          if (items.value.some((item: any) => item?.constructor?.name === 'Audio')) {
             refreshUnknownAudioDurations()
           }
         }
@@ -3209,9 +3307,9 @@ export default defineComponent({
 
     // 番剧详情页是否显示视频列表（用于替换视频页时展示集数，包含空列表时显示“未找到视频”）
     const isAnimeWithFolderVideos = computed(() => {
-      if (resourceType.value !== 'Anime') return false
       const item = resourcePage.selectedItem.value
-      return !!item && Array.isArray(item.folderVideos)
+      if (!item || item.constructor?.name !== 'VideoFolder') return false
+      return Array.isArray(item.folderVideos)
     })
 
     // 播放番剧文件夹中的视频
@@ -3527,23 +3625,10 @@ export default defineComponent({
             return
           }
 
-          // 获取当前页面支持的资源类型
-          const pageResourceTypes = pageConfig.value?.resourceTypes || [resourceType.value]
-
-          // 收集所有匹配的扩展名
-          let allAcceptedExtensions: string[] = []
-          pageResourceTypes.forEach((resType: string) => {
-            const config = resourceClassMap[resType]
-            if (config && config.resourceClass && config.resourceClass.acceptedExtensions) {
-              allAcceptedExtensions = [...allAcceptedExtensions, ...config.resourceClass.acceptedExtensions]
-            }
-          })
-
-          // 去重
-          allAcceptedExtensions = [...new Set(allAcceptedExtensions)]
+          const searchExtensions = extensionsForSearch(acceptedKindIds.value)
 
           // 使用新的 API 递归搜索匹配的文件
-          const searchResult = await window.electronAPI.searchMatchingFiles(folderResult.path, allAcceptedExtensions)
+          const searchResult = await window.electronAPI.searchMatchingFiles(folderResult.path, searchExtensions)
           if (!searchResult.success) {
             notify.toast('error', '搜索文件失败', searchResult.error || '未知错误')
             return
@@ -3585,12 +3670,10 @@ export default defineComponent({
 
       try {
         let addedCount = 0
+        let linkedCount = 0
         let failedCount = 0
         /** 批量导入里遇到的第一部「同名且原文件已丢失」的资源 */
         let pendingPathUpdate: { existingItem: any; newPath: string; newFileName: string } | null = null
-
-        // 获取当前页面支持的资源类型
-        const pageResourceTypes = pageConfig.value?.resourceTypes || [resourceType.value]
 
         for (const relativeFilePath of selectedFiles) {
           // 拼接完整路径
@@ -3603,34 +3686,32 @@ export default defineComponent({
             ? '.' + lowerFileName.split('.').pop() 
             : ''
 
-          // 匹配资源类型
-          let matchedResourceType: string | null = null
-          let MatchedResourceClass: any = null
-          
-          for (const resType of pageResourceTypes) {
-            const config = resourceClassMap[resType]
-            if (!config) continue
-            
-            const ResourceClassToCheck = config.resourceClass
-            const acceptedExtensions = ResourceClassToCheck.acceptedExtensions || []
-            
-            // 检查文件扩展名是否匹配
-            if (acceptedExtensions.some((ext: string) => ext.toLowerCase() === fileExt)) {
-              matchedResourceType = resType
-              MatchedResourceClass = ResourceClassToCheck
-              break
-            }
+          const matchedKind = matchAcceptedKind(fileExt, false, acceptedKindIds.value)
+          const MatchedResourceClass = matchedKind
+            ? classForKind(matchedKind.id, legacyResourceTypes.value)
+            : null
+
+          if (!matchedKind || !MatchedResourceClass) {
+            failedCount++
+            continue
           }
 
-          if (!matchedResourceType || !MatchedResourceClass) {
+          if (pageAlreadyHas(fullFilePath)) {
             failedCount++
+            continue
+          }
+
+          const linked = await attachExistingResource(fullFilePath)
+          if (linked) {
+            addedCount++
+            linkedCount++
             continue
           }
 
           // 创建资源数据
           const resourceData: any = {
             id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            resourceType: matchedResourceType === 'Anime' ? 'videoFolder' : (matchedResourceType === 'Video' ? 'video' : matchedResourceType.toLowerCase()),
+            resourceType: savedTypeOfClass(MatchedResourceClass),
             name: extractNameFromPath(fileName),
             description: '',
             tags: [],
@@ -3703,7 +3784,7 @@ export default defineComponent({
             addedCount > 0 ? 'success' : 'warning',
             addedCount > 0 ? '导入成功' : '导入结果',
             addedCount > 0 
-              ? `成功导入 ${addedCount} 个资源${failedCount > 0 ? `，${failedCount} 个失败` : ''}`
+              ? `成功导入 ${addedCount} 个资源${linkedCount > 0 ? `，其中 ${linkedCount} 个接上了已有记录` : ''}${failedCount > 0 ? `，${failedCount} 个失败` : ''}`
               : `没有资源被导入（${failedCount} 个失败）`
           )
         }
@@ -3942,6 +4023,13 @@ export default defineComponent({
       handleBatchDeleteTag,
       handleBatchDelete,
       contextMenuItems,
+      contextMenuTarget,
+      addResourceClass,
+      editResourceClass,
+      acceptedTypeChoices,
+      addingPageType,
+      pageFieldKeys,
+      cardTypeForResource,
       // 明确声明方法，确保 TypeScript 能正确识别
       updateScale: resourcePage.updateScale,
       handleEmptyStateAction: resourcePage.handleEmptyStateAction,
@@ -4029,17 +4117,14 @@ export default defineComponent({
   },
   methods: {
     handleContextMenu(event: MouseEvent, item: any) {
-      (this.$refs.baseView as any)?.showContextMenuHandler(event, item)
+      this.contextMenuTarget = item
+      ;(this.$refs.baseView as any)?.showContextMenuHandler(event, item)
     },
     // 更新筛选器数据到 App.vue
     updateFilterData() {
       // 优先从 this 访问，如果不存在则从 filterComposable 访问
       const getFilterDataFn = (this as any).getFilterData || 
                              ((this as any)._filterComposable && (this as any)._filterComposable.getFilterData)
-      
-      console.log('[GenericResourceView] updateFilterData 被调用')
-      console.log('[GenericResourceView] getFilterDataFn 存在:', !!getFilterDataFn)
-      console.log('[GenericResourceView] _filterComposable 存在:', !!(this as any)._filterComposable)
       
       if (getFilterDataFn && typeof getFilterDataFn === 'function') {
         const filterData = getFilterDataFn()

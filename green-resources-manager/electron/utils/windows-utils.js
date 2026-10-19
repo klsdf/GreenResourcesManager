@@ -109,6 +109,67 @@ public class Win32 {
 }
 
 /**
+ * 一次拿出前台窗口的进程号和标题。
+ * 截图认窗口时如果分两次开 PowerShell，光是进程启动就要一两秒。合成一次调用，只在多个游戏或标题对不上时用。
+ * @returns {Promise<{pid: number|null, title: string|null}>}
+ */
+async function getForegroundWindowInfo() {
+  return new Promise((resolve, reject) => {
+    if (!isWindows()) {
+      reject(new Error('仅支持 Windows 平台'))
+      return
+    }
+
+    const psScript = `Add-Type -TypeDefinition @"
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+public class Win32Foreground {
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+}
+"@
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$hwnd = [Win32Foreground]::GetForegroundWindow()
+$processId = [uint32]0
+[Win32Foreground]::GetWindowThreadProcessId($hwnd, [ref]$processId) | Out-Null
+$builder = New-Object System.Text.StringBuilder 512
+[Win32Foreground]::GetWindowText($hwnd, $builder, $builder.Capacity) | Out-Null
+Write-Output $processId
+Write-Output $builder.ToString()`
+
+    const tempScriptPath = path.join(os.tmpdir(), `get_foreground_${Date.now()}.ps1`)
+    try {
+      fs.writeFileSync(tempScriptPath, psScript, 'utf8')
+      exec(`chcp 65001 >nul & powershell -NoProfile -ExecutionPolicy Bypass -File "${tempScriptPath}"`, { encoding: 'utf8' }, (error, stdout) => {
+        try {
+          if (fs.existsSync(tempScriptPath)) fs.unlinkSync(tempScriptPath)
+        } catch (cleanupError) {
+          // 临时脚本删不掉不影响结果
+        }
+        if (error) {
+          reject(error)
+          return
+        }
+        const lines = stdout.replace(/^\uFEFF/, '').split(/\r?\n/).filter((line) => line.trim() !== '')
+        const pid = parseInt(lines[0], 10)
+        const title = lines.slice(1).join('\n').trim()
+        resolve({
+          pid: Number.isNaN(pid) ? null : pid,
+          title: title || null
+        })
+      })
+    } catch (writeError) {
+      reject(writeError)
+    }
+  })
+}
+
+/**
  * 通过 PID 获取进程的主窗口标题
  * @param {number} pid - 进程 ID
  * @returns {Promise<string|null>} 窗口标题，如果不存在则返回 null
@@ -464,6 +525,7 @@ async function getDiskType(filePath) {
 module.exports = {
   isWindows,
   getActiveWindowPID,
+  getForegroundWindowInfo,
   getWindowTitleByPID,
   getAllWindowTitlesByPID,
   getParentProcessID,

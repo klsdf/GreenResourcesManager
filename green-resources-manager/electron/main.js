@@ -254,6 +254,9 @@ if (!gotTheLock) {
 
     // 删除页面及其资源数据
     ipcMain.handle('sqlite-delete-page-data', (event, pageId) => sqlite.deletePageData(pageId))
+
+    // 按路径查找已有资源，多个页面可以共用同一条
+    ipcMain.handle('sqlite-find-resource-by-path', (event, filePath) => sqlite.findResourceByPath(filePath))
     
     // 将旧格式 SQL（多列）迁移为 id+jsonData 格式
     ipcMain.handle('sqlite-migrate-to-json-format', () => sqlite.migrateOldSqlToJsonFormat())
