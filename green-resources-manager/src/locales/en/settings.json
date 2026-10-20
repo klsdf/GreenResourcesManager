@@ -45,6 +45,18 @@
     "chinese": "Chinese Traditional Style",
     "forest": "Forest Theme",
     "ocean": "Ocean Theme",
+    "cream": "Cream",
+    "sky": "Sky",
+    "ink": "Ink",
+    "moss": "Moss",
+    "sand": "Warm Sand",
+    "dusk": "Dusk",
+    "dunhuang": "Dunhuang",
+    "morandi": "Morandi",
+    "matisse": "Matisse",
+    "memphis": "Memphis",
+    "night": "Night",
+    "night-ink": "Night Ink",
     "auto": "Follow System"
   },
   "autoStart": {
@@ -88,13 +100,17 @@
   },
   "autoBackup": {
     "title": "Enable Auto Backup",
-    "description": "When enabled, the system will automatically backup the entire save directory at the specified interval",
+    "description": "Backs up the whole save folder on a schedule. Backups go to the system user folder (usually on C: on Windows), separate from the save folder",
     "intervalTitle": "Auto Backup Interval",
     "intervalDesc": "Set the time interval for automatic backup of the entire save",
     "unitMinutes": "minutes",
     "maxCountTitle": "Keep Backup Count",
     "maxCountDesc": "Set the number of backups to keep during auto backup, old backups beyond this number will be automatically deleted",
-    "unitCount": "backups"
+    "unitCount": "backups",
+    "openFolderTitle": "Open Backup Folder",
+    "openFolderDesc": "Open the auto backup folder in File Explorer",
+    "openFolderButton": "Open Folder",
+    "openedDetail": "Opened backup folder: {path}"
   },
   "personalization": {
     "customAppTitle": "Custom App Title",

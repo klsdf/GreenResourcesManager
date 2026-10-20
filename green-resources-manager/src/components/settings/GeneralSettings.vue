@@ -1,21 +1,35 @@
 <template>
   <div class="settings-section">
     <div class="settings-grid">
-      <SettingSelect
-        :title="$t('settings.language.title')"
-        :description="$t('settings.language.description')"
-        :model-value="currentLanguage"
-        :options="languageOptions"
-        @update:model-value="onLanguageChange"
-      />
-      
-      <SettingSelect
-        :title="$t('settings.theme.title')"
-        :description="$t('settings.theme.description')"
-        :model-value="settings.theme"
-        :options="themeOptions"
-        @update:model-value="onThemeChange"
-      />
+      <!-- 主题不用下拉框。色条取自该主题的主色，点一下就能对照着选。 -->
+      <div class="setting-item theme-setting">
+        <label class="setting-label">
+          <span class="setting-title">{{ $t('settings.theme.title') }}</span>
+          <span class="setting-desc">{{ $t('settings.theme.description') }}</span>
+        </label>
+        <div class="theme-palette-grid" role="radiogroup" :aria-label="$t('settings.theme.title')">
+          <button
+            v-for="option in themeOptions"
+            :key="option.value"
+            type="button"
+            class="theme-palette"
+            :class="{ active: settings.theme === option.value }"
+            role="radio"
+            :aria-checked="settings.theme === option.value"
+            @click="onThemeChange(option.value)"
+          >
+            <span class="theme-swatch">
+              <span
+                v-for="(color, index) in option.colors"
+                :key="index"
+                class="theme-swatch-bar"
+                :style="{ background: color }"
+              ></span>
+            </span>
+            <span class="theme-name">{{ option.label }}</span>
+          </button>
+        </div>
+      </div>
       
       <SettingToggle
         :title="$t('settings.autoStart.title')"
@@ -138,6 +152,19 @@
         :unit="$t('settings.autoBackup.unitCount')"
         @update:model-value="onMaxBackupCountChange"
       />
+
+      <div class="setting-item">
+        <label class="setting-label">
+          <span class="setting-title">{{ $t('settings.autoBackup.openFolderTitle') }}</span>
+          <span class="setting-desc">{{ $t('settings.autoBackup.openFolderDesc') }}</span>
+        </label>
+        <div class="setting-control">
+          <button class="btn-open-save-data-folder" @click="openSaveBackupFolder">
+            <span class="btn-icon">📁</span>
+            {{ $t('settings.autoBackup.openFolderButton') }}
+          </button>
+        </div>
+      </div>
       
       <div class="setting-item">
         <label class="setting-label">
@@ -170,7 +197,6 @@
 
 <script lang="ts">
 import { useI18n } from 'vue-i18n'
-import { setLanguage, getCurrentLanguage, availableLanguages } from '../../locales'
 import saveManager from '../../utils/SaveManager'
 import notify from '../../utils/NotificationService'
 import alertService from '../../utils/AlertService'
@@ -205,8 +231,6 @@ export default {
   },
   data() {
     return {
-      currentLanguage: getCurrentLanguage(),
-      languageOptions: availableLanguages,
       /** 存档位置只来自项目根目录的记录，不放进真正的存档。 */
       saveLocationMode: 'default',
       /** 自定义存档的父目录。空字符串表示使用程序旁边的 SaveData。 */
@@ -217,16 +241,34 @@ export default {
     maxBackupCountValue() {
       return this.settings.maxBackupCount ?? 5
     },
+    /**
+     * 主题色板。
+     * colors 从 variables.css 里该主题的侧栏、强调色和背景里抽出来，写死在这里。
+     * 这样正在用别的主题时，色板也不会跟着变色。
+     * 跟随系统没有自己的配色，左右各放暗色和仓鼠娘，表示它会在两者之间切换。
+     */
     themeOptions() {
       return [
-        { value: 'light', label: this.t('settings.theme.light') },
-        { value: 'dark', label: this.t('settings.theme.dark') },
-        { value: 'ukiyoe', label: this.t('settings.theme.ukiyoe') },
-        { value: 'chinese', label: this.t('settings.theme.chinese') },
-        { value: 'forest', label: this.t('settings.theme.forest') },
-        { value: 'ocean', label: this.t('settings.theme.ocean') },
-        { value: 'cream', label: this.t('settings.theme.cream') },
-        { value: 'auto', label: this.t('settings.theme.auto') }
+        { value: 'light', label: this.t('settings.theme.light'), colors: ['#2e140c', '#d7901e', '#F2AB39', '#E4B660', '#FFEFC4', '#fffcf7'] },
+        { value: 'dark', label: this.t('settings.theme.dark'), colors: ['#1b2838', '#2a475e', '#66c0f4', '#3c4b5c', '#9daebe', '#c9d0d6'] },
+        { value: 'ukiyoe', label: this.t('settings.theme.ukiyoe'), colors: ['#2c1810', '#b71c1c', '#d32f2f', '#8d6e63', '#f0e6d2', '#fff8f0'] },
+        { value: 'chinese', label: this.t('settings.theme.chinese'), colors: ['#4A3C39', '#8C3B2A', '#C6493A', '#B8745F', '#CBB7A2', '#F6F3EF'] },
+        { value: 'forest', label: this.t('settings.theme.forest'), colors: ['#1b5e20', '#2e7d32', '#4caf50', '#81c784', '#c8e6c9', '#f1f8e9'] },
+        { value: 'ocean', label: this.t('settings.theme.ocean'), colors: ['#0d47a1', '#1565c0', '#2196f3', '#64b5f6', '#90caf9', '#e3f2fd'] },
+        { value: 'cream', label: this.t('settings.theme.cream'), colors: ['#5D5063', '#A4B5D5', '#EABCDD', '#F0DFEA', '#DDD1E9', '#F7F6F5'] },
+        // 下面这组预览色与 TODO_List 选色器一致，从深到浅。
+        { value: 'sky', label: this.t('settings.theme.sky'), colors: ['#3451d1', '#4f6ef7', '#6b8cff', '#c5d0ff', '#eef2ff', '#ffffff', '#eef1f5'] },
+        { value: 'ink', label: this.t('settings.theme.ink'), colors: ['#1a1a1a', '#2c2c2c', '#5c5c5c', '#8a8a8a', '#d4d4d4', '#f4f4f4', '#ffffff'] },
+        { value: 'moss', label: this.t('settings.theme.moss'), colors: ['#1c734c', '#2d8a62', '#2d9a6a', '#3da87a', '#b7e0c8', '#e6f6ed', '#eef6f1'] },
+        { value: 'sand', label: this.t('settings.theme.sand'), colors: ['#8b5e3c', '#a87248', '#c47a3a', '#e8c9a0', '#efe6d8', '#f7f3ec', '#fffdf9'] },
+        { value: 'dusk', label: this.t('settings.theme.dusk'), colors: ['#4a3cc0', '#6b5ce5', '#8b7cf0', '#cdc4f5', '#d4896a', '#f0edff', '#f3f0f8'] },
+        { value: 'dunhuang', label: this.t('settings.theme.dunhuang'), colors: ['#6b3b32', '#a64c3b', '#b78f68', '#8fbfb0', '#3f7a6e', '#cabeaf', '#f7f2ea'] },
+        { value: 'morandi', label: this.t('settings.theme.morandi'), colors: ['#5a6b75', '#71838f', '#a07071', '#d39394', '#e4e8ea', '#e8eadc', '#f7f6f1'] },
+        { value: 'matisse', label: this.t('settings.theme.matisse'), colors: ['#343e47', '#aa3d36', '#8f603d', '#5a7d6c', '#d2decd', '#e3eaab', '#f6f8ef'] },
+        { value: 'memphis', label: this.t('settings.theme.memphis'), colors: ['#077abd', '#5b8fc9', '#6f5f94', '#89d0c2', '#e85d66', '#efd55e', '#f7eef2'] },
+        { value: 'night', label: this.t('settings.theme.night'), colors: ['#1a1d24', '#252a36', '#2a3358', '#7b93ff', '#9aacff', '#e0a054', '#e8eaed'] },
+        { value: 'night-ink', label: this.t('settings.theme.night-ink'), colors: ['#161616', '#1e1e1e', '#2c2c2c', '#555555', '#a3a3a3', '#ececec', '#f0f0f0'] },
+        { value: 'auto', label: this.t('settings.theme.auto'), colors: ['#1b2838', '#2a475e', '#66c0f4', '#F2AB39', '#FFEFC4', '#fffcf7'] }
       ]
     },
     saveDataLocationOptions() {
@@ -242,12 +284,6 @@ export default {
 
   
   methods: {
-    onLanguageChange(lang: string) {
-      setLanguage(lang)
-      this.currentLanguage = lang
-      notify.toast('success', this.t('messages.saveSuccess'), this.t('settings.language.description'))
-    },
-    
     updateSetting(key: string, value: any) {
       this.$emit('update:settings', { key, value })
     },
@@ -645,6 +681,28 @@ export default {
       }
     },
     
+    /**
+     * 打开当前存档对应的自动备份目录。
+     * 目录在系统用户文件夹里，界面上不好猜路径，所以从这里直接打开。
+     */
+    async openSaveBackupFolder() {
+      try {
+        if (!window.electronAPI?.getSaveBackupDirectory || !window.electronAPI?.openFolder) {
+          notify.info(this.t('settings.general.folderPath'), this.t('settings.general.browserEnvironmentNote'))
+          return
+        }
+        const backupPath = await window.electronAPI.getSaveBackupDirectory()
+        const result = await window.electronAPI.openFolder(backupPath)
+        if (result.success) {
+          notify.success(this.t('settings.general.folderOpened'), this.t('settings.autoBackup.openedDetail', { path: backupPath }))
+        } else {
+          notify.error(this.t('settings.general.folderOpenFailed'), this.t('settings.general.folderOpenFailedDetail', { error: result.error }))
+        }
+      } catch (error: any) {
+        notify.error(this.t('settings.general.folderOpenFailed'), this.t('settings.general.folderOpenFailedDetail', { error: error.message }))
+      }
+    },
+
     async openSaveDataFolder() {
       try {
         if (window.electronAPI && window.electronAPI.openFolder) {
@@ -738,6 +796,59 @@ export default {
 
 .setting-item:last-child {
   border-bottom: none;
+}
+
+.theme-setting {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+}
+
+.theme-palette-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 12px;
+}
+
+.theme-palette {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 8px 10px;
+  /* 卡片本身固定浅色，避免被当前主题染色，色条才能用来比较。 */
+  border: 1px solid #e6e6e6;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  text-align: center;
+}
+
+.theme-palette:hover {
+  border-color: #bdbdbd;
+}
+
+.theme-palette.active {
+  border: 2px solid #4a5568;
+  padding: 7px 7px 9px;
+}
+
+.theme-swatch {
+  display: flex;
+  height: 36px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.theme-swatch-bar {
+  flex: 1;
+}
+
+.theme-name {
+  color: #2d2d2d;
+  font-size: 13px;
+  line-height: 1.3;
 }
 
 .setting-label {

@@ -3,8 +3,8 @@
     <div class="settings-grid">
       <div class="setting-item">
         <label class="setting-label">
-          <span class="setting-title">截图快捷键</span>
-          <span class="setting-desc">点击按键后直接按下想要的组合，例如 Ctrl+Shift+S。设好后立即生效</span>
+          <span class="setting-title">{{ $lt('截图快捷键') }}</span>
+          <span class="setting-desc">{{ $lt('点击按键后直接按下想要的组合，例如 Ctrl+Shift+S。设好后立即生效') }}</span>
         </label>
         <div class="setting-control">
           <FunShortcutInput
@@ -16,8 +16,8 @@
       </div>
       
       <SettingSelect
-        title="截图保存位置"
-        description="选择截图的保存位置"
+        :title="$lt('截图保存位置')"
+        :description="$lt('选择截图的保存位置')"
         :model-value="settings.screenshotLocation"
         :options="screenshotLocationOptions"
         @update:model-value="onScreenshotLocationChange"
@@ -25,26 +25,26 @@
       
       <SettingFilePicker
         v-if="settings.screenshotLocation === 'custom'"
-        title="自定义截图目录"
-        description="选择自定义的截图保存目录"
+        :title="$lt('自定义截图目录')"
+        :description="$lt('选择自定义的截图保存目录')"
         :model-value="settings.screenshotsPath"
-        placeholder="选择截图保存目录"
+        :placeholder="$lt('选择截图保存目录')"
         picker-type="screenshots"
         @update:model-value="updateSetting('screenshotsPath', $event)"
         @browse="handleScreenshotsBrowse"
       />
       
       <SettingSelect
-        title="截图格式"
-        description="选择截图的保存格式"
+        :title="$lt('截图格式')"
+        :description="$lt('选择截图的保存格式')"
         :model-value="settings.screenshotFormat"
         :options="screenshotFormatOptions"
         @update:model-value="updateSetting('screenshotFormat', $event)"
       />
       
       <SettingSlider
-        title="截图质量"
-        description="设置截图的压缩质量 (1-100)"
+        :title="$lt('截图质量')"
+        :description="$lt('设置截图的压缩质量 (1-100)')"
         :model-value="settings.screenshotQuality"
         :min="1"
         :max="100"
@@ -53,39 +53,39 @@
       />
       
       <SettingToggle
-        title="显示截图通知"
-        description="截图完成后显示系统通知"
+        :title="$lt('显示截图通知')"
+        :description="$lt('截图完成后显示系统通知')"
         :model-value="settings.screenshotNotification"
         @update:model-value="updateSetting('screenshotNotification', $event)"
       />
       
       <SettingToggle
-        title="自动打开截图文件夹"
-        description="截图完成后自动打开保存文件夹"
+        :title="$lt('自动打开截图文件夹')"
+        :description="$lt('截图完成后自动打开保存文件夹')"
         :model-value="settings.autoOpenScreenshotFolder"
         @update:model-value="updateSetting('autoOpenScreenshotFolder', $event)"
       />
       
       <SettingToggle
-        title="智能窗口检测"
-        description="自动检测游戏窗口进行截图"
+        :title="$lt('智能窗口检测')"
+        :description="$lt('自动检测游戏窗口进行截图')"
         :model-value="settings.smartWindowDetection"
         @update:model-value="updateSetting('smartWindowDetection', $event)"
       />
       
       <SettingToggle
-        title="使用内置Flash播放器"
-        description="使用应用内置的Flash播放器来运行Flash游戏"
+        :title="$lt('使用内置Flash播放器')"
+        :description="$lt('使用应用内置的Flash播放器来运行Flash游戏')"
         :model-value="settings.useBuiltInFlashPlayer !== false"
         @update:model-value="onUseBuiltInFlashPlayerChange"
       />
       
       <SettingFilePicker
         v-if="settings.useBuiltInFlashPlayer === false"
-        title="自定义Flash播放器"
-        description="选择自定义的Flash播放器可执行文件"
+        :title="$lt('自定义Flash播放器')"
+        :description="$lt('选择自定义的Flash播放器可执行文件')"
         :model-value="settings.customFlashPlayerPath || ''"
-        placeholder="选择Flash播放器exe文件"
+        :placeholder="$lt('选择Flash播放器exe文件')"
         picker-type="executable"
         @update:model-value="updateSetting('customFlashPlayerPath', $event)"
         @browse="handleFlashPlayerBrowse"
@@ -93,34 +93,32 @@
       
       <div class="setting-item">
         <label class="setting-label">
-          <span class="setting-title">转区工具</span>
-          <span class="setting-desc">指定转区工具可执行文件路径（如 Locale Emulator 的 LEProc.exe），用于以指定区域/语言运行程序</span>
+          <span class="setting-title">{{ $lt('转区工具') }}</span>
+          <span class="setting-desc">{{ $lt('指定转区工具可执行文件路径（如 Locale Emulator 的 LEProc.exe），用于以指定区域/语言运行程序') }}</span>
         </label>
         <div class="setting-control">
           <div class="file-input-group">
             <input
               type="text"
               :value="(settings.game && settings.game.localeEmulatorPath) || ''"
-              placeholder="选择转区工具 exe 或点击自动识别"
+              :placeholder="$lt('选择转区工具 exe 或点击自动识别')"
               class="setting-input"
               readonly
             >
-            <button class="btn-browse" @click="handleLocaleEmulatorBrowse">浏览</button>
-            <button class="btn-detect" @click="handleLocaleEmulatorDetect">自动识别</button>
+            <button class="btn-browse" @click="handleLocaleEmulatorBrowse">{{ $lt('浏览') }}</button>
+            <button class="btn-detect" @click="handleLocaleEmulatorDetect">{{ $lt('自动识别') }}</button>
           </div>
         </div>
       </div>
       
       <div class="setting-item">
         <label class="setting-label">
-          <span class="setting-title">打开截图文件夹</span>
-          <span class="setting-desc">在文件管理器中打开截图保存文件夹</span>
+          <span class="setting-title">{{ $lt('打开截图文件夹') }}</span>
+          <span class="setting-desc">{{ $lt('在文件管理器中打开截图保存文件夹') }}</span>
         </label>
         <div class="setting-control">
           <button class="btn-open-screenshot-folder" @click="openScreenshotFolder">
-            <span class="btn-icon">📸</span>
-            打开文件夹
-          </button>
+            <span class="btn-icon">📸</span> {{ $lt('打开文件夹') }} </button>
         </div>
       </div>
     </div>

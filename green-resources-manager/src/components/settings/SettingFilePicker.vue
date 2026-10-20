@@ -1,20 +1,20 @@
 <template>
   <div class="setting-item">
     <label class="setting-label">
-      <span class="setting-title">{{ title }}</span>
-      <span class="setting-desc" v-if="description">{{ description }}</span>
+      <span class="setting-title">{{ $lt(title) }}</span>
+      <span class="setting-desc" v-if="description">{{ $lt(description) }}</span>
     </label>
     <div class="setting-control">
       <div class="file-input-group">
         <input 
           type="text" 
           :value="modelValue"
-          :placeholder="placeholder"
+          :placeholder="$lt(placeholder)"
           class="setting-input"
           readonly
         >
         <button class="btn-browse" @click="handleBrowse">
-          {{ browseButtonText }}
+          {{ $lt(browseButtonText) }}
         </button>
       </div>
     </div>

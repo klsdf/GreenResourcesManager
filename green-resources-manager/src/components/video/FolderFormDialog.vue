@@ -8,49 +8,49 @@
       </div>
       <div class="modal-body">
         <FormField
-          label="文件夹名称"
+          :label="$lt('文件夹名称')"
           type="text"
           v-model="localFormData.name"
-          placeholder="如：复仇者联盟系列"
+          :placeholder="$lt('如：复仇者联盟系列')"
         />
         
         <FormField
           v-if="fieldMode !== 'anime'"
-          label="系列名"
+          :label="$lt('系列名')"
           type="text"
           v-model="localFormData.series"
-          placeholder="如：复仇者联盟"
+          :placeholder="$lt('如：复仇者联盟')"
         />
 
         <FormField
           v-if="fieldMode !== 'anime'"
-          label="演员"
+          :label="$lt('演员')"
           type="text"
           v-model="localActorsInput"
-          placeholder="用逗号分隔多个演员"
+          :placeholder="$lt('用逗号分隔多个演员')"
           @blur="parseActors"
         />
 
         <FormField
           v-if="fieldMode === 'anime'"
-          label="声优"
+          :label="$lt('声优')"
           type="text"
           v-model="localVoiceActorsInput"
-          placeholder="用逗号分隔多个声优"
+          :placeholder="$lt('用逗号分隔多个声优')"
           @blur="parseVoiceActors"
         />
 
         <FormField
           v-if="fieldMode === 'anime'"
-          label="制作组"
+          :label="$lt('制作组')"
           type="text"
           v-model="localProductionTeamInput"
-          placeholder="用逗号分隔多个制作组"
+          :placeholder="$lt('用逗号分隔多个制作组')"
           @blur="parseProductionTeam"
         />
 
         <FormField
-          label="标签"
+          :label="$lt('标签')"
           type="tags"
           v-model="localFormData.tags"
           v-model:tagInput="localTagsInput"
@@ -59,23 +59,23 @@
         />
 
         <FormField
-          label="描述"
+          :label="$lt('描述')"
           type="textarea"
           v-model="localFormData.description"
-          placeholder="文件夹描述..."
+          :placeholder="$lt('文件夹描述...')"
           :rows="3"
         />
 
         <FormField
-          label="文件夹路径"
+          :label="$lt('文件夹路径')"
           type="file"
           v-model="localFormData.folderPath"
-          placeholder="选择包含视频的文件夹"
+          :placeholder="$lt('选择包含视频的文件夹')"
           @browse="handleBrowseFolder"
         />
 
         <div class="form-group">
-          <label>缩略图</label>
+          <label>{{ $lt('缩略图') }}</label>
           <div class="file-input-group">
             <input type="text" v-model="localFormData.thumbnail" readonly>
             <button 
@@ -83,12 +83,8 @@
               class="btn-select-file" 
               @click="handleSelectFromCovers" 
               :disabled="!localFormData.folderPath"
-            >
-              从封面文件夹选择
-            </button>
-            <button type="button" class="btn-select-file" @click="handleBrowseThumbnailFile">
-              自定义选择
-            </button>
+            > {{ $lt('从封面文件夹选择') }} </button>
+            <button type="button" class="btn-select-file" @click="handleBrowseThumbnailFile"> {{ $lt('自定义选择') }} </button>
           </div>
           <div class="thumb-preview-wrapper">
             <img 
@@ -99,12 +95,12 @@
               @error="(event: Event) => handleThumbnailPreviewError(event)"
               @load="handleThumbnailPreviewLoad ? (event: Event) => handleThumbnailPreviewLoad(event) : undefined"
             >
-            <div v-else class="thumb-placeholder">无缩略图</div>
+            <div v-else class="thumb-placeholder">{{ $lt('无缩略图') }}</div>
           </div>
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" @click="handleClose" class="btn-cancel">取消</button>
+        <button type="button" @click="handleClose" class="btn-cancel">{{ $lt('取消') }}</button>
         <button 
           type="button" 
           @click="handleSubmit" 

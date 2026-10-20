@@ -15,7 +15,7 @@
               class="page-nav-btn page-nav-btn-prev"
               @click="previousPage"
               :disabled="currentPageIndex <= 0"
-              title="上一页 (←)"
+              :title="$lt('上一页 (←)')"
             >‹</button>
             <span class="page-info">
               <input
@@ -25,7 +25,7 @@
                 :max="pages.length"
                 @keyup.enter="jumpToPageNumber"
                 class="page-jump-input"
-                title="输入页码后回车跳转"
+                :title="$lt('输入页码后回车跳转')"
               >
               <span class="page-separator">/</span>
               <span class="page-total">{{ pages.length }}</span>
@@ -34,7 +34,7 @@
               class="page-nav-btn page-nav-btn-next"
               @click="nextPage"
               :disabled="currentPageIndex >= pages.length - 1"
-              title="下一页 (→)"
+              :title="$lt('下一页 (→)')"
             >›</button>
           </div>
         </div>
@@ -54,18 +54,16 @@
           />
           <div class="quality-controls">
             <select v-model="imageQuality" @change="setImageQuality(imageQuality)" class="quality-select">
-              <option value="high">高质量</option>
-              <option value="medium">中等质量</option>
-              <option value="low">低质量</option>
+              <option value="high">{{ $lt('高质量') }}</option>
+              <option value="medium">{{ $lt('中等质量') }}</option>
+              <option value="low">{{ $lt('低质量') }}</option>
             </select>
           </div>
           <fun-button
             type="secondary"
             icon="⛶"
             @click="toggleFullscreen"
-          >
-            全屏
-          </fun-button>
+          > {{ $lt('全屏') }} </fun-button>
           <fun-button
             type="danger"
             icon="✕"
@@ -78,7 +76,7 @@
       <div class="comic-viewer-body" ref="comicViewerBody">
         <!-- 左侧预览栏 -->
         <div class="sidebar-preview">
-          <div class="sidebar-title">页面预览</div>
+          <div class="sidebar-title">{{ $lt('页面预览') }}</div>
           <div class="thumbnail-list" ref="thumbnailList">
             <div 
               v-for="(page, index) in pages" 
@@ -118,7 +116,7 @@
             >
             <div v-else class="loading-placeholder">
               <div class="loading-spinner"></div>
-              <p>加载中...</p>
+              <p>{{ $lt('加载中...') }}</p>
             </div>
           </div>
 
@@ -127,7 +125,7 @@
             class="page-nav-zone page-nav-prev"
             :class="{ disabled: currentPageIndex <= 0 }"
             @click="currentPageIndex > 0 && previousPage()"
-            title="上一页 (←)"
+            :title="$lt('上一页 (←)')"
           >
             <div class="page-nav-arrow">‹</div>
           </div>
@@ -135,7 +133,7 @@
             class="page-nav-zone page-nav-next"
             :class="{ disabled: currentPageIndex >= pages.length - 1 }"
             @click="currentPageIndex < pages.length - 1 && nextPage()"
-            title="下一页 (→)"
+            :title="$lt('下一页 (→)')"
           >
             <div class="page-nav-arrow">›</div>
           </div>
@@ -145,7 +143,7 @@
       <!-- 图片文件名显示 -->
       <div class="image-filename" v-if="currentPageImage && pages[currentPageIndex]">
         {{ getImageFileName(pages[currentPageIndex]) }}
-        <span class="file-size">({{ currentFileSize > 0 ? formatFileSize(currentFileSize) : '获取中...' }})</span>
+        <span class="file-size">({{ fileSizeText }})</span>
       </div>
     </div>
   </div>
@@ -178,11 +176,24 @@ export default {
     }
   },
   emits: ['close', 'page-change', 'view-count-update'],
+  computed: {
+    /**
+     * 底部括号里的大小文字。
+     * 大小为 0 时不能再写成获取中，否则读失败或空文件会一直转圈。
+     */
+    fileSizeText() {
+      if (this.fileSizeState === 'loading') return '获取中...'
+      if (this.fileSizeState === 'failed') return '未知'
+      return this.formatFileSize(this.currentFileSize)
+    }
+  },
   data() {
     return {
       currentPageIndex: 0,
       currentPageImage: null,
       currentFileSize: 0,
+      /** loading 还在读，ready 已经有大小，failed 读失败 */
+      fileSizeState: 'loading',
       zoomLevel: 1,
       jumpToPage: 1,
       isFullscreen: false,
@@ -296,12 +307,19 @@ export default {
         this.currentPageImage = await this.resolveImageAsync(imagePath)
         this.jumpToPage = this.currentPageIndex + 1
         
-        // 异步获取文件大小，不阻塞图片显示
+        // 翻页后先显示获取中，避免上一页的大小留在这一页
+        this.currentFileSize = 0
+        this.fileSizeState = 'loading'
+        const requestedPath = imagePath
         this.getFileSize(imagePath).then(size => {
+          if (this.pages[this.currentPageIndex] !== requestedPath) return
           this.currentFileSize = size
+          this.fileSizeState = 'ready'
         }).catch(error => {
           console.error('获取文件大小失败:', error)
+          if (this.pages[this.currentPageIndex] !== requestedPath) return
           this.currentFileSize = 0
+          this.fileSizeState = 'failed'
         })
         
         // 预加载相邻图片
@@ -531,23 +549,23 @@ export default {
       }
     },
 
-    // 获取文件大小（异步）
+    /**
+     * 读取当前页图片的字节数。
+     * 接口把大小放在 size 上，不在 stats 里面。以前读错字段，大小一直是 0，界面就停在获取中。
+     * @param {string} filePath 图片路径，或压缩包内图片的 archive:// 地址
+     * @returns {Promise<number>}
+     */
     async getFileSize(filePath) {
       try {
-        // archive:// 协议为 CBZ 内图片，暂无单独大小接口，返回 0 不影响显示
-        if (typeof filePath === 'string' && filePath.startsWith('archive://')) {
-          return 0
-        }
         console.log('尝试获取文件大小:', filePath)
         if (window.electronAPI && window.electronAPI.getFileStats) {
           const result = await window.electronAPI.getFileStats(filePath)
           console.log('文件统计信息:', result)
-          if (result && result.success && result.stats) {
-            return result.stats.size || 0
-          } else {
-            console.error('获取文件统计信息失败:', result?.error || '未知错误')
-            return 0
+          if (result && result.success && typeof result.size === 'number') {
+            return result.size
           }
+          console.error('获取文件统计信息失败:', result?.error || '未知错误')
+          throw new Error(result?.error || '未知错误')
         } else {
           console.log('Electron API 不可用，尝试使用 fetch 获取文件大小')
           try {
@@ -556,12 +574,12 @@ export default {
             return contentLength ? parseInt(contentLength) : 0
           } catch (fetchError) {
             console.log('fetch 方法也失败:', fetchError)
-            return 0
+            throw fetchError
           }
         }
       } catch (error) {
         console.error('获取文件大小失败:', error)
-        return 0
+        throw error
       }
     },
 

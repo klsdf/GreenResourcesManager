@@ -15,35 +15,27 @@
           @click="handleUseFirstImage" 
           :disabled="!folderPath"
         >
-          <span class="btn-icon">🖼️</span>
-          使用第一张图片
-        </button>
+          <span class="btn-icon">🖼️</span> {{ $lt('使用第一张图片') }} </button>
         <button 
           type="button" 
           class="btn-cover-action" 
           @click="handleSelectFromFolder" 
           :disabled="!folderPath"
         >
-          <span class="btn-icon">📂</span>
-          从文件夹选择
-        </button>
+          <span class="btn-icon">📂</span> {{ $lt('从文件夹选择') }} </button>
         <button 
           type="button" 
           class="btn-cover-action" 
           @click="handleBrowse"
         >
-          <span class="btn-icon">📁</span>
-          选择自定义封面
-        </button>
+          <span class="btn-icon">📁</span> {{ $lt('选择自定义封面') }} </button>
         <button 
           type="button" 
           class="btn-cover-action btn-clear" 
           @click="handleClear" 
           v-if="cover"
         >
-          <span class="btn-icon">🗑️</span>
-          清除封面
-        </button>
+          <span class="btn-icon">🗑️</span> {{ $lt('清除封面') }} </button>
       </div>
     </div>
   </div>

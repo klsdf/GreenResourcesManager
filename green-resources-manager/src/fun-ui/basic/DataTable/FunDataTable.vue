@@ -7,7 +7,7 @@
             <th v-for="col in columns" :key="col.key" :class="col.className">
               {{ col.label || col.key }}
             </th>
-            <th v-if="showActions" class="fun-data-table__action-column">操作</th>
+            <th v-if="showActions" class="fun-data-table__action-column">{{ $lt('操作') }}</th>
           </tr>
         </thead>
         <tbody>

@@ -81,7 +81,7 @@
       "title": "标签筛选",
       "filterType": "resourceField",
       "params": {
-        "resource": "anime",
+        "resource": "videoFolder",
         "field": "tags"
       },
       "isArray": true
@@ -91,7 +91,7 @@
       "title": "演员筛选",
       "filterType": "resourceField",
       "params": {
-        "resource": "anime",
+        "resource": "videoFolder",
         "field": "actors"
       },
       "isArray": true
@@ -101,7 +101,7 @@
       "title": "系列筛选",
       "filterType": "resourceField",
       "params": {
-        "resource": "anime",
+        "resource": "videoFolder",
         "field": "series"
       },
       "isArray": false
@@ -111,7 +111,7 @@
       "title": "声优筛选",
       "filterType": "resourceField",
       "params": {
-        "resource": "anime",
+        "resource": "videoFolder",
         "field": "voiceActors"
       },
       "isArray": true
@@ -121,7 +121,7 @@
       "title": "制作组筛选",
       "filterType": "resourceField",
       "params": {
-        "resource": "anime",
+        "resource": "videoFolder",
         "field": "productionTeam"
       },
       "isArray": true

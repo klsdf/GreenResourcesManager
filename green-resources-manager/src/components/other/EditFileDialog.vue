@@ -3,39 +3,37 @@
     <div class="modal-wrapper">
       <div class="modal-content" @mousedown.stop>
         <div class="modal-header">
-          <h3>编辑文件</h3>
+          <h3>{{ $lt('编辑文件') }}</h3>
           <button class="btn-close" @click="handleClose">×</button>
         </div>
         
         <div class="modal-body">
           <FormField
-            label="文件名称 *"
+            :label="$lt('文件名称 *')"
             type="text"
             v-model="formData.name"
-            placeholder="文件名称"
+            :placeholder="$lt('文件名称')"
           />
           
           <FormField
-            label="文件路径 *"
+            :label="$lt('文件路径 *')"
             type="text"
             v-model="formData.filePath"
-            placeholder="文件路径"
+            :placeholder="$lt('文件路径')"
             readonly
           />
-          <button class="btn-select-file" @click="handleBrowseFile">
-            选择文件
-          </button>
+          <button class="btn-select-file" @click="handleBrowseFile"> {{ $lt('选择文件') }} </button>
           
           <FormField
-            label="描述"
+            :label="$lt('描述')"
             type="textarea"
             v-model="formData.description"
-            placeholder="文件描述（可选）..."
+            :placeholder="$lt('文件描述（可选）...')"
             :rows="3"
           />
           
           <FormField
-            label="标签"
+            :label="$lt('标签')"
             type="tags"
             v-model="formData.tags"
             v-model:tagInput="tagInput"
@@ -46,8 +44,8 @@
         </div>
         
         <div class="modal-footer">
-          <button class="btn-cancel" @click="handleClose">取消</button>
-          <button class="btn-confirm" @click="handleConfirm" :disabled="!canSubmit">确认</button>
+          <button class="btn-cancel" @click="handleClose">{{ $lt('取消') }}</button>
+          <button class="btn-confirm" @click="handleConfirm" :disabled="!canSubmit">{{ $lt('确认') }}</button>
         </div>
       </div>
       <!-- Tag 选择面板 -->

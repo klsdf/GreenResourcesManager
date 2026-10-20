@@ -1,8 +1,8 @@
 <template>
   <div class="menu-earnings">
     <div class="earnings-header">
-      <h3 class="earnings-title">收益</h3>
-      <p class="earnings-subtitle">资源收益统计</p>
+      <h3 class="earnings-title">{{ $lt('收益') }}</h3>
+      <p class="earnings-subtitle">{{ $lt('资源收益统计') }}</p>
     </div>
     
     <!-- 收益内容区域 -->
@@ -11,7 +11,7 @@
         <div class="earnings-blocks">
           <EarningsResourceItem
             icon="🎮"
-            label="游戏数量"
+            :label="$lt('游戏数量')"
             :count="gameCount"
             :is-loading="isLoading"
             :last-earnings-time="props.lastEarningsTime ?? null"
@@ -21,7 +21,7 @@
           
           <EarningsResourceItem
             icon="📚"
-            label="小说数量"
+            :label="$lt('小说数量')"
             :count="novelCount"
             :is-loading="isLoading"
             :last-earnings-time="props.lastEarningsTime ?? null"
@@ -31,7 +31,7 @@
           
           <EarningsResourceItem
             icon="🎬"
-            label="视频数量"
+            :label="$lt('视频数量')"
             :count="videoCount"
             :is-loading="isLoading"
             :last-earnings-time="props.lastEarningsTime ?? null"
@@ -41,7 +41,7 @@
           
           <EarningsResourceItem
             icon="🖼️"
-            label="图片数量"
+            :label="$lt('图片数量')"
             :count="imageCount"
             :is-loading="isLoading"
             :last-earnings-time="props.lastEarningsTime ?? null"
@@ -51,7 +51,7 @@
           
           <EarningsResourceItem
             icon="🎵"
-            label="音频数量"
+            :label="$lt('音频数量')"
             :count="audioCount"
             :is-loading="isLoading"
             :last-earnings-time="props.lastEarningsTime ?? null"

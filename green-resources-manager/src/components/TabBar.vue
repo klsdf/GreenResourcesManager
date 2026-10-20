@@ -19,7 +19,7 @@
         </button>
       </div>
     </div>
-    <button class="tab-new" @click="createNewTab" title="新建标签页">
+    <button class="tab-new" @click="createNewTab" :title="$lt('新建标签页')">
       +
     </button>
   </div>
@@ -282,31 +282,43 @@ export default {
 }
 
 /* 暗色主题 */
-[data-theme="dark"] .tab-bar {
+[data-theme="dark"] .tab-bar,
+[data-theme="night"] .tab-bar,
+[data-theme="night-ink"] .tab-bar {
   background: #2a2a2a;
   border-bottom-color: #404040;
 }
 
-[data-theme="dark"] .tab-item {
+[data-theme="dark"] .tab-item,
+[data-theme="night"] .tab-item,
+[data-theme="night-ink"] .tab-item {
   background: #353535;
   border-color: #404040;
 }
 
-[data-theme="dark"] .tab-item:hover {
+[data-theme="dark"] .tab-item:hover,
+[data-theme="night"] .tab-item:hover,
+[data-theme="night-ink"] .tab-item:hover {
   background: #404040;
 }
 
-[data-theme="dark"] .tab-item.active {
+[data-theme="dark"] .tab-item.active,
+[data-theme="night"] .tab-item.active,
+[data-theme="night-ink"] .tab-item.active {
   background: #1e1e1e;
   border-bottom-color: #1e1e1e;
 }
 
-[data-theme="dark"] .tab-new {
+[data-theme="dark"] .tab-new,
+[data-theme="night"] .tab-new,
+[data-theme="night-ink"] .tab-new {
   background: #353535;
   border-color: #404040;
 }
 
-[data-theme="dark"] .tab-new:hover {
+[data-theme="dark"] .tab-new:hover,
+[data-theme="night"] .tab-new:hover,
+[data-theme="night-ink"] .tab-new:hover {
   background: #404040;
 }
 </style>

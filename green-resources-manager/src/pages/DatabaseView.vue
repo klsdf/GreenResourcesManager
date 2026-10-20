@@ -1,7 +1,7 @@
 <template>
   <div class="database-view">
     <div class="database-content">
-      <div v-if="loading" class="loading">加载中…</div>
+      <div v-if="loading" class="loading">{{ $lt('加载中…') }}</div>
       <div v-else-if="error" class="error">{{ error }}</div>
       <template v-else>
         <div class="action-bar">
@@ -15,7 +15,7 @@
           </button>
           <label class="edit-mode-toggle">
             <FunSwitch v-model="editMode" />
-            <span class="edit-mode-label">启用编辑模式</span>
+            <span class="edit-mode-label">{{ $lt('启用编辑模式') }}</span>
           </label>
         </div>
         <nav class="table-nav">
@@ -32,12 +32,10 @@
           </button>
         </nav>
         <div v-if="currentTable" class="database-section">
-          <h3>表: {{ currentTable.tableName }}</h3>
+          <h3>{{ $lt('表:') }} {{ currentTable.tableName }}</h3>
           <div v-if="currentTable.rows && currentTable.rows.length && Object.keys(currentTable.rows[0] || {}).length > 0" class="table-wrap">
             <!-- 编辑模式提示 -->
-            <div v-if="editMode" class="edit-mode-hint">
-              💡 双击单元格进行编辑，建议没事不要编辑！很容易坏档！！！编辑前记得备份存档！！
-            </div>
+            <div v-if="editMode" class="edit-mode-hint"> {{ $lt('💡 双击单元格进行编辑，建议没事不要编辑！很容易坏档！！！编辑前记得备份存档！！') }} </div>
             <!-- 分页组件 -->
             <FunPagination
               v-if="paginationConfig.totalPages > 1"
@@ -68,7 +66,7 @@
               </template>
             </FunDataTable>
           </div>
-          <div v-else class="empty">暂无数据</div>
+          <div v-else class="empty">{{ $lt('暂无数据') }}</div>
         </div>
       </template>
     </div>

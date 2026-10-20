@@ -3,29 +3,25 @@
     <!-- 工具栏 -->
     <div class="toolbar">
       <div class="toolbar-left">
-        <h3>创意工坊</h3>
-        <p>管理和启用插件（目前仅作为展示，功能还在开发中）</p>
+        <h3>{{ $lt('创意工坊') }}</h3>
+        <p>{{ $lt('管理和启用插件（目前仅作为展示，功能还在开发中）') }}</p>
       </div>
       <div class="toolbar-right">
         <button class="btn btn-secondary" @click="openModsFolder">
-          <span class="btn-icon">📁</span>
-          打开mods文件夹
-        </button>
+          <span class="btn-icon">📁</span> {{ $lt('打开mods文件夹') }} </button>
         <button class="btn btn-primary" @click="refreshPlugins">
-          <span class="btn-icon">🔄</span>
-          刷新
-        </button>
+          <span class="btn-icon">🔄</span> {{ $lt('刷新') }} </button>
       </div>
     </div>
 
     <!-- 插件列表 -->
     <div class="plugins-container">
-      <FunLoading v-if="isLoading" text="正在加载插件..." />
+      <FunLoading v-if="isLoading" :text="$lt('正在加载插件...')" />
 
       <div v-else-if="plugins.length === 0" class="empty-state">
         <div class="empty-icon">📦</div>
-        <h3>暂无插件</h3>
-        <p>将插件文件夹放置在 mods 目录下即可显示</p>
+        <h3>{{ $lt('暂无插件') }}</h3>
+        <p>{{ $lt('将插件文件夹放置在 mods 目录下即可显示') }}</p>
       </div>
 
       <div v-else class="plugins-grid">
@@ -59,7 +55,7 @@
             </p>
             <div v-if="plugin.author" class="plugin-meta">
               <span class="meta-item">
-                <span class="meta-label">作者:</span>
+                <span class="meta-label">{{ $lt('作者:') }}</span>
                 <span class="meta-value">{{ plugin.author }}</span>
               </span>
             </div>

@@ -62,7 +62,7 @@
                 @click="navigateTo(page.id)"
               >
                 <span class="nav-icon">{{ page.icon }}</span>
-                <span class="nav-text">{{ page.name }}</span>
+                <span class="nav-text">{{ $lt(page.name) }}</span>
               </div>
             </li>
           </ul>
@@ -124,7 +124,7 @@
             @click="navigateTo('tag-manage')"
           >
             <span class="nav-icon">{{ viewConfig['tag-manage']?.icon || '🏷️' }}</span>
-            <span class="nav-text">标签管理</span>
+            <span class="nav-text">{{ $lt('标签管理') }}</span>
           </div>
         </li>
 

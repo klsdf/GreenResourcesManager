@@ -210,3 +210,259 @@
   --accent-color-20: rgba(234, 188, 221, 0.2);
 }
 
+/*
+ * 下面几套来自 TODO_List 的主题色板。
+ * 只把那边的页面底、面板、文字、头栏和强调色，对到本项目已有的变量上。
+ * 色值保持原样，这样两边看起来是同一套配色。
+ */
+
+/* 晴空 */
+[data-theme="sky"] {
+  --bg-primary: #eef1f5;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f3f4f6;
+  --text-primary: #1a1a1a;
+  --text-secondary: #374151;
+  --text-tertiary: #9aa3b2;
+  --border-color: #dde1ea;
+  --sidebar-bg-start: #4f6ef7;
+  --sidebar-bg-end: #6b8cff;
+  --sidebar-text: #ffffff;
+  --accent-color: #4f6ef7;
+  --accent-hover: #3d5ce5;
+  --accent-color-20: rgba(79, 110, 247, 0.2);
+  --success-color: #22a06b;
+  --warning-color: #d97706;
+  --danger-color: #d14343;
+  --shadow-light: rgba(0, 0, 0, 0.06);
+  --shadow-medium: rgba(0, 0, 0, 0.12);
+}
+
+/* 墨白 */
+[data-theme="ink"] {
+  --bg-primary: #ececec;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #ececec;
+  --text-primary: #141414;
+  --text-secondary: #5c5c5c;
+  --text-tertiary: #8a8a8a;
+  --border-color: #d4d4d4;
+  --sidebar-bg-start: #1a1a1a;
+  --sidebar-bg-end: #2c2c2c;
+  --sidebar-text: #f5f5f5;
+  --accent-color: #1a1a1a;
+  --accent-hover: #000000;
+  --accent-color-20: rgba(26, 26, 26, 0.2);
+  --success-color: #5a5a5a;
+  --warning-color: #6b6b6b;
+  --danger-color: #b42318;
+  --shadow-light: rgba(0, 0, 0, 0.06);
+  --shadow-medium: rgba(0, 0, 0, 0.12);
+}
+
+/* 青苔 */
+[data-theme="moss"] {
+  --bg-primary: #eef6f1;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #e4f0e9;
+  --text-primary: #1c2e24;
+  --text-secondary: #3d5c4a;
+  --text-tertiary: #7a9a86;
+  --border-color: #c5ddd0;
+  --sidebar-bg-start: #2d8a62;
+  --sidebar-bg-end: #3da87a;
+  --sidebar-text: #ffffff;
+  --accent-color: #2d9a6a;
+  --accent-hover: #248a5c;
+  --accent-color-20: rgba(45, 154, 106, 0.2);
+  --success-color: #1a6b4a;
+  --warning-color: #c4843a;
+  --danger-color: #c45c4a;
+  --shadow-light: rgba(0, 0, 0, 0.06);
+  --shadow-medium: rgba(0, 0, 0, 0.12);
+}
+
+/* 暖沙 */
+[data-theme="sand"] {
+  --bg-primary: #f7f3ec;
+  --bg-secondary: #fffdf9;
+  --bg-tertiary: #efe6d8;
+  --text-primary: #3d3226;
+  --text-secondary: #6b5a48;
+  --text-tertiary: #a89480;
+  --border-color: #e0d0b8;
+  --sidebar-bg-start: #8b5e3c;
+  --sidebar-bg-end: #a87248;
+  --sidebar-text: #fff8f0;
+  --accent-color: #c47a3a;
+  --accent-hover: #b86a2c;
+  --accent-color-20: rgba(196, 122, 58, 0.2);
+  --success-color: #5a8f6a;
+  --warning-color: #a65d32;
+  --danger-color: #c44c3a;
+  --shadow-light: rgba(0, 0, 0, 0.06);
+  --shadow-medium: rgba(0, 0, 0, 0.12);
+}
+
+/* 暮霞 */
+[data-theme="dusk"] {
+  --bg-primary: #f3f0f8;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #ebe6f4;
+  --text-primary: #1e1a2e;
+  --text-secondary: #4a4560;
+  --text-tertiary: #9a94b0;
+  --border-color: #d8d0e8;
+  --sidebar-bg-start: #6b5ce5;
+  --sidebar-bg-end: #8b7cf0;
+  --sidebar-text: #ffffff;
+  --accent-color: #6b5ce5;
+  --accent-hover: #5a4bd4;
+  --accent-color-20: rgba(107, 92, 229, 0.2);
+  --success-color: #3d9b8c;
+  --warning-color: #d4896a;
+  --danger-color: #d14b6a;
+  --shadow-light: rgba(0, 0, 0, 0.06);
+  --shadow-medium: rgba(0, 0, 0, 0.12);
+}
+
+/* 敦煌 */
+[data-theme="dunhuang"] {
+  --bg-primary: #cabeaf;
+  --bg-secondary: #f7f2ea;
+  --bg-tertiary: #e4d8c8;
+  --text-primary: #3d241f;
+  --text-secondary: #6b3b32;
+  --text-tertiary: #a89080;
+  --border-color: #cbbfaf;
+  --sidebar-bg-start: #6b3b32;
+  --sidebar-bg-end: #a64c3b;
+  --sidebar-text: #f7f2ea;
+  --accent-color: #a64c3b;
+  --accent-hover: #8f3f32;
+  --accent-color-20: rgba(166, 76, 59, 0.2);
+  --success-color: #3f7a6e;
+  --warning-color: #b78f68;
+  --danger-color: #8a2820;
+  --shadow-light: rgba(107, 59, 50, 0.1);
+  --shadow-medium: rgba(107, 59, 50, 0.18);
+}
+
+/* 莫兰迪 */
+[data-theme="morandi"] {
+  --bg-primary: #e8eadc;
+  --bg-secondary: #f7f6f1;
+  --bg-tertiary: #e5ddd0;
+  --text-primary: #3f4448;
+  --text-secondary: #5a6b75;
+  --text-tertiary: #9aa39a;
+  --border-color: #d0c8b8;
+  --sidebar-bg-start: #5a6b75;
+  --sidebar-bg-end: #71838f;
+  --sidebar-text: #e8eadc;
+  --accent-color: #5f7380;
+  --accent-hover: #4e616c;
+  --accent-color-20: rgba(95, 115, 128, 0.2);
+  --success-color: #a07071;
+  --warning-color: #b56b6c;
+  --danger-color: #b85a5c;
+  --shadow-light: rgba(90, 107, 117, 0.1);
+  --shadow-medium: rgba(90, 107, 117, 0.16);
+}
+
+/* 马蒂斯 */
+[data-theme="matisse"] {
+  --bg-primary: #e3eaab;
+  --bg-secondary: #f6f8ef;
+  --bg-tertiary: #d2decd;
+  --text-primary: #343e47;
+  --text-secondary: #8f603d;
+  --text-tertiary: #8a9080;
+  --border-color: #c5d0b8;
+  --sidebar-bg-start: #343e47;
+  --sidebar-bg-end: #aa3d36;
+  --sidebar-text: #e3eaab;
+  --accent-color: #aa3d36;
+  --accent-hover: #8f322c;
+  --accent-color-20: rgba(170, 61, 54, 0.2);
+  --success-color: #5a7d6c;
+  --warning-color: #8f603d;
+  --danger-color: #8a2a24;
+  --shadow-light: rgba(52, 62, 71, 0.1);
+  --shadow-medium: rgba(52, 62, 71, 0.18);
+}
+
+/* 孟菲斯 */
+[data-theme="memphis"] {
+  --bg-primary: #f7eef2;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #ebe4f2;
+  --text-primary: #2a3340;
+  --text-secondary: #4a5568;
+  --text-tertiary: #8a90a0;
+  --border-color: #d8d0e4;
+  --sidebar-bg-start: #077abd;
+  --sidebar-bg-end: #5b8fc9;
+  --sidebar-text: #ffffff;
+  --accent-color: #077abd;
+  --accent-hover: #0669a3;
+  --accent-color-20: rgba(7, 122, 189, 0.2);
+  --success-color: #2f9a8c;
+  --warning-color: #e85d66;
+  --danger-color: #d63d4a;
+  --shadow-light: rgba(7, 122, 189, 0.1);
+  --shadow-medium: rgba(7, 122, 189, 0.16);
+}
+
+/* 夜航 */
+[data-theme="night"] {
+  color-scheme: dark;
+  --bg-primary: #1a1d24;
+  --bg-secondary: #242830;
+  --bg-tertiary: #2a2e38;
+  --text-primary: #e8eaed;
+  --text-secondary: #a8b0bc;
+  --text-tertiary: #6e7684;
+  --border-color: #3a4050;
+  --sidebar-bg-start: #252a36;
+  --sidebar-bg-end: #2a3142;
+  --sidebar-text: #e8eaed;
+  --accent-color: #7b93ff;
+  --accent-hover: #9aacff;
+  --accent-color-20: rgba(123, 147, 255, 0.2);
+  --success-color: #3dcc8a;
+  --warning-color: #e0a054;
+  --danger-color: #f07171;
+  --shadow-light: rgba(0, 0, 0, 0.35);
+  --shadow-medium: rgba(0, 0, 0, 0.45);
+  --scrollbar-track: rgba(255, 255, 255, 0.05);
+  --scrollbar-thumb: rgba(255, 255, 255, 0.2);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.4);
+}
+
+/* 夜墨 */
+[data-theme="night-ink"] {
+  color-scheme: dark;
+  --bg-primary: #161616;
+  --bg-secondary: #222222;
+  --bg-tertiary: #2a2a2a;
+  --text-primary: #ececec;
+  --text-secondary: #a8a8a8;
+  --text-tertiary: #737373;
+  --border-color: #404040;
+  --sidebar-bg-start: #1e1e1e;
+  --sidebar-bg-end: #262626;
+  --sidebar-text: #ececec;
+  --accent-color: #f0f0f0;
+  --accent-hover: #ffffff;
+  --accent-color-20: rgba(240, 240, 240, 0.2);
+  --success-color: #a3a3a3;
+  --warning-color: #d4d4d4;
+  --danger-color: #e07070;
+  --shadow-light: rgba(0, 0, 0, 0.45);
+  --shadow-medium: rgba(0, 0, 0, 0.55);
+  --scrollbar-track: rgba(255, 255, 255, 0.05);
+  --scrollbar-thumb: rgba(255, 255, 255, 0.2);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.4);
+}
+

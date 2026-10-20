@@ -2,16 +2,16 @@
   <div class="settings-section">
     <div class="settings-grid">
       <SettingSelect
-        title="默认打开方式"
-        description="选择小说的默认打开方式"
+        :title="$lt('默认打开方式')"
+        :description="$lt('选择小说的默认打开方式')"
         :model-value="settings.novelDefaultOpenMode"
         :options="novelOpenModeOptions"
         @update:model-value="updateSetting('novelDefaultOpenMode', $event)"
       />
       
       <SettingSlider
-        title="字体大小"
-        description="设置阅读器的默认字体大小"
+        :title="$lt('字体大小')"
+        :description="$lt('设置阅读器的默认字体大小')"
         :model-value="settings.novelFontSize"
         :min="12"
         :max="24"
@@ -20,8 +20,8 @@
       />
       
       <SettingSlider
-        title="行高"
-        description="设置阅读器的行高"
+        :title="$lt('行高')"
+        :description="$lt('设置阅读器的行高')"
         :model-value="settings.novelLineHeight"
         :min="1.2"
         :max="2.5"
@@ -30,30 +30,30 @@
       />
       
       <SettingSelect
-        title="字体"
-        description="选择阅读器的默认字体"
+        :title="$lt('字体')"
+        :description="$lt('选择阅读器的默认字体')"
         :model-value="settings.novelFontFamily"
         :options="fontFamilyOptions"
         @update:model-value="updateSetting('novelFontFamily', $event)"
       />
       
       <SettingColorPicker
-        title="背景色"
-        description="设置阅读器的背景颜色"
+        :title="$lt('背景色')"
+        :description="$lt('设置阅读器的背景颜色')"
         :model-value="settings.novelBackgroundColor"
         @update:model-value="updateSetting('novelBackgroundColor', $event)"
       />
       
       <SettingColorPicker
-        title="文字颜色"
-        description="设置阅读器的文字颜色"
+        :title="$lt('文字颜色')"
+        :description="$lt('设置阅读器的文字颜色')"
         :model-value="settings.novelTextColor"
         @update:model-value="updateSetting('novelTextColor', $event)"
       />
       
       <SettingSlider
-        title="每页字数"
-        description="设置每页显示的字数"
+        :title="$lt('每页字数')"
+        :description="$lt('设置每页显示的字数')"
         :model-value="settings.novelWordsPerPage"
         :min="500"
         :max="2000"
@@ -62,21 +62,19 @@
       />
       
       <SettingToggle
-        title="显示阅读进度"
-        description="在阅读器中显示阅读进度"
+        :title="$lt('显示阅读进度')"
+        :description="$lt('在阅读器中显示阅读进度')"
         :model-value="settings.novelShowProgress"
         @update:model-value="updateSetting('novelShowProgress', $event)"
       />
       
       <div class="setting-item">
         <label class="setting-label">
-          <span class="setting-title">测试设置</span>
-          <span class="setting-desc">测试当前设置是否正确保存</span>
+          <span class="setting-title">{{ $lt('测试设置') }}</span>
+          <span class="setting-desc">{{ $lt('测试当前设置是否正确保存') }}</span>
         </label>
         <div class="setting-control">
-          <button class="btn-test-settings" @click="testNovelSettings">
-            测试设置
-          </button>
+          <button class="btn-test-settings" @click="testNovelSettings"> {{ $lt('测试设置') }} </button>
         </div>
       </div>
     </div>

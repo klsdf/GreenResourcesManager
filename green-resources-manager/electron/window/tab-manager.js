@@ -1,6 +1,7 @@
 const { BrowserView, app } = require('electron')
 const path = require('path')
 const fs = require('fs')
+const { resolveMainPreloadPath } = require('../utils/preload-path')
 
 /**
  * 标签页管理器
@@ -16,7 +17,8 @@ class TabManager {
     this.headerHeight = 0 // 标签页从窗口顶部开始
     this.audioPlayerHeight = 80 // 底部音频播放器高度
     this.tabBarHeight = 40 // 标签栏高度
-    this.preloadPath = this.resolvePreloadPath()
+    /** 标签页 BrowserView 与主窗口加载同一份 preload，内部页面才能调用 IPC */
+    this.preloadPath = resolveMainPreloadPath()
 
     // 监听窗口大小变化
     if (mainWindow) {
@@ -27,23 +29,6 @@ class TabManager {
     this.createHomeTab()
   }
 
-  /**
-   * 解析 preload.js 路径，使标签页（BrowserView）也能访问 window.electronAPI
-   * 与主窗口保持一致，确保漫画阅读器等内部页面可在新标签页内调用 IPC
-   */
-  resolvePreloadPath() {
-    if (this.isDev) {
-      return path.join(__dirname, '../preload.js')
-    }
-    const appPath = app.getAppPath()
-    const possiblePaths = [
-      path.join(appPath, 'electron', 'preload.js'),
-      path.join(appPath, 'preload.js'),
-      path.join(__dirname, '../preload.js')
-    ]
-    return possiblePaths.find((p) => fs.existsSync(p)) || possiblePaths[0]
-  }
-  
   /**
    * 创建默认主页标签页（特殊标签页，不创建BrowserView）
    */
@@ -254,8 +239,6 @@ class TabManager {
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
       this.mainWindow.webContents.send('tab-closed', { tabId })
     }
-
-    console.log('✅ 关闭标签页:', tabId)
   }
 
   /**

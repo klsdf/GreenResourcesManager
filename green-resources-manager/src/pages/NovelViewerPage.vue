@@ -3,14 +3,14 @@
     <!-- 左侧设置面板（仅 TXT 类型显示） -->
     <aside v-if="showSidebar && fileType === 'txt'" class="settings-sidebar">
       <div class="sidebar-header">
-        <h3>阅读设置</h3>
-        <button class="btn-toggle" @click="showSidebar = false" title="收起">‹</button>
+        <h3>{{ $lt('阅读设置') }}</h3>
+        <button class="btn-toggle" @click="showSidebar = false" :title="$lt('收起')">‹</button>
       </div>
 
       <div class="sidebar-body">
         <!-- 字号 -->
         <div class="setting-group">
-          <label>字号 <span class="value">{{ settings.fontSize }}px</span></label>
+          <label>{{ $lt('字号') }} <span class="value">{{ settings.fontSize }}px</span></label>
           <input
             type="range"
             min="12"
@@ -23,7 +23,7 @@
 
         <!-- 行高 -->
         <div class="setting-group">
-          <label>行高 <span class="value">{{ settings.lineHeight }}</span></label>
+          <label>{{ $lt('行高') }} <span class="value">{{ settings.lineHeight }}</span></label>
           <input
             type="range"
             min="1.2"
@@ -36,7 +36,7 @@
 
         <!-- 每页字数 -->
         <div class="setting-group">
-          <label>每页字数 <span class="value">{{ settings.wordsPerPage }}</span></label>
+          <label>{{ $lt('每页字数') }} <span class="value">{{ settings.wordsPerPage }}</span></label>
           <input
             type="range"
             min="500"
@@ -49,7 +49,7 @@
 
         <!-- 字体 -->
         <div class="setting-group">
-          <label>字体</label>
+          <label>{{ $lt('字体') }}</label>
           <select v-model="settings.fontFamily" @change="persistSettings">
             <option v-for="opt in fontOptions" :key="opt.value" :value="opt.value">
               {{ opt.label }}
@@ -59,7 +59,7 @@
 
         <!-- 主题（背景色 + 文字色预设组合） -->
         <div class="setting-group">
-          <label>主题</label>
+          <label>{{ $lt('主题') }}</label>
           <div class="theme-presets">
             <button
               v-for="(preset, idx) in themePresets"
@@ -74,18 +74,16 @@
 
         <!-- 自定义颜色 -->
         <div class="setting-group">
-          <label>背景色</label>
+          <label>{{ $lt('背景色') }}</label>
           <input type="color" v-model="settings.backgroundColor" @change="persistSettings">
         </div>
         <div class="setting-group">
-          <label>文字色</label>
+          <label>{{ $lt('文字色') }}</label>
           <input type="color" v-model="settings.textColor" @change="persistSettings">
         </div>
 
         <!-- 快捷预览 -->
-        <div class="preview-block" :style="previewStyle">
-          观沧海 — 东临碣石，以观沧海。
-        </div>
+        <div class="preview-block" :style="previewStyle"> {{ $lt('观沧海 — 东临碣石，以观沧海。') }} </div>
       </div>
     </aside>
 
@@ -94,7 +92,7 @@
       v-if="!showSidebar && fileType === 'txt'"
       class="sidebar-toggle-collapsed"
       @click="showSidebar = true"
-      title="展开设置"
+      :title="$lt('展开设置')"
     >›</button>
 
     <!-- 主内容区 -->
@@ -102,13 +100,13 @@
       <!-- 加载中 -->
       <div v-if="loading" class="novel-viewer-loading">
         <div class="loading-spinner"></div>
-        <p>正在加载小说...</p>
+        <p>{{ $lt('正在加载小说...') }}</p>
       </div>
 
       <!-- 错误 -->
       <div v-else-if="errorMessage" class="novel-viewer-error">
         <p>{{ errorMessage }}</p>
-        <button class="btn-close" @click="closeTab">关闭</button>
+        <button class="btn-close" @click="closeTab">{{ $lt('关闭') }}</button>
       </div>
 
       <!-- TXT 文本阅读器 -->
@@ -139,8 +137,8 @@
 
       <!-- 不支持的类型 -->
       <div v-else class="novel-viewer-error">
-        <p>不支持的文件类型: {{ fileType || '未知' }}</p>
-        <button class="btn-close" @click="closeTab">关闭</button>
+        <p>{{ $lt('不支持的文件类型:') }} {{ fileType || '未知' }}</p>
+        <button class="btn-close" @click="closeTab">{{ $lt('关闭') }}</button>
       </div>
     </div>
   </div>

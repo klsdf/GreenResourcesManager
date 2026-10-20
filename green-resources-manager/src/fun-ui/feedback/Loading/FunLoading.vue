@@ -1,7 +1,7 @@
 <template>
   <div class="fun-loading">
     <div class="fun-loading__spinner"></div>
-    <p v-if="text" class="fun-loading__text">{{ text }}</p>
+    <p v-if="text" class="fun-loading__text">{{ $lt(text) }}</p>
   </div>
 </template>
 

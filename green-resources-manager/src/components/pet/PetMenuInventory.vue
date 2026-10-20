@@ -1,8 +1,8 @@
 <template>
   <div class="menu-inventory">
     <div class="inventory-header">
-      <h3 class="inventory-title">仓库</h3>
-      <p class="inventory-subtitle">查看你拥有的物品</p>
+      <h3 class="inventory-title">{{ $lt('仓库') }}</h3>
+      <p class="inventory-subtitle">{{ $lt('查看你拥有的物品') }}</p>
     </div>
     
     <div class="inventory-items">
@@ -10,21 +10,19 @@
         <div class="item-icon">{{ item.icon }}</div>
         <div class="item-info">
           <div class="item-name">{{ item.name }}</div>
-          <div class="item-count">数量：{{ item.count }}</div>
+          <div class="item-count">{{ $lt('数量：') }}{{ item.count }}</div>
         </div>
         <button 
           class="use-button" 
           v-if="item.usable"
           @click="useItem(item)"
-        >
-          使用
-        </button>
+        > {{ $lt('使用') }} </button>
       </div>
     </div>
     
     <div v-if="inventoryItems.length === 0" class="empty-state">
-      <p>仓库是空的</p>
-      <p class="empty-hint">去商店购买物品吧！</p>
+      <p>{{ $lt('仓库是空的') }}</p>
+      <p class="empty-hint">{{ $lt('去商店购买物品吧！') }}</p>
     </div>
   </div>
 </template>

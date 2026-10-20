@@ -2,7 +2,7 @@
 <template>
   <div class="filter-sidebar">
     <!-- 加载状态 -->
-    <FunLoading v-if="isLoading" text="正在加载筛选器..." />
+    <FunLoading v-if="isLoading" :text="$lt('正在加载筛选器...')" />
     
     <!-- 动态筛选器列表 -->
     <div 
@@ -12,13 +12,13 @@
       class="filter-section"
     >
       <div class="filter-header">
-        <h3>{{ filter.title }}</h3>
+        <h3>{{ $lt(filter.title) }}</h3>
         <button 
           class="btn-clear-filter" 
           @click="clearFilter(filter.key)" 
           v-if="(filter.selected && filter.selected.length > 0) || (filter.excluded && filter.excluded.length > 0)"
         >
-          ✕ 清除筛选
+          ✕ {{ $lt('清除筛选') }}
         </button>
       </div>
       <div class="filter-list">
@@ -39,7 +39,7 @@
           <span class="filter-count">({{ item.count }})</span>
         </div>
         <div v-if="filter.items.length === 0" class="no-filters">
-          暂无{{ filter.title.replace('筛选', '') }}
+          {{ $lf('暂无{name}', { name: $lt(filter.title) }) }}
         </div>
       </div>
     </div>
@@ -47,7 +47,7 @@
     <!-- 空状态 -->
     <div v-else class="empty-state">
       <div class="empty-icon">🔍</div>
-      <p class="empty-text">暂无筛选器数据</p>
+      <p class="empty-text">{{ $lt('暂无筛选器数据') }}</p>
     </div>
   </div>
 </template>
@@ -114,6 +114,10 @@ export default {
         // 异步加载（不阻塞渲染）
         this.loadDisguiseName(originalName)
         return originalName // 先返回原始名称，等异步加载完成后再更新
+      }
+      // 星级和「未评分」是筛选器自己生成的，不是用户标签，可以跟着界面语言变。
+      if (/^[1-5] 星$/.test(originalName) || originalName === '未评分') {
+        return this.$lt(originalName)
       }
       return originalName
     },

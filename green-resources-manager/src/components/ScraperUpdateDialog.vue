@@ -2,13 +2,13 @@
   <div v-if="visible" class="modal-overlay" @mousedown="handleOverlayMouseDown">
     <div class="modal-content scraper-dialog" @mousedown.stop>
       <div class="modal-header">
-        <h3>刮削补全</h3>
+        <h3>{{ $lt('刮削补全') }}</h3>
         <button class="btn-close" @click="handleCancel">✕</button>
       </div>
       <div class="modal-body">
-        <p v-if="matches.length === 0" class="empty-hint">未找到匹配的刮削数据</p>
+        <p v-if="matches.length === 0" class="empty-hint">{{ $lt('未找到匹配的刮削数据') }}</p>
         <template v-else>
-          <p class="match-summary">找到 {{ matches.length }} 条匹配的刮削数据{{ matches.length > 1 ? '，请选择一条应用' : '' }}</p>
+          <p class="match-summary">{{ $lt('找到') }} {{ matches.length }} {{ $lt('条匹配的刮削数据') }}{{ matches.length > 1 ? '，请选择一条应用' : '' }}</p>
           <div v-if="matches.length > 1" class="match-list">
             <label
               v-for="(m, idx) in matches"
@@ -26,7 +26,7 @@
             <span class="match-type">{{ getMatchTypeLabel(matches[0].matchType) }}</span>
           </div>
           <div v-if="selectedMatch" class="update-preview">
-            <h4>更新内容（将补全以下空字段）：</h4>
+            <h4>{{ $lt('更新内容（将补全以下空字段）：') }}</h4>
             <div class="diff-list">
               <div
                 v-for="entry in updateEntries"
@@ -36,21 +36,19 @@
                 <span class="field-key">{{ entry.key }}</span>
                 <span class="field-value">{{ formatValue(entry.value) }}</span>
               </div>
-              <p v-if="updateEntries.length === 0" class="no-update">主存档已有完整数据，无需更新</p>
+              <p v-if="updateEntries.length === 0" class="no-update">{{ $lt('主存档已有完整数据，无需更新') }}</p>
             </div>
           </div>
-          <p class="update-question">是否更新？</p>
+          <p class="update-question">{{ $lt('是否更新？') }}</p>
         </template>
       </div>
       <div class="modal-footer">
-        <button class="btn-cancel" @click="handleCancel">取消</button>
+        <button class="btn-cancel" @click="handleCancel">{{ $lt('取消') }}</button>
         <button
           class="btn-confirm"
           :disabled="matches.length === 0 || (selectedMatch && updateEntries.length === 0)"
           @click="handleConfirm"
-        >
-          更新
-        </button>
+        > {{ $lt('更新') }} </button>
       </div>
     </div>
   </div>

@@ -3,14 +3,14 @@
     <!-- PDF 工具栏（仅缩放控制） -->
     <div class="pdf-toolbar">
       <div class="toolbar-right">
-        <button class="btn-toolbar" @click="zoomOut" :disabled="scale <= 0.5" title="缩小">
+        <button class="btn-toolbar" @click="zoomOut" :disabled="scale <= 0.5" :title="$lt('缩小')">
           <span class="btn-icon">−</span>
         </button>
         <span class="zoom-info">{{ Math.round(scale * 100) }}%</span>
-        <button class="btn-toolbar" @click="zoomIn" :disabled="scale >= 3" title="放大">
+        <button class="btn-toolbar" @click="zoomIn" :disabled="scale >= 3" :title="$lt('放大')">
           <span class="btn-icon">+</span>
         </button>
-        <button class="btn-toolbar" @click="resetZoom" title="重置缩放">
+        <button class="btn-toolbar" @click="resetZoom" :title="$lt('重置缩放')">
           <span class="btn-icon">⌂</span>
         </button>
       </div>
@@ -20,11 +20,11 @@
     <div class="pdf-content" ref="pdfContainer" @scroll="handleScroll">
       <div v-if="loading" class="loading-content">
         <div class="loading-spinner"></div>
-        <p>正在加载 PDF...</p>
+        <p>{{ $lt('正在加载 PDF...') }}</p>
       </div>
       <div v-else-if="error" class="error-content">
-        <p>加载 PDF 失败: {{ error }}</p>
-        <button class="btn-retry" @click="loadPdf">重试</button>
+        <p>{{ $lt('加载 PDF 失败:') }} {{ error }}</p>
+        <button class="btn-retry" @click="loadPdf">{{ $lt('重试') }}</button>
       </div>
       <div v-else class="pdf-pages">
         <canvas
@@ -40,16 +40,10 @@
 
     <!-- 底部导航栏 -->
     <div class="pdf-navigation">
-      <button class="btn-nav" @click="previousPage" :disabled="currentPage <= 1" title="上一页">
-        <span class="btn-icon">←</span>
-        上一页
-      </button>
-      <span class="page-info">
-        第 {{ currentPage }} / {{ totalPages }} 页
-      </span>
-      <button class="btn-nav" @click="nextPage" :disabled="currentPage >= totalPages" title="下一页">
-        下一页
-        <span class="btn-icon">→</span>
+      <button class="btn-nav" @click="previousPage" :disabled="currentPage <= 1" :title="$lt('上一页')">
+        <span class="btn-icon">←</span> {{ $lt('上一页') }} </button>
+      <span class="page-info"> {{ $lt('第') }} {{ currentPage }} / {{ totalPages }} {{ $lt('页') }} </span>
+      <button class="btn-nav" @click="nextPage" :disabled="currentPage >= totalPages" :title="$lt('下一页')"> {{ $lt('下一页') }} <span class="btn-icon">→</span>
       </button>
     </div>
   </div>

@@ -57,7 +57,9 @@ export default {
 }
 
 /* 暗色主题适配 */
-[data-theme="dark"] .detail-card:hover {
+[data-theme="dark"] .detail-card:hover,
+[data-theme="night"] .detail-card:hover,
+[data-theme="night-ink"] .detail-card:hover {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 </style>

@@ -15,7 +15,7 @@
             @click="selectCategory(category.id)"
           >
             <span class="nav-icon">{{ category.icon }}</span>
-            <span class="nav-label">{{ $t(`settings.categories.${category.id}`) }}</span>
+            <span class="nav-label">{{ category.unlocalized ? category.name : $t(`settings.categories.${category.id}`) }}</span>
           </div>
         </nav>
       </div>
@@ -36,6 +36,9 @@
             @theme-changed="onThemeChanged"
             @action="handleGeneralAction"
           />
+
+          <!-- 语言页不翻译。看不懂当前界面的人要靠这一页自己认出来。 -->
+          <LanguageSettings v-if="currentCategory === 'language'" />
 
           <!-- 个性化设置 -->
           <PersonalizationSettings 
@@ -142,6 +145,7 @@ import ArchiveSettings from '../components/settings/ArchiveSettings.vue'
 import PetSettings from '../components/settings/PetSettings.vue'
 import PersonalizationSettings from '../components/settings/PersonalizationSettings.vue'
 import PageManagementSettings from '../components/settings/PageManagementSettings.vue'
+import LanguageSettings from '../components/settings/LanguageSettings.vue'
 
 export default {
   name: 'SettingsView',
@@ -157,7 +161,8 @@ export default {
     ArchiveSettings,
     PetSettings,
     PersonalizationSettings,
-    PageManagementSettings
+    PageManagementSettings,
+    LanguageSettings
   },
   setup() {
     const { t } = useI18n()
@@ -168,6 +173,14 @@ export default {
       currentCategory: 'general',
       settingsCategories: [
         { id: 'general', name: '通用', icon: '⚙️', description: '应用的基本设置和外观配置' },
+        // 紧挨在通用下面。name 和 description 中英并列，故意不进语言包。
+        {
+          id: 'language',
+          name: 'Language / 语言',
+          icon: '🌐',
+          description: '看懂下面哪一句，就选哪一句。 If you can read one of these, choose it.',
+          unlocalized: true
+        },
         { id: 'personalization', name: '个性化', icon: '🎨', description: '个性化外观和主题设置' },
         { id: 'pageManagement', name: '页面管理', icon: '🧩', description: '添加、编辑、排序或删除页面' },
         { id: 'games', name: '游戏', icon: '🎮', description: '游戏相关的设置选项' },
@@ -289,11 +302,26 @@ export default {
       this.currentCategory = categoryId
     },
     
+    /**
+     * 当前分类的标题。
+     * 语言页的标题写死，避免被翻成用户看不懂的字。
+     */
     getCurrentCategoryName() {
+      const category = this.settingsCategories.find(item => item.id === this.currentCategory)
+      if (category?.unlocalized) {
+        return category.name
+      }
       return this.t(`settings.categories.${this.currentCategory}`)
     },
-    
+
+    /**
+     * 当前分类的说明。语言页同样不走翻译。
+     */
     getCurrentCategoryDescription() {
+      const category = this.settingsCategories.find(item => item.id === this.currentCategory)
+      if (category?.unlocalized) {
+        return category.description
+      }
       return this.t(`settings.descriptions.${this.currentCategory}`)
     },
     

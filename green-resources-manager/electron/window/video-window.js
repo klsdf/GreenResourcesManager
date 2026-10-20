@@ -38,6 +38,7 @@
 const { BrowserWindow, app } = require('electron')
 const path = require('path')
 const fs = require('fs')
+const { resolveMainPreloadPath } = require('../utils/preload-path')
 
 // 持有视频窗口的全局引用，防止被垃圾回收
 const videoWindows = []
@@ -107,7 +108,7 @@ async function openVideoWindow(filePath, options = {}, isDev = false) {
         enableRemoteModule: false,
         webSecurity: false, // 允许访问本地文件
         allowRunningInsecureContent: true, // 允许不安全内容
-        preload: path.join(__dirname, '../../preload.js')
+        preload: resolveMainPreloadPath()
       },
       icon: path.join(__dirname, '../../butter-icon.ico'),
       show: true

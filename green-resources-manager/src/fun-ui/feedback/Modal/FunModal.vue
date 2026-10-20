@@ -12,7 +12,7 @@
     >
       <div class="fun-modal__header">
         <h3 class="fun-modal__title">{{ title }}</h3>
-        <button type="button" class="fun-modal__close" aria-label="关闭" @click="close">✕</button>
+        <button type="button" class="fun-modal__close" :aria-label="$lt('关闭')" @click="close">✕</button>
       </div>
       <div class="fun-modal__body">
         <slot />

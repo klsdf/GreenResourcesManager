@@ -1,11 +1,11 @@
 /**
  * 主题管理 Composable
- * 负责管理应用主题（light/dark/auto）
+ * 负责管理应用主题。auto 会按系统深浅落到仓鼠娘或暗色。
  */
 import { ref, watch } from 'vue'
 import saveManager from '../utils/SaveManager'
 
-export type Theme = 'light' | 'dark' | 'ukiyoe' | 'chinese' | 'forest' | 'ocean' | 'cream' | 'auto'
+export type Theme = 'light' | 'dark' | 'ukiyoe' | 'chinese' | 'forest' | 'ocean' | 'cream' | 'sky' | 'ink' | 'moss' | 'sand' | 'dusk' | 'dunhuang' | 'morandi' | 'matisse' | 'memphis' | 'night' | 'night-ink' | 'auto'
 
 export function useTheme() {
   const theme = ref<Theme>('auto')

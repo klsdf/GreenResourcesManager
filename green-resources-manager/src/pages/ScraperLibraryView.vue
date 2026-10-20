@@ -18,26 +18,22 @@
         >
           {{ merging ? '合并中...' : '合并其它刮削库' }}
         </button>
-        <button type="button" class="btn-help" @click="helpVisible = true">
-          帮助说明
-        </button>
-        <span v-if="importedItems.length > 0" class="import-summary">
-          已导入 {{ importedItems.length }} 条固有数据（无 id）
-        </span>
+        <button type="button" class="btn-help" @click="helpVisible = true"> {{ $lt('帮助说明') }} </button>
+        <span v-if="importedItems.length > 0" class="import-summary"> {{ $lt('已导入') }} {{ importedItems.length }} {{ $lt('条固有数据（无 id）') }} </span>
       </div>
 
       <!-- 帮助说明弹窗 -->
-      <FunModal v-model="helpVisible" title="刮削库 · 帮助说明" :max-width="'520px'">
+      <FunModal v-model="helpVisible" :title="$lt('刮削库 · 帮助说明')" :max-width="'520px'">
         <div class="help-body">
-          <p><strong>什么是刮削库？</strong></p>
-          <p>刮削库用于存放可供刮削使用的资源数据。这里的记录是「固有数据」（不含游玩时长、评分、游玩记录等），主要来自存档中各资源表的条目，用于在刮削时匹配、补全元数据。</p>
-          <p><strong>从存档导入刮削库</strong></p>
-          <p>从当前应用的存档中，将各资源表里已有的数据导入到刮削库。导入的是不含 id 的固有数据，方便在其它环境或合并时使用。</p>
-          <p><strong>合并其它刮削库</strong></p>
-          <p>选择另一个刮削库文件（如从其它群友那里得到的scraper-library.db文件），与当前刮削库合并。若存在重复项（按 json 或 name 判断），可选择「覆盖」用外部数据替换本地，或「忽略」保留本地数据；其余记录将直接新增。</p>
+          <p><strong>{{ $lt('什么是刮削库？') }}</strong></p>
+          <p>{{ $lt('刮削库用于存放可供刮削使用的资源数据。这里的记录是「固有数据」（不含游玩时长、评分、游玩记录等），主要来自存档中各资源表的条目，用于在刮削时匹配、补全元数据。') }}</p>
+          <p><strong>{{ $lt('从存档导入刮削库') }}</strong></p>
+          <p>{{ $lt('从当前应用的存档中，将各资源表里已有的数据导入到刮削库。导入的是不含 id 的固有数据，方便在其它环境或合并时使用。') }}</p>
+          <p><strong>{{ $lt('合并其它刮削库') }}</strong></p>
+          <p>{{ $lt('选择另一个刮削库文件（如从其它群友那里得到的scraper-library.db文件），与当前刮削库合并。若存在重复项（按 json 或 name 判断），可选择「覆盖」用外部数据替换本地，或「忽略」保留本地数据；其余记录将直接新增。') }}</p>
         </div>
         <template #footer>
-          <button type="button" class="btn-confirm" @click="helpVisible = false">知道了</button>
+          <button type="button" class="btn-confirm" @click="helpVisible = false">{{ $lt('知道了') }}</button>
         </template>
       </FunModal>
 
@@ -45,20 +41,16 @@
       <div v-if="mergeDialogVisible" class="modal-overlay" @mousedown.self="mergeDialogVisible = false">
         <div class="modal-content merge-dialog" @mousedown.stop>
           <div class="modal-header">
-            <h3>合并其它刮削库</h3>
+            <h3>{{ $lt('合并其它刮削库') }}</h3>
             <button type="button" class="btn-close" @click="mergeDialogVisible = false">✕</button>
           </div>
           <div class="modal-body">
-            <p v-if="mergeDuplicates.length === 0" class="merge-summary">
-              未发现重复，将新增 {{ mergeAddCount }} 条记录。
-            </p>
+            <p v-if="mergeDuplicates.length === 0" class="merge-summary"> {{ $lt('未发现重复，将新增') }} {{ mergeAddCount }} {{ $lt('条记录。') }} </p>
             <template v-else>
-              <p class="merge-summary">
-                发现 {{ mergeDuplicates.length }} 条重复（json 或 name 相同），请选择覆盖或忽略；另有 {{ mergeAddCount }} 条将直接新增。
-              </p>
+              <p class="merge-summary"> {{ $lt('发现') }} {{ mergeDuplicates.length }} {{ $lt('条重复（json 或 name 相同），请选择覆盖或忽略；另有') }} {{ mergeAddCount }} {{ $lt('条将直接新增。') }} </p>
               <div class="merge-bulk-actions">
-                <button type="button" class="btn-bulk" @click="setAllMergeDecision('ignore')">全部忽略</button>
-                <button type="button" class="btn-bulk" @click="setAllMergeDecision('overwrite')">全选覆盖</button>
+                <button type="button" class="btn-bulk" @click="setAllMergeDecision('ignore')">{{ $lt('全部忽略') }}</button>
+                <button type="button" class="btn-bulk" @click="setAllMergeDecision('overwrite')">{{ $lt('全选覆盖') }}</button>
               </div>
               <div class="merge-duplicate-list">
                 <div
@@ -67,34 +59,30 @@
                   class="merge-duplicate-row"
                 >
                   <span class="merge-name">{{ item.externalName || '(无名称)' }}</span>
-                  <span class="merge-vs">← 覆盖本地</span>
+                  <span class="merge-vs">{{ $lt('← 覆盖本地') }}</span>
                   <span class="merge-name local">{{ item.localName || '(无名称)' }}</span>
                   <label class="merge-choice">
-                    <input type="radio" :name="'merge-' + idx" value="overwrite" v-model="item.decision" />
-                    覆盖
-                  </label>
+                    <input type="radio" :name="'merge-' + idx" value="overwrite" v-model="item.decision" /> {{ $lt('覆盖') }} </label>
                   <label class="merge-choice">
-                    <input type="radio" :name="'merge-' + idx" value="ignore" v-model="item.decision" />
-                    忽略
-                  </label>
+                    <input type="radio" :name="'merge-' + idx" value="ignore" v-model="item.decision" /> {{ $lt('忽略') }} </label>
                 </div>
               </div>
             </template>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn-cancel" @click="mergeDialogVisible = false">取消</button>
-            <button type="button" class="btn-confirm" @click="confirmMerge">确认合并</button>
+            <button type="button" class="btn-cancel" @click="mergeDialogVisible = false">{{ $lt('取消') }}</button>
+            <button type="button" class="btn-confirm" @click="confirmMerge">{{ $lt('确认合并') }}</button>
           </div>
         </div>
       </div>
 
       <div v-if="importedItems.length === 0" class="scraper-library-empty">
-        <p class="empty-hint">点击「从存档导入刮削库」将各资源表的固有数据导入到此页展示（不包含 id）</p>
+        <p class="empty-hint">{{ $lt('点击「从存档导入刮削库」将各资源表的固有数据导入到此页展示（不包含 id）') }}</p>
       </div>
 
       <template v-else>
         <div class="library-section">
-          <h3>刮削库数据</h3>
+          <h3>{{ $lt('刮削库数据') }}</h3>
           <div class="table-wrap">
             <FunPagination
               v-if="paginationConfig.totalPages > 1"

@@ -14,7 +14,9 @@
 }
 
 // 主题变体
-[data-theme="dark"] .global-audio-player {
+[data-theme="dark"] .global-audio-player,
+[data-theme="night"] .global-audio-player,
+[data-theme="night-ink"] .global-audio-player {
   background: rgba(42, 71, 94, 0.3);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);

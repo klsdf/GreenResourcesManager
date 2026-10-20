@@ -1,16 +1,16 @@
 <template>
   <div id="input-container" class="pet-input-container">
-    <button id="menu-button" class="menu-button" title="菜单" @click="handleMenuClick">☰</button>
+    <button id="menu-button" class="menu-button" :title="$lt('菜单')" @click="handleMenuClick">☰</button>
     <input
       type="text"
       id="chat-input"
       class="chat-input"
-      placeholder="输入消息..."
+      :placeholder="$lt('输入消息...')"
       v-model="inputValue"
       @keydown="handleKeyDown"
       @mousedown.stop
     />
-    <button id="send-button" class="send-button" title="发送" @click="handleSend" @mousedown.stop">➤</button>
+    <button id="send-button" class="send-button" :title="$lt('发送')" @click="handleSend" @mousedown.stop">➤</button>
   </div>
 </template>
 

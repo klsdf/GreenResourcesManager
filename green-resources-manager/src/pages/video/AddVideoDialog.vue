@@ -2,35 +2,35 @@
   <div v-if="visible" class="modal-overlay" @click="closeDialog">
     <div class="modal-content" @click.stop>
       <div class="modal-header">
-        <h3>添加视频</h3>
+        <h3>{{ $lt('添加视频') }}</h3>
         <button class="btn-close" @click="closeDialog">✕</button>
       </div>
       <div class="modal-body">
         <form @submit.prevent="handleAddVideo">
           <FormField
-            label="视频名称"
+            :label="$lt('视频名称')"
             type="text"
             v-model="formData.name"
-            placeholder="未填写将自动使用文件名"
+            :placeholder="$lt('未填写将自动使用文件名')"
           />
           
           <FormField
-            label="系列名"
+            :label="$lt('系列名')"
             type="text"
             v-model="formData.series"
-            placeholder="如：复仇者联盟"
+            :placeholder="$lt('如：复仇者联盟')"
           />
 
           <FormField
-            label="演员"
+            :label="$lt('演员')"
             type="text"
             v-model="actorsInput"
-            placeholder="用逗号分隔多个演员"
+            :placeholder="$lt('用逗号分隔多个演员')"
             @blur="parseActors"
           />
 
           <FormField
-            label="标签"
+            :label="$lt('标签')"
             type="tags"
             v-model="formData.tags"
             v-model:tagInput="tagsInput"
@@ -39,31 +39,31 @@
           />
 
           <FormField
-            label="描述"
+            :label="$lt('描述')"
             type="textarea"
             v-model="formData.description"
-            placeholder="视频描述..."
+            :placeholder="$lt('视频描述...')"
             :rows="3"
           />
 
           <FormField
-            label="视频文件"
+            :label="$lt('视频文件')"
             type="file"
             v-model="formData.filePath"
-            placeholder="选择视频文件..."
+            :placeholder="$lt('选择视频文件...')"
             @browse="selectVideoFile"
           />
 
           <FormField
-            label="缩略图"
+            :label="$lt('缩略图')"
             type="file"
             v-model="formData.thumbnail"
-            placeholder="选择缩略图..."
+            :placeholder="$lt('选择缩略图...')"
             @browse="selectThumbnailFile"
           />
 
           <FormField
-            label="时长 (分钟)"
+            :label="$lt('时长 (分钟)')"
             type="number"
             v-model="formData.duration"
             placeholder="120"
@@ -71,12 +71,8 @@
         </form>
       </div>
       <div class="modal-footer">
-        <button type="button" @click="closeDialog" class="btn-cancel">
-          取消
-        </button>
-        <button type="button" @click="handleAddVideo" class="btn-confirm">
-          添加视频
-        </button>
+        <button type="button" @click="closeDialog" class="btn-cancel"> {{ $lt('取消') }} </button>
+        <button type="button" @click="handleAddVideo" class="btn-confirm"> {{ $lt('添加视频') }} </button>
       </div>
     </div>
   </div>

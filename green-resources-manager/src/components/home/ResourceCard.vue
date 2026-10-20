@@ -11,7 +11,7 @@
         {{ resource.badge }}
       </div>
       <!-- 文件丢失标识 -->
-      <div v-if="showFileError" class="file-error-indicator" title="本地文件不存在">
+      <div v-if="showFileError" class="file-error-indicator" :title="$lt('本地文件不存在')">
         ⚠️
       </div>
     </div>

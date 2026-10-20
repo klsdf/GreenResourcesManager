@@ -2,8 +2,8 @@
   <div class="resource-home-view">
     <div class="home-content">
       <div class="placeholder-section">
-        <h2>{{ resourceConfig.name }}主页</h2>
-        <p>这里是{{ resourceConfig.name }}资源的主页，内容待实现...</p>
+        <h2>{{ resourceConfig.name }}{{ $lt('主页') }}</h2>
+        <p>{{ $lt('这里是') }}{{ resourceConfig.name }}{{ $lt('资源的主页，内容待实现...') }}</p>
       </div>
     </div>
   </div>

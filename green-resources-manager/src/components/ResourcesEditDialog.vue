@@ -9,13 +9,13 @@
       <div class="modal-body">
         <!-- 调试信息：如果 resourceClass 不可用，显示警告 -->
         <div v-if="mode === 'add' && typeChoices.length > 1" class="form-field-wrapper">
-          <label class="form-label">这种文件是</label>
+          <label class="form-label">{{ $lt('这种文件是') }}</label>
           <select class="type-choice" :value="selectedType" @change="onTypeChoiceChange">
-            <option v-for="choice in typeChoices" :key="choice.id" :value="choice.id">{{ choice.label }}</option>
+            <option v-for="choice in typeChoices" :key="choice.id" :value="choice.id">{{ $lt(choice.label) }}</option>
           </select>
         </div>
         <div v-if="!resourceClass || typeof resourceClass !== 'function'" class="form-error-message">
-          <p>⚠️ 资源类未正确加载，请检查 resourceClass prop 是否正确传递</p>
+          <p>{{ $lt('⚠️ 资源类未正确加载，请检查 resourceClass prop 是否正确传递') }}</p>
           <p>resourceClass: {{ resourceClass }}</p>
         </div>
         <!-- 根据资源类自动生成表单字段 -->
@@ -82,9 +82,7 @@
                 :disabled="!getExecutablePathValue() || !isElectronEnvironment"
                 :title="!getExecutablePathValue() ? '请先选择游戏文件' : (isElectronEnvironment ? '根据游戏路径自动识别引擎' : '仅 Electron 环境支持')"
               >
-                <span class="btn-icon">🔍</span>
-                检测引擎
-              </button>
+                <span class="btn-icon">🔍</span> {{ $lt('检测引擎') }} </button>
             </div>
           </template>
           
@@ -121,7 +119,7 @@
               :id="key"
               v-model="formData[key]"
             />
-            <span class="checkbox-text">{{ field.fieldName }}</span>
+            <span class="checkbox-text">{{ $lt(field.fieldName) }}</span>
           </label>
           
           <!-- 单图片文件选择（仅预览 +「选择图片」） -->
@@ -135,9 +133,7 @@
               </div>
               <div class="cover-actions">
                 <button type="button" class="btn-cover-action" @click="() => handleBrowseFile(key, field)">
-                  <span class="btn-icon">📁</span>
-                  选择图片
-                </button>
+                  <span class="btn-icon">📁</span> {{ $lt('选择图片') }} </button>
               </div>
             </div>
           </template>
@@ -160,9 +156,7 @@
                   @click="() => handleUseScreenshotAsCover(key)"
                   :disabled="isEditMode ? false : !getExecutablePathValue()"
                 >
-                  <span class="btn-icon">📸</span>
-                  使用截图作为封面
-                </button>
+                  <span class="btn-icon">📸</span> {{ $lt('使用截图作为封面') }} </button>
                 <!-- 游戏封面：选择第一张封面（自带） -->
                 <button 
                   v-if="field instanceof FormField_SelectGameCover"
@@ -170,11 +164,9 @@
                   class="btn-cover-action" 
                   @click="() => handleUseFirstImageAsGameCover(key)"
                   :disabled="!canGetGameScreenshotFolderPath"
-                  title="使用该游戏截图文件夹内第一张图片作为封面"
+                  :title="$lt('使用该游戏截图文件夹内第一张图片作为封面')"
                 >
-                  <span class="btn-icon">🖼️</span>
-                  选择第一张封面
-                </button>
+                  <span class="btn-icon">🖼️</span> {{ $lt('选择第一张封面') }} </button>
                 <!-- 漫画封面：使用第一张图片（自带） -->
                 <button 
                   v-if="field instanceof FormField_SelectMangaCover"
@@ -182,11 +174,9 @@
                   class="btn-cover-action" 
                   @click="() => handleUseFirstImageAsCover(key)"
                   :disabled="!getFolderPathValue()"
-                  title="使用漫画文件夹内第一张图片作为封面"
+                  :title="$lt('使用漫画文件夹内第一张图片作为封面')"
                 >
-                  <span class="btn-icon">🖼️</span>
-                  使用第一张图片
-                </button>
+                  <span class="btn-icon">🖼️</span> {{ $lt('使用第一张图片') }} </button>
                 <!-- 漫画封面：从文件夹选择（自带） -->
                 <button 
                   v-if="field instanceof FormField_SelectMangaCover"
@@ -194,11 +184,9 @@
                   class="btn-cover-action" 
                   @click="() => handleSelectFromFolder(key)"
                   :disabled="!getFolderPathValue()"
-                  title="从文件夹中挑选一张图片作为封面"
+                  :title="$lt('从文件夹中挑选一张图片作为封面')"
                 >
-                  <span class="btn-icon">📂</span>
-                  从文件夹选择
-                </button>
+                  <span class="btn-icon">📂</span> {{ $lt('从文件夹选择') }} </button>
                 <!-- 视频缩略图：随机封面 -->
                 <button 
                   v-if="field instanceof FormField_SelectVideoThumbnail && enableRandomizeThumbnail"
@@ -207,9 +195,7 @@
                   @click="() => handleRandomizeThumbnail(key)"
                   :disabled="!getFilePathValue()"
                 >
-                  <span class="btn-icon">🎲</span>
-                  随机封面
-                </button>
+                  <span class="btn-icon">🎲</span> {{ $lt('随机封面') }} </button>
                 <!-- 视频缩略图：从封面文件夹选择（用于文件夹） -->
                 <button 
                   v-if="field instanceof FormField_SelectVideoThumbnail && enableSelectFromFolderCovers"
@@ -218,13 +204,9 @@
                   @click="() => handleSelectFromFolderCovers(key)"
                   :disabled="!getFolderPathValue()"
                 >
-                  <span class="btn-icon">📂</span>
-                  从封面文件夹选择
-                </button>
+                  <span class="btn-icon">📂</span> {{ $lt('从封面文件夹选择') }} </button>
                 <button type="button" class="btn-cover-action" @click="() => handleBrowseImage(key)">
-                  <span class="btn-icon">📁</span>
-                  选择自定义封面
-                </button>
+                  <span class="btn-icon">📁</span> {{ $lt('选择自定义封面') }} </button>
                 <button 
                   type="button" 
                   class="btn-cover-action btn-clear" 
@@ -232,9 +214,7 @@
                   :disabled="!formData[key]"
                   :title="formData[key] ? '清除当前封面' : '当前无封面'"
                 >
-                  <span class="btn-icon">🗑️</span>
-                  清除封面
-                </button>
+                  <span class="btn-icon">🗑️</span> {{ $lt('清除封面') }} </button>
               </div>
             </div>
           </template>
@@ -253,9 +233,7 @@
               class="btn-browse" 
               @click="() => handleBrowseFolder(key, field)"
               :disabled="!isElectronEnvironment"
-            >
-              浏览
-            </button>
+            > {{ $lt('浏览') }} </button>
           </div>
           
           <!-- 文件选择字段（普通文件） -->
@@ -272,12 +250,10 @@
               class="btn-browse" 
               @click="() => handleBrowseFile(key, field)"
               :disabled="!isElectronEnvironment"
-            >
-              浏览
-            </button>
+            > {{ $lt('浏览') }} </button>
             <!-- 图片预览 -->
             <div v-if="isImageFile(formData[key]) && formData[key]" class="image-preview">
-              <img :src="getImageUrl(formData[key])" :alt="field.fieldName" @error="handleImageError" />
+              <img :src="getImageUrl(formData[key])" :alt="$lt(field.fieldName)" @error="handleImageError" />
             </div>
           </div>
         </div>
@@ -286,7 +262,7 @@
         <slot name="extra-fields" :formData="formData" :isEditMode="isEditMode"></slot>
       </div>
       <div class="modal-footer">
-        <button class="btn-cancel" @click="handleClose">取消</button>
+        <button class="btn-cancel" @click="handleClose">{{ $lt('取消') }}</button>
         <button class="btn-confirm" @click="() => { console.log('[ResourcesEditDialog] 确认按钮被点击，canConfirm:', canConfirm); handleConfirm() }" :disabled="!canConfirm">
           {{ getConfirmButtonText() }}
         </button>
@@ -304,7 +280,10 @@
 </template>
 
 <script lang="ts">
-import {computed, nextTick, PropType} from 'vue'
+// setup 里用 computed 抽表单字段，watch 里用 nextTick 等 props 到位。
+// 这两个 API 必须从 vue 显式导入，漏导入会让对话框 setup 直接抛错，路由视图随后更新时读到空节点。
+import { computed, nextTick } from 'vue'
+import { lf, lt } from '../locales/lt'
 import TagSelectionPanel from './TagSelectionPanel.vue'
 import saveManager from '../utils/SaveManager.ts'
 import notify from '../utils/NotificationService.ts'
@@ -710,13 +689,13 @@ export default {
     getTitle() {
       const config = (this.resourceClass as any)?.editDialogConfig
       if (this.isEditMode) {
-        return config?.editTitle || '编辑资源'
+        return lt(config?.editTitle || '编辑资源')
       }
-      return config?.addTitle || '添加资源'
+      return lt(config?.addTitle || '添加资源')
     },
     getConfirmButtonText() {
-      if (this.confirmButtonText) return this.confirmButtonText
-      return this.isEditMode ? this.editButtonText : this.addButtonText
+      if (this.confirmButtonText) return lt(this.confirmButtonText)
+      return lt(this.isEditMode ? this.editButtonText : this.addButtonText)
     },
     // 判断是否是封面字段
     isCoverField(field: FormFieldType): boolean {
@@ -824,7 +803,7 @@ export default {
           field = value
         }
         if (field instanceof FormField_Tags) {
-          list.push({ key, label: field.fieldName })
+          list.push({ key, label: lt(field.fieldName) })
         }
       }
       return list
@@ -834,7 +813,7 @@ export default {
       if (!field) {
         return key
       }
-      const fieldName = field.fieldName
+      const fieldName = lt(field.fieldName)
       const isRequired = field.required === true
       
       return isRequired ? `${fieldName} *` : fieldName
@@ -842,18 +821,18 @@ export default {
     // 获取字段占位符
     getFieldPlaceholder(key: string, field: FormFieldType): string {
       if (field instanceof FormField_Select) {
-        return `请选择${field.fieldName}`
+        return lf('请选择{name}', { name: lt(field.fieldName) })
       }
       if (field instanceof FormField_Textarea) {
-        return '输入简介或描述...'
+        return lt('输入简介或描述...')
       }
       if (field instanceof FormField_SelectFile) {
-        return `选择${field.fieldName}`
+        return lf('选择{name}', { name: lt(field.fieldName) })
       }
       if (field instanceof FormField_SelectFolder) {
-        return `选择${field.fieldName}`
+        return lf('选择{name}', { name: lt(field.fieldName) })
       }
-      return `请输入${field.fieldName}`
+      return lf('请输入{name}', { name: lt(field.fieldName) })
     },
     // 获取选择字段的选项（用于 SELECT 类型）
     getSelectOptions(key: string, field: FormFieldType): Array<{ value: string; label: string; icon: string | null }> {
@@ -1005,7 +984,7 @@ export default {
           return
         }
 
-        const filePath = await electronAPI.selectFileWithExtensions(filters, null, `选择${field.fieldName}`)
+        const filePath = await electronAPI.selectFileWithExtensions(filters, null, lf('选择{name}', { name: lt(field.fieldName) }))
 
         if (filePath) {
           if (filters && filters.length > 0) {

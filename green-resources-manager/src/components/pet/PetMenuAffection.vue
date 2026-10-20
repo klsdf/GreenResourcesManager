@@ -1,8 +1,8 @@
 <template>
   <div class="menu-affection">
     <div class="affection-header">
-      <h3 class="affection-title">好感度</h3>
-      <p class="affection-subtitle">与桌宠的亲密关系</p>
+      <h3 class="affection-title">{{ $lt('好感度') }}</h3>
+      <p class="affection-subtitle">{{ $lt('与桌宠的亲密关系') }}</p>
     </div>
     
     <!-- 好感度显示 -->
@@ -10,10 +10,10 @@
       <div class="affection-display-card">
         <div class="affection-icon">💕</div>
         <div class="affection-info">
-          <div class="affection-label">当前等级</div>
+          <div class="affection-label">{{ $lt('当前等级') }}</div>
           <div class="affection-value-large">Lv.{{ level }}</div>
           <div class="affection-exp-info">
-            <div class="exp-text">经验值：{{ exp }} / {{ expRequired }}</div>
+            <div class="exp-text">{{ $lt('经验值：') }}{{ exp }} / {{ expRequired }}</div>
             <div class="affection-progress-container">
               <div class="affection-progress-bar" :style="{ width: expProgress + '%' }">
                 <span class="affection-progress-text">{{ Math.round(expProgress) }}%</span>
@@ -27,8 +27,8 @@
     <!-- 好感度剧情 -->
     <div class="story-section">
       <div class="section-header">
-        <h4 class="section-title">好感度剧情</h4>
-        <p class="section-subtitle">随着好感度提升，解锁更多剧情</p>
+        <h4 class="section-title">{{ $lt('好感度剧情') }}</h4>
+        <p class="section-subtitle">{{ $lt('随着好感度提升，解锁更多剧情') }}</p>
       </div>
       
       <div class="story-list">
@@ -36,8 +36,8 @@
         <div class="story-item" v-for="n in 5" :key="n">
           <div class="story-icon">📖</div>
           <div class="story-info">
-            <div class="story-title">剧情 {{ n }}</div>
-            <div class="story-description">需要等级达到 Lv.{{ n }} 解锁</div>
+            <div class="story-title">{{ $lt('剧情') }} {{ n }}</div>
+            <div class="story-description">{{ $lt('需要等级达到 Lv.') }}{{ n }} {{ $lt('解锁') }}</div>
             <div class="story-status" :class="{ unlocked: level >= n }">
               {{ level >= n ? '已解锁' : '未解锁' }}
             </div>

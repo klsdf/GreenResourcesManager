@@ -20,10 +20,10 @@
           <div
             class="fun-menu-item-content"
             @click="handleItemClick(item)"
-            :title="collapsed ? (item.label || item.text || item.name) : ''"
+            :title="collapsed ? (menuLabel(item)) : ''"
           >
             <span v-if="item.icon" class="fun-menu-icon">{{ item.icon }}</span>
-            <span v-if="!collapsed" class="fun-menu-text">{{ item.label || item.text || item.name }}</span>
+            <span v-if="!collapsed" class="fun-menu-text">{{ menuLabel(item) }}</span>
           </div>
           <span
             v-if="item.children && item.children.length > 0 && !collapsed"
@@ -62,10 +62,10 @@
                 <div
                   class="fun-menu-item-content"
                   @click="handleItemClick(child)"
-                  :title="collapsed ? (child.label || child.text || child.name) : ''"
+                  :title="collapsed ? (menuLabel(child)) : ''"
                 >
                   <span v-if="child.icon" class="fun-menu-icon">{{ child.icon }}</span>
-                  <span v-if="!collapsed" class="fun-menu-text">{{ child.label || child.text || child.name }}</span>
+                  <span v-if="!collapsed" class="fun-menu-text">{{ menuLabel(child) }}</span>
                 </div>
                 <span
                   v-if="!collapsed"
@@ -91,7 +91,7 @@
                 >
                   <div class="fun-menu-item fun-menu-item-child fun-menu-item-grandchild">
                     <span v-if="subChild.icon" class="fun-menu-icon">{{ subChild.icon }}</span>
-                    <span class="fun-menu-text">{{ subChild.label || subChild.text || subChild.name }}</span>
+                    <span class="fun-menu-text">{{ menuLabel(subChild) }}</span>
                   </div>
                 </li>
               </ul>
@@ -102,10 +102,10 @@
               class="fun-menu-item fun-menu-item-child"
               :class="{ 'collapsed-mode': collapsed }"
               @click="handleItemClick(child)"
-              :title="collapsed ? (child.label || child.text || child.name) : ''"
+              :title="collapsed ? (menuLabel(child)) : ''"
             >
               <span v-if="child.icon" class="fun-menu-icon">{{ child.icon }}</span>
-              <span v-if="!collapsed" class="fun-menu-text">{{ child.label || child.text || child.name }}</span>
+              <span v-if="!collapsed" class="fun-menu-text">{{ menuLabel(child) }}</span>
             </div>
           </li>
         </ul>
@@ -117,10 +117,10 @@
         class="fun-menu-item"
         :class="{ active: isItemActive(item) }"
         @click="handleItemClick(item)"
-        :title="collapsed ? (item.label || item.text || item.name) : ''"
+        :title="collapsed ? (menuLabel(item)) : ''"
       >
         <span v-if="item.icon" class="fun-menu-icon">{{ item.icon }}</span>
-        <span v-if="!collapsed" class="fun-menu-text">{{ item.label || item.text || item.name }}</span>
+        <span v-if="!collapsed" class="fun-menu-text">{{ menuLabel(item) }}</span>
       </div>
     </li>
   </ul>
@@ -128,6 +128,17 @@
 
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
+import { lt } from '../../../locales/lt'
+
+/**
+ * 菜单上显示的名字。调用方有时直接传入简体原文，这里统一换成当前语言。
+ * @param item 菜单项
+ * @returns 当前语言的菜单文字
+ */
+function menuLabel(item?: { label?: string; text?: string; name?: string } | null): string {
+  if (!item) return ''
+  return lt(item.label || item.text || item.name || '')
+}
 
 export interface MenuItem {
   id?: string

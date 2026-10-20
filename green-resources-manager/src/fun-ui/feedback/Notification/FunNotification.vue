@@ -15,14 +15,14 @@
           <span v-else>📢</span>
         </div>
         <div class="fun-notification-toast__content">
-          <div class="fun-notification-toast__title">{{ toast.title }}</div>
+          <div class="fun-notification-toast__title">{{ $lt(toast.title) }}</div>
           <img
             v-if="toast.image"
             class="fun-notification-toast__preview"
             :src="toast.image"
-            alt="截图预览"
+            :alt="$lt('截图预览')"
           />
-          <div class="fun-notification-toast__message" v-if="toast.message">{{ toast.message }}</div>
+          <div class="fun-notification-toast__message" v-if="toast.message">{{ $lt(toast.message) }}</div>
         </div>
         <button class="fun-notification-toast__close" @click.stop="removeToast(toast.id)">×</button>
         <div class="fun-notification-toast__progress" :style="{ animationDuration: `${toast.duration}ms` }"></div>

@@ -5,12 +5,12 @@
       <div class="earnings-info">
         <div class="earnings-label">{{ label }}</div>
         <div class="earnings-value" v-if="!isLoading">{{ count }}</div>
-        <div class="earnings-value loading" v-else>加载中...</div>
+        <div class="earnings-value loading" v-else>{{ $lt('加载中...') }}</div>
       </div>
       <div class="earnings-hourly" v-if="hourlyEarnings !== undefined">
-        <div class="hourly-label">收益</div>
-        <div class="hourly-value" v-if="!isLoading">{{ hourlyEarnings }}金币/小时</div>
-        <div class="hourly-value loading" v-else>加载中...</div>
+        <div class="hourly-label">{{ $lt('收益') }}</div>
+        <div class="hourly-value" v-if="!isLoading">{{ hourlyEarnings }}{{ $lt('金币/小时') }}</div>
+        <div class="hourly-value loading" v-else>{{ $lt('加载中...') }}</div>
       </div>
     </div>
     <EarningsProgressBar

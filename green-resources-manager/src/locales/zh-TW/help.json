@@ -6,5 +6,30 @@
     "features": "功能介紹",
     "faq": "常見問題",
     "shortcuts": "快速鍵"
+  },
+  "sidebar": {
+    "title": "📚 說明中心",
+    "expandMenu": "展開選單",
+    "collapseMenu": "收合選單",
+    "userManual": "使用手冊",
+    "apiManual": "API 手冊",
+    "intro": "簡介",
+    "general": "一般管理",
+    "game": "遊戲管理",
+    "image": "圖片管理",
+    "video": "影片管理",
+    "novel": "小說管理",
+    "website": "網站收藏",
+    "audio": "音訊管理",
+    "faq": "常見問題",
+    "apiGames": "遊戲",
+    "apiManga": "漫畫",
+    "apiVideos": "影片",
+    "apiNovels": "小說",
+    "apiWebsites": "網站",
+    "apiAudio": "音訊",
+    "workshop": "創意工坊手冊",
+    "support": "客服與問題回饋",
+    "about": "關於我們"
   }
 }

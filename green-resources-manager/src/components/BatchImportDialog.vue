@@ -9,12 +9,10 @@
         <div class="batch-import__icon">
           <span>📥</span>
         </div>
-        <h3 class="batch-import__title">批量导入本地资源</h3>
+        <h3 class="batch-import__title">{{ $lt('批量导入本地资源') }}</h3>
       </div>
       <div class="batch-import__body">
-        <div v-if="files.length === 0" class="batch-import__empty">
-          没有找到匹配的文件
-        </div>
+        <div v-if="files.length === 0" class="batch-import__empty"> {{ $lt('没有找到匹配的文件') }} </div>
         <div v-else>
           <div class="batch-import__header-row">
             <label class="batch-import__select-all">
@@ -23,7 +21,7 @@
                 v-model="isAllSelected"
                 class="batch-import__checkbox"
               />
-              <span class="batch-import__select-all-text">全选</span>
+              <span class="batch-import__select-all-text">{{ $lt('全选') }}</span>
             </label>
           </div>
           <div class="batch-import__file-list">
@@ -47,15 +45,11 @@
         <fun-button 
           class="batch-import__button batch-import__button--cancel" 
           @click="handleCancel"
-        >
-          取消
-        </fun-button>
+        > {{ $lt('取消') }} </fun-button>
         <fun-button 
           class="batch-import__button batch-import__button--confirm" 
           @click="handleConfirm"
-        >
-          确认
-        </fun-button>
+        > {{ $lt('确认') }} </fun-button>
       </div>
     </div>
   </div>

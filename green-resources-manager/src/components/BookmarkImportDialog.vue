@@ -9,7 +9,7 @@
         <div class="bookmark-import__icon">
           <span>🔖</span>
         </div>
-        <h3 class="bookmark-import__title">导入书签</h3>
+        <h3 class="bookmark-import__title">{{ $lt('导入书签') }}</h3>
       </div>
       <div class="bookmark-import__body">
         <div v-if="!fileSelected" class="bookmark-import__upload">
@@ -22,24 +22,22 @@
               @change="handleFileSelect"
             />
             <div class="bookmark-import__upload-icon">📁</div>
-            <h4 class="bookmark-import__upload-title">选择书签文件</h4>
-            <p class="bookmark-import__upload-description">
-              从浏览器导出的HTML格式书签文件
-            </p>
+            <h4 class="bookmark-import__upload-title">{{ $lt('选择书签文件') }}</h4>
+            <p class="bookmark-import__upload-description"> {{ $lt('从浏览器导出的HTML格式书签文件') }} </p>
           </div>
         </div>
         <div v-else-if="isLoading" class="bookmark-import__loading">
           <div class="bookmark-import__loading-spinner"></div>
-          <p class="bookmark-import__loading-text">正在解析书签文件...</p>
+          <p class="bookmark-import__loading-text">{{ $lt('正在解析书签文件...') }}</p>
         </div>
         <div v-else-if="error" class="bookmark-import__error">
           <div class="bookmark-import__error-icon">❌</div>
           <p class="bookmark-import__error-text">{{ error }}</p>
-          <button class="bookmark-import__retry-button" @click="reset">重试</button>
+          <button class="bookmark-import__retry-button" @click="reset">{{ $lt('重试') }}</button>
         </div>
         <div v-else-if="bookmarks.length === 0" class="bookmark-import__empty">
           <div class="bookmark-import__empty-icon">📭</div>
-          <p class="bookmark-import__empty-text">未找到书签</p>
+          <p class="bookmark-import__empty-text">{{ $lt('未找到书签') }}</p>
         </div>
         <div v-else>
           <div class="bookmark-import__header-row">
@@ -49,7 +47,7 @@
                 v-model="isAllSelected"
                 class="bookmark-import__checkbox"
               />
-              <span class="bookmark-import__select-all-text">全选</span>
+              <span class="bookmark-import__select-all-text">{{ $lt('全选') }}</span>
             </label>
             <span class="bookmark-import__count">{{ selectedBookmarks.length }}/{{ bookmarks.length }}</span>
           </div>
@@ -82,15 +80,12 @@
         <fun-button 
           class="bookmark-import__button bookmark-import__button--cancel" 
           @click="handleCancel"
-        >
-          取消
-        </fun-button>
+        > {{ $lt('取消') }} </fun-button>
         <fun-button 
           class="bookmark-import__button bookmark-import__button--confirm" 
           @click="handleConfirm"
           :disabled="selectedBookmarks.length === 0"
-        >
-          导入 ({{ selectedBookmarks.length }})
+        > {{ $lt('导入 (') }}{{ selectedBookmarks.length }})
         </fun-button>
       </div>
     </div>

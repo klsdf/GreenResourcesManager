@@ -20,19 +20,19 @@
             <kbd class="kbd-separator" v-if="index < shortcutParts.length - 1">+</kbd>
           </template>
         </template>
-        <span v-else class="recording-hint">点击后按下快捷键</span>
+        <span v-else class="recording-hint">{{ $lt('点击后按下快捷键') }}</span>
       </button>
       <button
         v-if="recording"
         type="button"
         class="btn-cancel"
         @click="cancelRecording"
-      >取消</button>
+      >{{ $lt('取消') }}</button>
       <button
         v-else
         type="button"
         class="btn-edit-shortcut"
-        title="按下按键重新设置"
+        :title="$lt('按下按键重新设置')"
         @click="startRecording"
       >✏️</button>
     </div>

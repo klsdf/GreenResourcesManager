@@ -1,13 +1,13 @@
 <!-- 表单输入框 -->
 <template>
   <div class="form-group">
-    <label v-if="label">{{ label }}</label>
+    <label v-if="label">{{ $lt(label) }}</label>
     <input
       v-if="type === 'text' || type === 'email' || type === 'password' || type === 'number'"
       :type="type"
       :value="modelValue"
       @input="$emit('update:modelValue', $event.target.value)"
-      :placeholder="placeholder"
+      :placeholder="$lt(placeholder)"
       :class="inputClass"
       :readonly="readonly"
       :disabled="disabled"
@@ -16,7 +16,7 @@
       v-else-if="type === 'textarea'"
       :value="modelValue"
       @input="$emit('update:modelValue', $event.target.value)"
-      :placeholder="placeholder"
+      :placeholder="$lt(placeholder)"
       :class="inputClass"
       :rows="rows"
       :readonly="readonly"
@@ -29,7 +29,7 @@
       :class="inputClass"
       :disabled="disabled"
     >
-      <option v-if="placeholder" value="" disabled>{{ placeholder }}</option>
+      <option v-if="placeholder" value="" disabled>{{ $lt(placeholder) }}</option>
       <option
         v-for="option in options"
         :key="option.value"
@@ -42,11 +42,11 @@
       <input
         type="text"
         :value="modelValue"
-        :placeholder="placeholder"
+        :placeholder="$lt(placeholder)"
         :class="inputClass"
         readonly
       >
-      <button class="btn-browse" @click="$emit('browse')">浏览</button>
+      <button class="btn-browse" @click="$emit('browse')">{{ $lt('浏览') }}</button>
     </div>
     <div v-else-if="type === 'multiselect'" class="multiselect-container">
       <div class="multiselect-display">
@@ -68,7 +68,7 @@
         :class="inputClass"
         :disabled="disabled"
       >
-        <option value="" disabled>{{ placeholder }}</option>
+        <option value="" disabled>{{ $lt(placeholder) }}</option>
         <option
           v-for="option in availableOptions"
           :key="option.value"
@@ -97,7 +97,7 @@
         @blur="$emit('tagInputBlur')"
         @keydown.enter.prevent="$emit('addTag')"
         @keydown.comma.prevent="$emit('addTag')"
-        :placeholder="tagPlaceholder"
+        :placeholder="$lt(tagPlaceholder)"
         class="tag-input"
       >
     </div>

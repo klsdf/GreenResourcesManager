@@ -583,15 +583,12 @@ export const openWebsiteHandler: ActionHandler = async (resource, context) => {
     if (context.isElectronEnvironment && window.electronAPI && window.electronAPI.openExternal) {
       const result = await window.electronAPI.openExternal(url)
       if (result.success) {
-        console.log('[ResourceActionHandlers] 网站访问成功:', resourceName)
-        notify.native('网站已打开', `正在访问: ${resourceName}`)
       } else {
         notify.toast('error', '访问失败', `无法打开网站: ${result.error || '未知错误'}`)
       }
     } else {
       // 降级处理：在浏览器中打开
       window.open(url, '_blank')
-      notify.native('网站已打开', `正在访问: ${resourceName}`)
     }
     
     // 关闭详情页面

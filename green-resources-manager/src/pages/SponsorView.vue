@@ -3,8 +3,8 @@
     <div class="sponsor-content">
       <!-- 微信赞助码 -->
       <section class="sponsor-section">
-        <h3 class="section-title">赞赏</h3>
-        <p class="section-desc">扫码时，如有意愿，请将名字备注到付款信息里面！以便加入赞助人名单！</p>
+        <h3 class="section-title">{{ $lt('赞赏') }}</h3>
+        <p class="section-desc">{{ $lt('扫码时，如有意愿，请将名字备注到付款信息里面！以便加入赞助人名单！') }}</p>
         <div class="qrcode-wrap">
           <div
             v-for="(src, i) in wechatSponsorImages"
@@ -17,14 +17,14 @@
               class="qrcode-img"
               @error="onWechatImgError(i)"
             />
-            <p v-if="wechatImgErrors[i]" class="qrcode-tip">请将图片放到 <code>public{{ src }}</code></p>
+            <p v-if="wechatImgErrors[i]" class="qrcode-tip">{{ $lt('请将图片放到') }} <code>public{{ src }}</code></p>
           </div>
         </div>
       </section>
 
       <!-- 游戏宣传 -->
       <section class="sponsor-section game-promo">
-        <h3 class="section-title">我的游戏</h3>
+        <h3 class="section-title">{{ $lt('我的游戏') }}</h3>
         <div v-if="gameLink" class="game-card">
           <div class="game-cover-wrap" @click="openGameLink">
             <fun-carousel
@@ -44,7 +44,7 @@
               rel="noopener noreferrer"
               class="game-link-text"
               @click.prevent="openGameLink"
-            >去看看 →（感兴趣可以点一下愿望单！谢谢喵！）</a>
+            >{{ $lt('去看看 →（感兴趣可以点一下愿望单！谢谢喵！）') }}</a>
           </div>
         </div>
         <div v-else class="game-card game-card--placeholder">

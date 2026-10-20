@@ -93,7 +93,9 @@ export default {
   }
 }
 
-[data-theme="dark"] .module-intro {
+[data-theme="dark"] .module-intro,
+[data-theme="night"] .module-intro,
+[data-theme="night-ink"] .module-intro {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 </style>

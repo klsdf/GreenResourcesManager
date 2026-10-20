@@ -7,6 +7,7 @@ import { sortBy as sortByUtil } from '../utils/sortBy'
 import type { SortConfig } from '../utils/sortBy'
 import { getFilterFunctions } from '../configs/filters/filterLibrary.ts'
 import { pageConfigLoader } from '../configs/pages/PageConfigLoader.ts'
+import { FIELD_LABEL_MAP } from '../configs/tagFields'
 import saveManager from '../utils/SaveManager'
 import { useTagIndex } from './useTagIndex'
 
@@ -56,6 +57,42 @@ function normalizeStringArray(fieldValue: any): string[] {
     return [String(fieldValue)]
   }
   return []
+}
+
+/**
+ * 页面配置里沿用的旧资源名，对应标签索引实际使用的逻辑类型。
+ * 番剧页配置写的是 anime，索引和标签管理登记的是 videoFolder，不对齐时侧边栏会查空。
+ */
+const TAG_RESOURCE_ALIASES: Record<string, string> = {
+  anime: 'videoFolder',
+  animation: 'videoFolder',
+  'anime-series': 'videoFolder',
+  'video-folder': 'videoFolder',
+  image: 'manga',
+  images: 'manga',
+  movie: 'video',
+  videos: 'video',
+  games: 'game',
+  soft: 'software'
+}
+
+/**
+ * 把页面筛选配置里的资源名换成标签索引认识的逻辑类型。
+ * @param resource 页面 filterConfig.params.resource
+ */
+function resolveTagResourceType(resource: string): string {
+  return TAG_RESOURCE_ALIASES[resource] || resource
+}
+
+/**
+ * 判断这个筛选字段是否真的登记在标签索引里。
+ * 系列名、作者这类普通文本不在索引中，必须改从当前页面的资源里统计，否则侧边栏会一直显示暂无。
+ * @param resource 页面配置中的资源名
+ * @param field 资源字段名
+ */
+function isRegisteredTagField(resource: string, field: string): boolean {
+  const resourceType = resolveTagResourceType(resource)
+  return FIELD_LABEL_MAP[`${resourceType}:${field}`] != null
 }
 
 /**
@@ -231,7 +268,7 @@ export function useResourceFilter<T = any>(
   }
   
   // ========== 标签索引接入 ==========
-  // resourceField 型筛选器的候选不再遍历资源，而是从主进程 SQLite 标签索引读取
+  // 已登记的标签字段从主进程 SQLite 标签索引读取；系列名等普通文本仍遍历当前页资源
   const tagIndex = useTagIndex()
   const tagIndexAvailable = tagIndex.isAvailable()
   /** 由标签索引支撑的筛选器 key 集合（这些字段 extractAllFilters 不再扫描） */
@@ -242,16 +279,21 @@ export function useResourceFilter<T = any>(
   // 动态创建筛选状态：为每个筛选配置创建 selected 和 excluded 数组
   const filterStates = filterConfigs.reduce((acc, config) => {
     const params = (config as any).params
+    /** 只有登记过的标签字段才走索引；普通文本改由 extractAllFilters 从当前页资源统计 */
+    const tagResourceType = params && typeof params.resource === 'string'
+      ? resolveTagResourceType(params.resource)
+      : ''
     const isTagBacked = tagIndexAvailable
       && (config as any).filterType === 'resourceField'
       && params && typeof params.resource === 'string' && typeof params.field === 'string'
+      && isRegisteredTagField(params.resource, params.field)
 
     let itemsRef: Ref<FilterItem[]>
     if (isTagBacked) {
       // 候选项来自标签索引（同一 resourceType+field 全局共享一份响应式数据）
-      itemsRef = tagIndex.register(params.resource, params.field) as Ref<FilterItem[]>
+      itemsRef = tagIndex.register(tagResourceType, params.field) as Ref<FilterItem[]>
       tagBackedKeys.add(config.key)
-      tagQueries.push({ key: config.key, resourceType: params.resource, field: params.field })
+      tagQueries.push({ key: config.key, resourceType: tagResourceType, field: params.field })
     } else {
       itemsRef = ref<FilterItem[]>([])
     }

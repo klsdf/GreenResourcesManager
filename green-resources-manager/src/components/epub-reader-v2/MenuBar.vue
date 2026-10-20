@@ -16,7 +16,7 @@
                 <div class="setting-wrapper" v-show="ifSettingShow">
                 <div class="setting-header">
                     <span class="setting-title">{{ getSettingTitle() }}</span>
-                    <button class="btn-close-setting" @click="hideSetting" title="关闭">
+                    <button class="btn-close-setting" @click="hideSetting" :title="$lt('关闭')">
                         <span class="close-icon">✕</span>
                     </button>
                 </div>

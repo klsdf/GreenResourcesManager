@@ -72,12 +72,8 @@
 
         <div v-else class="tag-empty-state">
           <p>{{ emptyMessage || '暂无可用标签' }}</p>
-          <p v-if="availableTags && availableTags.length === 0" class="debug-info" style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 8px;">
-            调试：availableTags 为空数组
-          </p>
-          <p v-else-if="!availableTags" class="debug-info" style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 8px;">
-            调试：availableTags 未定义
-          </p>
+          <p v-if="availableTags && availableTags.length === 0" class="debug-info" style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 8px;"> {{ $lt('调试：availableTags 为空数组') }} </p>
+          <p v-else-if="!availableTags" class="debug-info" style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 8px;"> {{ $lt('调试：availableTags 未定义') }} </p>
         </div>
       </template>
     </div>

@@ -46,6 +46,17 @@
     "forest": "护眼森林",
     "ocean": "蓝色海洋",
     "cream": "奶油冰淇淋",
+    "sky": "晴空",
+    "ink": "墨白",
+    "moss": "青苔",
+    "sand": "暖沙",
+    "dusk": "暮霞",
+    "dunhuang": "敦煌",
+    "morandi": "莫兰迪",
+    "matisse": "马蒂斯",
+    "memphis": "孟菲斯",
+    "night": "夜航",
+    "night-ink": "夜墨",
     "auto": "跟随系统"
   },
   "autoStart": {
@@ -89,13 +100,17 @@
   },
   "autoBackup": {
     "title": "开启自动备份",
-    "description": "开启后，系统会按设定的时间间隔自动备份整个存档目录",
+    "description": "按设定的时间间隔备份整个存档。备份放在系统用户目录（Windows 上一般在 C 盘），不和存档放在一起",
     "intervalTitle": "自动备份时间间隔",
     "intervalDesc": "设置自动备份整个存档的时间间隔",
     "unitMinutes": "分钟",
     "maxCountTitle": "保留备份数量",
     "maxCountDesc": "设置自动备份时保留的备份数量，超出数量的旧备份会被自动删除",
-    "unitCount": "个"
+    "unitCount": "个",
+    "openFolderTitle": "打开备份文件夹",
+    "openFolderDesc": "在文件管理器中打开自动备份所在的文件夹",
+    "openFolderButton": "打开文件夹",
+    "openedDetail": "已打开备份文件夹: {path}"
   },
   "personalization": {
     "customAppTitle": "自定义软件标题",

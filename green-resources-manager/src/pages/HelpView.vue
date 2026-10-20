@@ -908,7 +908,9 @@ export default defineComponent({
 // 11. 暗色主题适配
 // ============================================
 
-[data-theme="dark"] {
+[data-theme="dark"],
+[data-theme="night"],
+[data-theme="night-ink"] {
   // 暗色主题下 FAQ 分类的悬停效果
   .faq-category:hover {
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);

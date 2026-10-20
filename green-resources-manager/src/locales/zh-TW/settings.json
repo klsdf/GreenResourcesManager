@@ -45,6 +45,18 @@
     "chinese": "中國古風",
     "forest": "森林主題",
     "ocean": "海洋主題",
+    "cream": "奶油冰淇淋",
+    "sky": "晴空",
+    "ink": "墨白",
+    "moss": "青苔",
+    "sand": "暖沙",
+    "dusk": "暮霞",
+    "dunhuang": "敦煌",
+    "morandi": "莫蘭迪",
+    "matisse": "馬蒂斯",
+    "memphis": "孟菲斯",
+    "night": "夜航",
+    "night-ink": "夜墨",
     "auto": "跟隨系統"
   },
   "autoStart": {
@@ -88,13 +100,17 @@
   },
   "autoBackup": {
     "title": "開啟自動備份",
-    "description": "開啟後，系統會按設定的時間間隔自動備份整個存檔目錄",
+    "description": "按設定的時間間隔備份整個存檔。備份放在系統使用者目錄（Windows 上一般在 C 槽），不和存檔放在一起",
     "intervalTitle": "自動備份時間間隔",
     "intervalDesc": "設定自動備份整個存檔的時間間隔",
     "unitMinutes": "分鐘",
     "maxCountTitle": "保留備份數量",
     "maxCountDesc": "設定自動備份時保留的備份數量，超出數量的舊備份會被自動刪除",
-    "unitCount": "個"
+    "unitCount": "個",
+    "openFolderTitle": "開啟備份資料夾",
+    "openFolderDesc": "在檔案總管中開啟自動備份所在的資料夾",
+    "openFolderButton": "開啟資料夾",
+    "openedDetail": "已開啟備份資料夾: {path}"
   },
   "personalization": {
     "customAppTitle": "自訂軟體標題",

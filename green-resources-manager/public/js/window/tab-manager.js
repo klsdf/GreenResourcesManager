@@ -236,8 +236,6 @@ class TabManager {
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
       this.mainWindow.webContents.send('tab-closed', { tabId })
     }
-
-    console.log('✅ 关闭标签页:', tabId)
   }
 
   /**

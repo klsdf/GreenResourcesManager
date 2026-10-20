@@ -3,39 +3,37 @@
     <div class="modal-wrapper">
       <div class="modal-content" @mousedown.stop>
         <div class="modal-header">
-          <h3>添加文件夹</h3>
+          <h3>{{ $lt('添加文件夹') }}</h3>
           <button class="btn-close" @click="handleClose">×</button>
         </div>
         
         <div class="modal-body">
           <FormField
-            label="文件夹名称 *"
+            :label="$lt('文件夹名称 *')"
             type="text"
             v-model="formData.name"
-            placeholder="文件夹名称"
+            :placeholder="$lt('文件夹名称')"
           />
           
           <FormField
-            label="文件夹路径 *"
+            :label="$lt('文件夹路径 *')"
             type="text"
             v-model="formData.folderPath"
-            placeholder="文件夹路径"
+            :placeholder="$lt('文件夹路径')"
             readonly
           />
-          <button class="btn-select-file" @click="handleBrowseFolder">
-            选择文件夹
-          </button>
+          <button class="btn-select-file" @click="handleBrowseFolder"> {{ $lt('选择文件夹') }} </button>
           
           <FormField
-            label="描述"
+            :label="$lt('描述')"
             type="textarea"
             v-model="formData.description"
-            placeholder="文件夹描述（可选）..."
+            :placeholder="$lt('文件夹描述（可选）...')"
             :rows="3"
           />
           
           <FormField
-            label="标签"
+            :label="$lt('标签')"
             type="tags"
             v-model="formData.tags"
             v-model:tagInput="tagInput"
@@ -46,8 +44,8 @@
         </div>
         
         <div class="modal-footer">
-          <button class="btn-cancel" @click="handleClose">取消</button>
-          <button class="btn-confirm" @click="handleConfirm" :disabled="!canSubmit">确认</button>
+          <button class="btn-cancel" @click="handleClose">{{ $lt('取消') }}</button>
+          <button class="btn-confirm" @click="handleConfirm" :disabled="!canSubmit">{{ $lt('确认') }}</button>
         </div>
       </div>
       <!-- Tag 选择面板 -->

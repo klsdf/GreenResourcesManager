@@ -2,37 +2,37 @@
   <div v-if="visible" class="modal-overlay" @click.self="handleClose">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>编辑页面</h3>
+        <h3>{{ $lt('编辑页面') }}</h3>
         <button class="close-btn" @click="handleClose">×</button>
       </div>
       <div class="modal-body">
-        <h4 class="section-title">基础设置</h4>
+        <h4 class="section-title">{{ $lt('基础设置') }}</h4>
         <div class="form-group">
-          <label>页面名称</label>
+          <label>{{ $lt('页面名称') }}</label>
           <fun-input
             type="text"
             v-model="editingPage.name"
-            placeholder="例如：我的收藏"
+            :placeholder="$lt('例如：我的收藏')"
           />
         </div>
         <div class="form-group">
-          <label>图标</label>
+          <label>{{ $lt('图标') }}</label>
           <fun-input
             type="text"
             v-model="editingPage.icon"
-            placeholder="输入 emoji"
+            :placeholder="$lt('输入 emoji')"
           />
         </div>
         <div class="form-group">
-          <label>页面描述</label>
+          <label>{{ $lt('页面描述') }}</label>
           <fun-input
             type="text"
             v-model="editingPage.description"
-            placeholder="例如：管理我喜欢的资源"
+            :placeholder="$lt('例如：管理我喜欢的资源')"
           />
         </div>
-        <h4 class="section-title">接受的资源</h4>
-        <p class="field-hint">只按文件本身来分，比如可执行文件、图片、视频。和这个页面有没有发行商、标签无关。改这里不会改动已经保存的内容。同一种文件会归到列表里靠前的那一种。</p>
+        <h4 class="section-title">{{ $lt('接受的资源') }}</h4>
+        <p class="field-hint">{{ $lt('只按文件本身来分，比如可执行文件、图片、视频。和这个页面有没有发行商、标签无关。改这里不会改动已经保存的内容。同一种文件会归到列表里靠前的那一种。') }}</p>
         <div class="type-list">
           <div
             v-for="(kindId, index) in editingPage.acceptedKinds"
@@ -44,22 +44,27 @@
               <span class="type-desc">{{ kindDescription(kindId) }}</span>
             </div>
             <div class="type-actions">
-              <button class="btn-icon" type="button" title="上移" :disabled="index === 0" @click="moveKind(index, -1)">▲</button>
-              <button class="btn-icon" type="button" title="下移" :disabled="index === editingPage.acceptedKinds.length - 1" @click="moveKind(index, 1)">▼</button>
-              <button class="btn-icon delete" type="button" title="移除" @click="removeKind(index)">✕</button>
+              <button class="btn-icon" type="button" :title="$lt('上移')" :disabled="index === 0" @click="moveKind(index, -1)">▲</button>
+              <button class="btn-icon" type="button" :title="$lt('下移')" :disabled="index === editingPage.acceptedKinds.length - 1" @click="moveKind(index, 1)">▼</button>
+              <button class="btn-icon delete" type="button" :title="$lt('移除')" @click="removeKind(index)">✕</button>
             </div>
           </div>
         </div>
-        <div class="add-type-row">
-          <select v-model="kindToAdd" class="type-select">
-            <option value="">选择要接受的资源</option>
-            <option v-for="kind in kindsToAdd" :key="kind.id" :value="kind.id">{{ kind.label }}</option>
-          </select>
-          <button class="btn-secondary" type="button" :disabled="!kindToAdd" @click="addKind">添加</button>
+        <div v-if="kindsToAdd.length" class="kind-picker">
+          <div class="check-grid">
+            <label v-for="kind in kindsToAdd" :key="kind.id" class="check-item">
+              <input type="checkbox" :checked="pendingKinds.includes(kind.id)" @change="togglePendingKind(kind.id)" />
+              <span>{{ kind.label }}</span>
+            </label>
+          </div>
+          <div class="add-type-row">
+            <button class="btn-secondary" type="button" @click="selectAllPendingKinds">{{ $lt('全选') }}</button>
+            <button class="btn-secondary" type="button" :disabled="!pendingKinds.length" @click="addSelectedKinds">{{ $lt('添加') }}</button>
+          </div>
         </div>
 
-        <h4 class="section-title">页面字段</h4>
-        <p class="field-hint">这个页面编辑资源时能看到哪些字段。取消勾选不会删掉已经保存的内容，只是这个页面不再显示它。</p>
+        <h4 class="section-title">{{ $lt('页面字段') }}</h4>
+        <p class="field-hint">{{ $lt('这个页面编辑资源时能看到哪些字段。取消勾选不会删掉已经保存的内容，只是这个页面不再显示它。') }}</p>
         <div class="check-grid">
           <label v-for="field in fieldCatalog" :key="field.key" class="check-item">
             <input type="checkbox" :checked="editingPage.pageFields.includes(field.key)" @change="togglePageField(field.key)" />
@@ -67,126 +72,126 @@
           </label>
         </div>
 
-        <h4 class="section-title">筛选器</h4>
-        <p class="field-hint">侧边栏用哪些条件筛选。这里同样只改页面，不改资源数据。</p>
+        <h4 class="section-title">{{ $lt('筛选器') }}</h4>
+        <p class="field-hint">{{ $lt('侧边栏用哪些条件筛选。这里同样只改页面，不改资源数据。') }}</p>
         <div class="type-list">
           <div v-for="(filter, index) in editingPage.filterConfig" :key="filter.key" class="type-row">
             <span class="type-label">{{ filter.title || filter.key }}</span>
-            <button class="btn-icon delete" type="button" title="移除" @click="removeFilter(index)">✕</button>
+            <button class="btn-icon delete" type="button" :title="$lt('移除')" @click="removeFilter(index)">✕</button>
           </div>
         </div>
         <div class="add-type-row">
           <select v-model="filterToAdd" class="type-select">
-            <option value="">选择要添加的筛选器</option>
+            <option value="">{{ $lt('选择要添加的筛选器') }}</option>
             <option v-for="preset in filterPresetsToAdd" :key="preset.id" :value="preset.id">{{ preset.title }}</option>
           </select>
-          <button class="btn-secondary" type="button" :disabled="!filterToAdd" @click="addFilter">添加筛选器</button>
+          <button class="btn-secondary" type="button" :disabled="!filterToAdd" @click="addFilter">{{ $lt('添加筛选器') }}</button>
         </div>
 
         <div class="form-group">
-          <label>默认每页显示数量</label>
+          <label>{{ $lt('默认每页显示数量') }}</label>
           <fun-input
             type="number"
             v-model.number="editingPage.defaultPageSize"
-            placeholder="例如：12"
+            :placeholder="$lt('例如：12')"
           />
         </div>
         
-        <h4 class="section-title">布局设置</h4>
+        <h4 class="section-title">{{ $lt('布局设置') }}</h4>
         <div class="form-group">
-          <label>最小卡片宽度</label>
+          <label>{{ $lt('最小卡片宽度') }}</label>
           <fun-input
             type="number"
             v-model.number="editingPage.displayLayoutConfig.minWidth"
-            placeholder="例如：150"
+            :placeholder="$lt('例如：150')"
           />
         </div>
         <div class="form-group">
-          <label>最大卡片宽度</label>
+          <label>{{ $lt('最大卡片宽度') }}</label>
           <fun-input
             type="number"
             v-model.number="editingPage.displayLayoutConfig.maxWidth"
-            placeholder="例如：400"
+            :placeholder="$lt('例如：400')"
           />
         </div>
         
-        <h4 class="section-title">空状态设置</h4>
+        <h4 class="section-title">{{ $lt('空状态设置') }}</h4>
         <div class="form-group">
-          <label>空状态图标</label>
+          <label>{{ $lt('空状态图标') }}</label>
           <fun-input
             type="text"
             v-model="editingPage.emptyStateConfig.icon"
-            placeholder="例如：📚"
+            :placeholder="$lt('例如：📚')"
           />
         </div>
         <div class="form-group">
-          <label>空状态标题</label>
+          <label>{{ $lt('空状态标题') }}</label>
           <fun-input
             type="text"
             v-model="editingPage.emptyStateConfig.title"
-            placeholder="例如：你的资源库是空的"
+            :placeholder="$lt('例如：你的资源库是空的')"
           />
         </div>
         <div class="form-group">
-          <label>空状态描述</label>
+          <label>{{ $lt('空状态描述') }}</label>
           <fun-input
             type="text"
             v-model="editingPage.emptyStateConfig.description"
-            placeholder="例如：点击按钮来添加你的第一个资源"
+            :placeholder="$lt('例如：点击按钮来添加你的第一个资源')"
           />
         </div>
         <div class="form-group">
-          <label>空状态按钮文字</label>
+          <label>{{ $lt('空状态按钮文字') }}</label>
           <fun-input
             type="text"
             v-model="editingPage.emptyStateConfig.buttonText"
-            placeholder="例如：添加第一个资源"
+            :placeholder="$lt('例如：添加第一个资源')"
           />
         </div>
         <div class="form-group">
-          <label>空状态按钮动作</label>
+          <label>{{ $lt('空状态按钮动作') }}</label>
           <fun-input
             type="text"
             v-model="editingPage.emptyStateConfig.buttonAction"
-            placeholder="例如：showAddDialog"
+            :placeholder="$lt('例如：showAddDialog')"
           />
         </div>
         
-        <h4 class="section-title">对话框设置</h4>
+        <h4 class="section-title">{{ $lt('对话框设置') }}</h4>
         <div class="form-group">
-          <label>添加对话框标题</label>
+          <label>{{ $lt('添加对话框标题') }}</label>
           <fun-input
             type="text"
             v-model="editingPage.dialogConfig.addTitle"
-            placeholder="例如：添加资源"
+            :placeholder="$lt('例如：添加资源')"
           />
         </div>
         <div class="form-group">
-          <label>编辑对话框标题</label>
+          <label>{{ $lt('编辑对话框标题') }}</label>
           <fun-input
             type="text"
             v-model="editingPage.dialogConfig.editTitle"
-            placeholder="例如：编辑资源"
+            :placeholder="$lt('例如：编辑资源')"
           />
         </div>
         <div class="form-group">
-          <label>添加对话框按钮文字</label>
+          <label>{{ $lt('添加对话框按钮文字') }}</label>
           <fun-input
             type="text"
             v-model="editingPage.dialogConfig.addButtonText"
-            placeholder="例如：添加资源"
+            :placeholder="$lt('例如：添加资源')"
           />
         </div>
         <div class="form-group">
-          <label>编辑对话框按钮文字</label>
+          <label>{{ $lt('编辑对话框按钮文字') }}</label>
           <fun-input
             type="text"
             v-model="editingPage.dialogConfig.editButtonText"
-            placeholder="例如：保存修改"
+            :placeholder="$lt('例如：保存修改')"
           />
         </div>
         
-        <h4 class="section-title">排序选项</h4>
+        <h4 class="section-title">{{ $lt('排序选项') }}</h4>
         <div class="sort-options-list">
           <div
             v-for="(sortOption, index) in editingPage.sortOptions"
@@ -197,7 +202,7 @@
               <span class="sort-option-index">{{ index + 1 }}</span>
               <button
                 class="btn-icon delete"
-                title="删除排序选项"
+                :title="$lt('删除排序选项')"
                 @click="removeSortOption(index)"
               >
                 🗑️
@@ -205,23 +210,23 @@
             </div>
             <div class="sort-option-fields">
               <div class="form-group">
-                <label>显示标签</label>
+                <label>{{ $lt('显示标签') }}</label>
                 <fun-input
                   type="text"
                   v-model="sortOption.label"
-                  placeholder="例如：按名称排序"
+                  :placeholder="$lt('例如：按名称排序')"
                 />
               </div>
               <div class="form-group">
-                <label>排序字段</label>
+                <label>{{ $lt('排序字段') }}</label>
                 <fun-input
                   type="text"
                   v-model="sortOption.field"
-                  placeholder="例如：name"
+                  :placeholder="$lt('例如：name')"
                 />
               </div>
               <div class="form-group">
-                <label>排序顺序</label>
+                <label>{{ $lt('排序顺序') }}</label>
                 <fun-select
                   v-model="sortOption.order"
                   :options="[
@@ -233,13 +238,11 @@
             </div>
           </div>
         </div>
-        <button class="btn-secondary add-sort-btn" @click="addSortOption">
-          ➕ 添加排序选项
-        </button>
+        <button class="btn-secondary add-sort-btn" @click="addSortOption"> {{ $lt('➕ 添加排序选项') }} </button>
       </div>
       <div class="modal-footer">
-        <button class="btn-secondary" @click="handleClose">取消</button>
-        <button class="btn-primary" @click="handleSave">保存</button>
+        <button class="btn-secondary" @click="handleClose">{{ $lt('取消') }}</button>
+        <button class="btn-primary" @click="handleSave">{{ $lt('保存') }}</button>
       </div>
     </div>
   </div>
@@ -342,8 +345,8 @@ export default defineComponent({
 
     const originalConfig = ref<any>(null)
     const currentFileName = ref<string>('')
-    /** 准备添加的基本资源类型 */
-    const kindToAdd = ref('')
+    /** 勾选后准备一次性加进页面的资源类型 */
+    const pendingKinds = ref<string[]>([])
     /** 准备添加的筛选器 */
     const filterToAdd = ref('')
     /** 全部可勾选字段 */
@@ -393,11 +396,32 @@ export default defineComponent({
       editingPage.value.acceptedKinds.splice(index, 1)
     }
 
-    /** 把选中的基本资源类型加到页面上。 */
-    const addKind = () => {
-      if (!kindToAdd.value || editingPage.value.acceptedKinds.includes(kindToAdd.value)) return
-      editingPage.value.acceptedKinds.push(kindToAdd.value)
-      kindToAdd.value = ''
+    /**
+     * 勾选或取消一种还没接受的资源。
+     * 类型数量不多，一次可以勾好几种再添加。
+     */
+    const togglePendingKind = (kindId: string) => {
+      const index = pendingKinds.value.indexOf(kindId)
+      if (index >= 0) pendingKinds.value.splice(index, 1)
+      else pendingKinds.value.push(kindId)
+    }
+
+    /** 把还没接受的资源全部勾上。 */
+    const selectAllPendingKinds = () => {
+      pendingKinds.value = kindsToAdd.value.map(kind => kind.id)
+    }
+
+    /**
+     * 把勾选的资源加进页面。
+     * 按类型目录的顺序追加，扩展名重叠时仍是列表里靠前的先匹配。
+     */
+    const addSelectedKinds = () => {
+      const selected = new Set(pendingKinds.value)
+      for (const kind of kindsToAdd.value) {
+        if (!selected.has(kind.id) || editingPage.value.acceptedKinds.includes(kind.id)) continue
+        editingPage.value.acceptedKinds.push(kind.id)
+      }
+      pendingKinds.value = []
     }
 
     /** 勾选或取消一个页面字段。不改已经保存的资源。 */
@@ -587,7 +611,7 @@ export default defineComponent({
       handleSave,
       addSortOption,
       removeSortOption,
-      kindToAdd,
+      pendingKinds,
       filterToAdd,
       fieldCatalog,
       kindsToAdd,
@@ -596,7 +620,9 @@ export default defineComponent({
       kindDescription,
       moveKind,
       removeKind,
-      addKind,
+      togglePendingKind,
+      selectAllPendingKinds,
+      addSelectedKinds,
       togglePageField,
       removeFilter,
       addFilter
@@ -739,6 +765,10 @@ export default defineComponent({
   font-size: 0.85rem;
   line-height: 1.5;
   margin: 0 0 12px;
+}
+
+.kind-picker .check-grid {
+  margin-bottom: 12px;
 }
 
 .check-grid {

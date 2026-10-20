@@ -6,27 +6,27 @@
     "isHidden": false
   },
   {
-    "fileName": "websitePage.json",
+    "fileName": "custom-games-mve7uyfl.json",
     "order": 2,
-    "isDefault": true,
+    "isDefault": false,
     "isHidden": false
   },
   {
-    "fileName": "imagePage.json",
+    "fileName": "websitePage.json",
     "order": 3,
     "isDefault": true,
     "isHidden": false
   },
   {
-    "fileName": "gamePage.json",
+    "fileName": "imagePage.json",
     "order": 4,
     "isDefault": true,
     "isHidden": false
   },
   {
-    "fileName": "custom-games-mve7uyfl.json",
+    "fileName": "gamePage.json",
     "order": 5,
-    "isDefault": false,
+    "isDefault": true,
     "isHidden": false
   },
   {

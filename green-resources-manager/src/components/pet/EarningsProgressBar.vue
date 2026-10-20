@@ -1,7 +1,7 @@
 <template>
   <div class="earnings-progress">
     <div class="progress-info">
-      <span class="progress-label">距离下次收益</span>
+      <span class="progress-label">{{ $lt('距离下次收益') }}</span>
       <span class="progress-time">{{ timeUntilNextEarning }}</span>
     </div>
     <div class="progress-bar">

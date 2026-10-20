@@ -1,8 +1,8 @@
 <template>
   <div class="setting-item">
     <label class="setting-label">
-      <span class="setting-title">{{ title }}</span>
-      <span class="setting-desc" v-if="description">{{ description }}</span>
+      <span class="setting-title">{{ $lt(title) }}</span>
+      <span class="setting-desc" v-if="description">{{ $lt(description) }}</span>
     </label>
     <div class="setting-control">
       <input 

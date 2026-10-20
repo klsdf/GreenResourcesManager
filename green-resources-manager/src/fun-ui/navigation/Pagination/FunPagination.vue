@@ -1,11 +1,8 @@
 <template>
   <div class="fun-pagination" v-if="totalPages > 0 && totalItems > 0">
     <div class="fun-pagination__info">
-      <span class="fun-pagination__info-text">
-        第 {{ currentPage }} 页，共 {{ totalPages }} 页
-      </span>
-      <span class="fun-pagination__info-range">
-        显示第 {{ currentPageStartIndex + 1 }} - {{ Math.min(currentPageStartIndex + pageSize, totalItems) }} 个，共 {{ totalItems }} 个{{ itemType }}
+      <span class="fun-pagination__info-text"> {{ $lt('第') }} {{ currentPage }} {{ $lt('页，共') }} {{ totalPages }} {{ $lt('页') }} </span>
+      <span class="fun-pagination__info-range"> {{ $lt('显示第') }} {{ currentPageStartIndex + 1 }} - {{ Math.min(currentPageStartIndex + pageSize, totalItems) }} {{ $lt('个，共') }} {{ totalItems }} {{ $lt('个') }}{{ itemType }}
       </span>
     </div>
     <div class="fun-pagination__controls">
@@ -13,9 +10,7 @@
         class="fun-pagination__button fun-pagination__button--prev"
         :disabled="currentPage <= 1"
         @click="handlePreviousPage"
-      >
-        ◀ 上一页
-      </fun-button>
+      > {{ $lt('◀ 上一页') }} </fun-button>
       <div class="fun-pagination__jump">
         <input 
           type="number" 
@@ -24,22 +19,18 @@
           :max="totalPages"
           @keyup.enter="handleJumpToPage"
           class="fun-pagination__jump-input"
-          placeholder="页码"
+          :placeholder="$lt('页码')"
         >
         <fun-button 
           class="fun-pagination__jump-button"
           @click="handleJumpToPage"
-        >
-          跳转
-        </fun-button>
+        > {{ $lt('跳转') }} </fun-button>
       </div>
       <fun-button 
         class="fun-pagination__button fun-pagination__button--next"
         :disabled="currentPage >= totalPages"
         @click="handleNextPage"
-      >
-        下一页 ▶
-      </fun-button>
+      > {{ $lt('下一页 ▶') }} </fun-button>
     </div>
   </div>
 </template>

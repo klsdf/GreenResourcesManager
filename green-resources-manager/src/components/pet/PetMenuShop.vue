@@ -1,8 +1,8 @@
 <template>
   <div class="menu-shop">
     <div class="shop-header">
-      <h3 class="shop-title">商店</h3>
-      <p class="shop-subtitle">购买物品来提升桌宠属性</p>
+      <h3 class="shop-title">{{ $lt('商店') }}</h3>
+      <p class="shop-subtitle">{{ $lt('购买物品来提升桌宠属性') }}</p>
     </div>
     
     <div class="shop-items">
@@ -17,22 +17,20 @@
         <!-- 第三行：价格和购买按钮 -->
         <div class="item-footer">
           <div class="item-price">
-            <span class="price-label">价格：</span>
-            <span class="price-value">{{ item.price }} 金币</span>
+            <span class="price-label">{{ $lt('价格：') }}</span>
+            <span class="price-value">{{ item.price }} {{ $lt('金币') }}</span>
           </div>
           <button 
             class="buy-button" 
             :disabled="!canAfford(item.price)"
             @click="buyItem(item)"
-          >
-            购买
-          </button>
+          > {{ $lt('购买') }} </button>
         </div>
       </div>
     </div>
     
     <div v-if="shopItems.length === 0" class="empty-state">
-      <p>商店暂未开放</p>
+      <p>{{ $lt('商店暂未开放') }}</p>
     </div>
   </div>
 </template>

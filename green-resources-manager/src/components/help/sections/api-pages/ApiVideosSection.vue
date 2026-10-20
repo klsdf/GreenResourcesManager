@@ -1,15 +1,15 @@
 <template>
   <HelpSection 
-    title="🎬 视频管理 API" 
-    subtitle="通过 HTTP API 管理视频数据"
+    :title="$lt('🎬 视频管理 API')" 
+    :subtitle="$lt('通过 HTTP API 管理视频数据')"
     intro="视频管理 API 提供了完整的 CRUD 操作，允许您通过 HTTP 请求获取、创建、更新和删除视频数据。">
     
-    <DetailCard title="📥 获取所有视频">
+    <DetailCard :title="$lt('📥 获取所有视频')">
       <div class="api-endpoint">
         <div class="method get">GET</div>
         <code>/api/videos</code>
       </div>
-      <p><strong>响应：</strong>200 OK，返回视频数组</p>
+      <p><strong>{{ $lt('响应：') }}</strong>{{ $lt('200 OK，返回视频数组') }}</p>
       <CodeBlock :code="CODE.videosArray" language="json" />
       <p class="code-label">JavaScript</p>
       <CodeBlock :code="CODE.jsGetAll" language="javascript" />
@@ -17,13 +17,13 @@
       <CodeBlock :code="CODE.pyGetAll" language="python" />
     </DetailCard>
 
-    <DetailCard title="📥 获取单个视频">
+    <DetailCard :title="$lt('📥 获取单个视频')">
       <div class="api-endpoint">
         <div class="method get">GET</div>
         <code>/api/videos/:id</code>
       </div>
-      <p><strong>参数：</strong><code>id</code> - 视频ID</p>
-      <p><strong>响应：</strong>200 OK 返回视频对象，不存在则 404</p>
+      <p><strong>{{ $lt('参数：') }}</strong><code>id</code> {{ $lt('- 视频ID') }}</p>
+      <p><strong>{{ $lt('响应：') }}</strong>{{ $lt('200 OK 返回视频对象，不存在则 404') }}</p>
       <CodeBlock :code="CODE.videoObject" language="json" />
       <p class="code-label">JavaScript</p>
       <CodeBlock :code="CODE.jsGetOne" language="javascript" />
@@ -31,83 +31,83 @@
       <CodeBlock :code="CODE.pyGetOne" language="python" />
     </DetailCard>
 
-    <DetailCard title="➕ 创建视频">
+    <DetailCard :title="$lt('➕ 创建视频')">
       <div class="api-endpoint">
         <div class="method post">POST</div>
         <code>/api/videos</code>
       </div>
-      <p><strong>请求体：</strong></p>
+      <p><strong>{{ $lt('请求体：') }}</strong></p>
       <CodeBlock :code="CODE.createBody" language="json" />
-      <p><strong>响应：</strong>201 Created，返回创建的视频对象</p>
-      <p><strong>注意：</strong>ID 和 addedDate 会自动生成</p>
+      <p><strong>{{ $lt('响应：') }}</strong>{{ $lt('201 Created，返回创建的视频对象') }}</p>
+      <p><strong>{{ $lt('注意：') }}</strong>{{ $lt('ID 和 addedDate 会自动生成') }}</p>
       <p class="code-label">JavaScript</p>
       <CodeBlock :code="CODE.jsCreate" language="javascript" />
       <p class="code-label">Python</p>
       <CodeBlock :code="CODE.pyCreate" language="python" />
     </DetailCard>
 
-    <DetailCard title="✏️ 更新视频">
+    <DetailCard :title="$lt('✏️ 更新视频')">
       <div class="api-endpoint">
         <div class="method put">PUT</div>
         <code>/api/videos/:id</code>
       </div>
-      <p><strong>参数：</strong><code>id</code> - 视频ID</p>
-      <p><strong>请求体：</strong>要更新的字段（JSON 对象，只需传要修改的字段）</p>
+      <p><strong>{{ $lt('参数：') }}</strong><code>id</code> {{ $lt('- 视频ID') }}</p>
+      <p><strong>{{ $lt('请求体：') }}</strong>{{ $lt('要更新的字段（JSON 对象，只需传要修改的字段）') }}</p>
       <CodeBlock :code="CODE.updateBody" language="json" />
-      <p><strong>响应：</strong>200 OK，返回更新后的视频对象</p>
-      <p><strong>注意：</strong>ID 和 addedDate 字段不允许修改</p>
+      <p><strong>{{ $lt('响应：') }}</strong>{{ $lt('200 OK，返回更新后的视频对象') }}</p>
+      <p><strong>{{ $lt('注意：') }}</strong>{{ $lt('ID 和 addedDate 字段不允许修改') }}</p>
       <p class="code-label">JavaScript</p>
       <CodeBlock :code="CODE.jsUpdate" language="javascript" />
       <p class="code-label">Python</p>
       <CodeBlock :code="CODE.pyUpdate" language="python" />
     </DetailCard>
 
-    <DetailCard title="🗑️ 删除视频">
+    <DetailCard :title="$lt('🗑️ 删除视频')">
       <div class="api-endpoint">
         <div class="method delete">DELETE</div>
         <code>/api/videos/:id</code>
       </div>
-      <p><strong>参数：</strong><code>id</code> - 视频ID</p>
-      <p><strong>响应：</strong>204 No Content（成功）或 404 Not Found（不存在）</p>
-      <p><strong>注意：</strong>删除操作不会删除本地视频文件，仅移除管理器中的引用</p>
+      <p><strong>{{ $lt('参数：') }}</strong><code>id</code> {{ $lt('- 视频ID') }}</p>
+      <p><strong>{{ $lt('响应：') }}</strong>{{ $lt('204 No Content（成功）或 404 Not Found（不存在）') }}</p>
+      <p><strong>{{ $lt('注意：') }}</strong>{{ $lt('删除操作不会删除本地视频文件，仅移除管理器中的引用') }}</p>
       <p class="code-label">JavaScript</p>
       <CodeBlock :code="CODE.jsDelete" language="javascript" />
       <p class="code-label">Python</p>
       <CodeBlock :code="CODE.pyDelete" language="python" />
     </DetailCard>
 
-    <DetailCard title="📊 视频数据字段说明">
-      <p>视频对象包含以下字段：</p>
+    <DetailCard :title="$lt('📊 视频数据字段说明')">
+      <p>{{ $lt('视频对象包含以下字段：') }}</p>
       <ul>
-        <li><code>id</code> - 视频唯一标识符（自动生成，不可修改）</li>
-        <li><code>resourceType</code> - 资源类型，固定为 "movie"</li>
-        <li><code>name</code> - 视频名称（必需）</li>
-        <li><code>description</code> - 视频描述</li>
-        <li><code>series</code> - 系列名</li>
-        <li><code>tags</code> - 标签数组</li>
-        <li><code>actors</code> - 演员数组</li>
-        <li><code>resourcePath</code> - 视频文件路径</li>
-        <li><code>thumbnail</code> - 缩略图路径</li>
-        <li><code>duration</code> - 视频时长（分钟）</li>
-        <li><code>visitedSessions</code> - 访问会话时间数组（ISO 字符串数组，记录每次观看时间）</li>
-        <li><code>addedDate</code> - 添加日期（自动生成，不可修改）</li>
-        <li><code>rating</code> - 评分（1-5 或 0）</li>
-        <li><code>comment</code> - 备注</li>
-        <li><code>isFavorite</code> - 是否收藏</li>
+        <li><code>id</code> {{ $lt('- 视频唯一标识符（自动生成，不可修改）') }}</li>
+        <li><code>resourceType</code> {{ $lt('- 资源类型，固定为 "movie"') }}</li>
+        <li><code>name</code> {{ $lt('- 视频名称（必需）') }}</li>
+        <li><code>description</code> {{ $lt('- 视频描述') }}</li>
+        <li><code>series</code> {{ $lt('- 系列名') }}</li>
+        <li><code>tags</code> {{ $lt('- 标签数组') }}</li>
+        <li><code>actors</code> {{ $lt('- 演员数组') }}</li>
+        <li><code>resourcePath</code> {{ $lt('- 视频文件路径') }}</li>
+        <li><code>thumbnail</code> {{ $lt('- 缩略图路径') }}</li>
+        <li><code>duration</code> {{ $lt('- 视频时长（分钟）') }}</li>
+        <li><code>visitedSessions</code> {{ $lt('- 访问会话时间数组（ISO 字符串数组，记录每次观看时间）') }}</li>
+        <li><code>addedDate</code> {{ $lt('- 添加日期（自动生成，不可修改）') }}</li>
+        <li><code>rating</code> {{ $lt('- 评分（1-5 或 0）') }}</li>
+        <li><code>comment</code> {{ $lt('- 备注') }}</li>
+        <li><code>isFavorite</code> {{ $lt('- 是否收藏') }}</li>
       </ul>
     </DetailCard>
 
-    <DetailCard title="⚠️ 错误处理">
-      <p>API 使用标准的 HTTP 状态码：</p>
+    <DetailCard :title="$lt('⚠️ 错误处理')">
+      <p>{{ $lt('API 使用标准的 HTTP 状态码：') }}</p>
       <ul>
-        <li><strong>200 OK：</strong>请求成功</li>
-        <li><strong>201 Created：</strong>资源创建成功</li>
-        <li><strong>204 No Content：</strong>删除成功（无响应体）</li>
-        <li><strong>400 Bad Request：</strong>请求参数错误（如缺少必需字段）</li>
-        <li><strong>404 Not Found：</strong>资源不存在</li>
-        <li><strong>500 Internal Server Error：</strong>服务器内部错误</li>
+        <li><strong>200 OK：</strong>{{ $lt('请求成功') }}</li>
+        <li><strong>201 Created：</strong>{{ $lt('资源创建成功') }}</li>
+        <li><strong>204 No Content：</strong>{{ $lt('删除成功（无响应体）') }}</li>
+        <li><strong>400 Bad Request：</strong>{{ $lt('请求参数错误（如缺少必需字段）') }}</li>
+        <li><strong>404 Not Found：</strong>{{ $lt('资源不存在') }}</li>
+        <li><strong>500 Internal Server Error：</strong>{{ $lt('服务器内部错误') }}</li>
       </ul>
-      <p>错误响应格式：</p>
+      <p>{{ $lt('错误响应格式：') }}</p>
       <CodeBlock :code="CODE.errorResponse" language="json" />
     </DetailCard>
 

@@ -14,12 +14,12 @@
               <span class="item-name">{{ itemName }}</span>
             </div>
             <div class="path-item">
-              <label>当前路径：</label>
+              <label>{{ $lt('当前路径：') }}</label>
               <span class="path-old">{{ oldPath }}</span>
               <span class="status-badge status-missing">{{ missingLabel }}</span>
             </div>
             <div class="path-item">
-              <label>新路径：</label>
+              <label>{{ $lt('新路径：') }}</label>
               <span class="path-new">{{ newPath }}</span>
               <span class="status-badge status-found">{{ foundLabel }}</span>
             </div>

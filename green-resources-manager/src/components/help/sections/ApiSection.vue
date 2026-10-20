@@ -1,26 +1,26 @@
 <template>
   <HelpSection 
-    title="🔌 API 手册" 
-    subtitle="通过 HTTP API 访问应用数据，支持脚本批处理"
+    :title="$lt('🔌 API 手册')" 
+    :subtitle="$lt('通过 HTTP API 访问应用数据，支持脚本批处理')"
     intro="应用提供了 RESTful API 接口，允许您通过 HTTP 请求访问和管理应用数据。API 服务器默认运行在 http://127.0.0.1:8765，仅允许本地访问。">
     
-    <DetailCard title="📡 API 服务器信息">
+    <DetailCard :title="$lt('📡 API 服务器信息')">
       <ul>
-        <li><strong>服务器地址：</strong><code>http://127.0.0.1:8765</code></li>
-        <li><strong>访问限制：</strong>仅允许本地访问（127.0.0.1）</li>
-        <li><strong>数据格式：</strong>JSON</li>
-        <li><strong>API 风格：</strong>RESTful</li>
+        <li><strong>{{ $lt('服务器地址：') }}</strong><code>http://127.0.0.1:8765</code></li>
+        <li><strong>{{ $lt('访问限制：') }}</strong>{{ $lt('仅允许本地访问（127.0.0.1）') }}</li>
+        <li><strong>{{ $lt('数据格式：') }}</strong>JSON</li>
+        <li><strong>{{ $lt('API 风格：') }}</strong>RESTful</li>
       </ul>
     </DetailCard>
 
   
 
-    <DetailCard title="🔒 安全说明">
+    <DetailCard :title="$lt('🔒 安全说明')">
       <ul>
-        <li>API 服务器仅监听本地地址（127.0.0.1），外部无法访问</li>
-        <li>所有操作都会直接修改应用数据文件，请谨慎使用</li>
-        <li>建议在批处理脚本中添加错误处理逻辑</li>
-        <li>建议定期备份 SaveData 文件夹</li>
+        <li>{{ $lt('API 服务器仅监听本地地址（127.0.0.1），外部无法访问') }}</li>
+        <li>{{ $lt('所有操作都会直接修改应用数据文件，请谨慎使用') }}</li>
+        <li>{{ $lt('建议在批处理脚本中添加错误处理逻辑') }}</li>
+        <li>{{ $lt('建议定期备份 SaveData 文件夹') }}</li>
       </ul>
     </DetailCard>
   </HelpSection>

@@ -171,7 +171,7 @@
             <p class="reader-author">{{ getNovelAuthor(currentReadingNovel) }}</p>
           </div>
           <div class="reader-controls">
-            <button class="btn-close-reader" @click="closeNovelReader" title="关闭阅读器">
+            <button class="btn-close-reader" @click="closeNovelReader" :title="$lt('关闭阅读器')">
               <span class="btn-icon">✕</span>
             </button>
           </div>
@@ -204,7 +204,7 @@
             <h3>{{ getNovelNameByPath(ebookReaderV2FilePath) }}</h3>
           </div>
           <div class="reader-controls">
-            <button class="btn-close-reader" @click="closeEbookReaderV2" title="关闭阅读器">
+            <button class="btn-close-reader" @click="closeEbookReaderV2" :title="$lt('关闭阅读器')">
               <span class="btn-icon">✕</span>
             </button>
           </div>
@@ -213,7 +213,7 @@
           <!-- 左侧章节导航栏 -->
           <div class="chapter-navigation-sidebar">
             <div class="chapter-nav-header">
-              <h4>章节列表</h4>
+              <h4>{{ $lt('章节列表') }}</h4>
             </div>
             <ContentView
               :ifShowContent="true"
@@ -287,18 +287,16 @@
     <div v-if="showTerminateConfirmDialog" class="modal-overlay" @click="closeTerminateConfirmDialog">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h3>强制结束程序</h3>
+          <h3>{{ $lt('强制结束程序') }}</h3>
           <button class="btn-close" @click="closeTerminateConfirmDialog">✕</button>
         </div>
         <div class="modal-body">
-          <p>确定要强制结束程序 <strong>{{ terminateResourceName }}</strong> 吗？</p>
-          <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 10px;">
-            此操作将立即终止程序进程，未保存的数据可能会丢失。
-          </p>
+          <p>{{ $lt('确定要强制结束程序') }} <strong>{{ terminateResourceName }}</strong> {{ $lt('吗？') }}</p>
+          <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 10px;"> {{ $lt('此操作将立即终止程序进程，未保存的数据可能会丢失。') }} </p>
         </div>
         <div class="modal-footer">
-          <button class="btn-cancel" @click="closeTerminateConfirmDialog">取消</button>
-          <button class="btn-confirm" @click="confirmTerminateGame" style="background: #ef4444;">确认结束</button>
+          <button class="btn-cancel" @click="closeTerminateConfirmDialog">{{ $lt('取消') }}</button>
+          <button class="btn-confirm" @click="confirmTerminateGame" style="background: #ef4444;">{{ $lt('确认结束') }}</button>
         </div>
       </div>
     </div>
@@ -988,12 +986,6 @@ export default defineComponent({
         throw new Error('不在 Electron 环境或数据库 API 不可用，无法保存')
       }
       const saveableData = items.value.map(item => (item as any).getSaveData())
-      console.log(`[GenericResourceView] 保存页面 ${pageId} 数据到数据库，共 ${saveableData.length} 条记录`)
-      console.log('[GenericResourceView] saveableData 完整内容:', saveableData)
-      saveableData.forEach((item, index) => {
-        console.log(`[GenericResourceView] 第 ${index} 条记录 - id: ${item.id}, resourceType: ${item.resourceType}`)
-        console.log(`[GenericResourceView] 第 ${index} 条记录 所有字段:`, Object.keys(item))
-      })
       const result = await window.electronAPI.sqliteSavePageResources(pageId, saveableData)
       if (!result || !result.ok) {
         throw new Error((result && result.message) ? result.message : '保存页面数据到数据库失败')

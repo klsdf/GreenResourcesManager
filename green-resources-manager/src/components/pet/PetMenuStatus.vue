@@ -2,7 +2,7 @@
   <div class="menu-status">
     <div class="status-section">
       <div class="status-item">
-        <span class="status-label">食欲</span>
+        <span class="status-label">{{ $lt('食欲') }}</span>
         <div class="status-bar-container">
           <div class="status-bar appetite" :style="{ width: appetite + '%' }">
             <span class="status-value">{{ appetite }}</span>
@@ -10,7 +10,7 @@
         </div>
       </div>
       <div class="status-item">
-        <span class="status-label">睡眠欲</span>
+        <span class="status-label">{{ $lt('睡眠欲') }}</span>
         <div class="status-bar-container">
           <div class="status-bar sleepiness" :style="{ width: sleepiness + '%' }">
             <span class="status-value">{{ sleepiness }}</span>
@@ -18,7 +18,7 @@
         </div>
       </div>
       <div class="status-item">
-        <span class="status-label">性欲</span>
+        <span class="status-label">{{ $lt('性欲') }}</span>
         <div class="status-bar-container">
           <div class="status-bar libido" :style="{ width: libido + '%' }">
             <span class="status-value">{{ libido }}</span>
@@ -29,33 +29,31 @@
     
     <!-- 调试信息面板 -->
     <div v-if="debugMode" class="debug-section">
-      <div class="menu-section-title">调试信息</div>
+      <div class="menu-section-title">{{ $lt('调试信息') }}</div>
       <div class="debug-info-panel">
         <div class="debug-info-item">
-          <span class="debug-info-label">调试模式：</span>{{ debugInfo.mode }}
+          <span class="debug-info-label">{{ $lt('调试模式：') }}</span>{{ debugInfo.mode }}
         </div>
         <div v-if="debugInfo.clickData" class="debug-info-item">
-          <span class="debug-info-label">点击坐标：</span>({{ debugInfo.clickData.pixelX.toFixed(0) }},
+          <span class="debug-info-label">{{ $lt('点击坐标：') }}</span>({{ debugInfo.clickData.pixelX.toFixed(0) }},
           {{ debugInfo.clickData.pixelY.toFixed(0) }})
         </div>
         <div v-if="debugInfo.clickData" class="debug-info-item">
-          <span class="debug-info-label">相对坐标：</span>({{ (debugInfo.clickData.relativeX * 100).toFixed(1) }}%,
+          <span class="debug-info-label">{{ $lt('相对坐标：') }}</span>({{ (debugInfo.clickData.relativeX * 100).toFixed(1) }}%,
           {{ (debugInfo.clickData.relativeY * 100).toFixed(1) }}%)
         </div>
         <div v-if="debugInfo.clickData" class="debug-info-item">
-          <span class="debug-info-label">区域：</span>{{ debugInfo.clickData.region.name }}
+          <span class="debug-info-label">{{ $lt('区域：') }}</span>{{ debugInfo.clickData.region.name }}
         </div>
         <div v-if="debugInfo.clickData" class="debug-info-item">
-          <span class="debug-info-label">区域范围：</span>X: [{{ (debugInfo.clickData.region.x[0] * 100).toFixed(1) }}%,
+          <span class="debug-info-label">{{ $lt('区域范围：') }}</span>X: [{{ (debugInfo.clickData.region.x[0] * 100).toFixed(1) }}%,
           {{ (debugInfo.clickData.region.x[1] * 100).toFixed(1) }}%], Y: [{{ (debugInfo.clickData.region.y[0] * 100).toFixed(1) }}%,
           {{ (debugInfo.clickData.region.y[1] * 100).toFixed(1) }}%]
         </div>
         <div v-if="!debugInfo.clickData" class="debug-info-item">
-          <span class="debug-info-label">点击坐标：</span>未点击
-        </div>
+          <span class="debug-info-label">{{ $lt('点击坐标：') }}</span>{{ $lt('未点击') }} </div>
         <div v-if="!debugInfo.clickData" class="debug-info-item">
-          <span class="debug-info-label">区域：</span>无
-        </div>
+          <span class="debug-info-label">{{ $lt('区域：') }}</span>{{ $lt('无') }} </div>
         <div v-if="debugInfo.message" class="debug-info-item" style="margin-top: 10px; color: #4a90e2">
           {{ debugInfo.message }}
         </div>

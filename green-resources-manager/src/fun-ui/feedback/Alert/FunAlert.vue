@@ -12,13 +12,13 @@
           <span v-else-if="internalType === 'success'">✅</span>
           <span v-else>ℹ️</span>
         </div>
-        <h3 class="fun-alert__title">{{ internalTitle }}</h3>
+        <h3 class="fun-alert__title">{{ $lt(internalTitle) }}</h3>
       </div>
       <div class="fun-alert__body">
-        <p class="fun-alert__message">{{ internalMessage }}</p>
+        <p class="fun-alert__message">{{ $lt(internalMessage) }}</p>
       </div>
       <div class="fun-alert__footer">
-        <fun-button @click="handleConfirm">确定</fun-button>
+        <fun-button @click="handleConfirm">{{ $lt('确定') }}</fun-button>
       </div>
     </div>
   </div>

@@ -4,17 +4,17 @@
       <slot name="icon">{{ icon }}</slot>
     </div>
     <h3 class="fun-empty-state__title">
-      <slot name="title">{{ title }}</slot>
+      <slot name="title">{{ $lt(title) }}</slot>
     </h3>
     <p class="fun-empty-state__description">
-      <slot name="description">{{ description }}</slot>
+      <slot name="description">{{ $lt(description) }}</slot>
     </p>
     <fun-button
       v-if="showButton"
       class="fun-empty-state__button"
       @click="handleAction"
     >
-      {{ buttonText }}
+      {{ $lt(buttonText) }}
     </fun-button>
     <div v-if="$slots.default" class="fun-empty-state__extra">
       <slot></slot>

@@ -34,10 +34,49 @@
 
 const fs = require('fs')
 const path = require('path')
-const { shell } = require('electron')
+const crypto = require('crypto')
+const { app, shell } = require('electron')
 const AdmZip = require('adm-zip')
 const { SUPPORTED_IMAGE_FORMATS, MAX_BACKUP_FILES } = require('../utils/constants')
+
+/**
+ * 读取压缩包里某一张图的大小。
+ * 漫画阅读器把包内图片写成 archive:// 地址，普通的文件统计读不到这个地址。
+ * @param {string} archiveUrl archive:// 开头的图片地址
+ * @returns {{ success: boolean, size?: number, isFile?: boolean, error?: string }}
+ */
+function getArchiveEntryStats(archiveUrl) {
+  try {
+    const url = new URL(archiveUrl)
+    let archivePath = decodeURIComponent(url.pathname || '')
+    if (process.platform === 'win32' && archivePath.startsWith('/') && archivePath.length > 2 && archivePath[2] === ':') {
+      archivePath = archivePath.slice(1)
+    }
+    const entryName = url.hash ? decodeURIComponent(url.hash.slice(1)) : ''
+    if (!archivePath || !entryName) {
+      return { success: false, error: '压缩包图片地址不完整' }
+    }
+    if (!fs.existsSync(archivePath)) {
+      return { success: false, error: '压缩包不存在' }
+    }
+    const zip = new AdmZip(archivePath)
+    const entry = zip.getEntry(entryName)
+    if (!entry) {
+      return { success: false, error: '压缩包里没有这张图' }
+    }
+    return {
+      success: true,
+      size: entry.header.size,
+      isFile: true,
+      isDirectory: false
+    }
+  } catch (error) {
+    console.error('读取压缩包内图片大小失败:', error)
+    return { success: false, error: error.message }
+  }
+}
 const { normalizePath } = require('../utils/path-utils')
+const { resolveSaveDataDirectory } = require('../utils/save-location')
 const { computeResourceFingerprint, findRelocatedResource } = require('../utils/resource-fingerprint')
 
 /** CBZ/ZIP 漫画包扩展名 */
@@ -89,6 +128,9 @@ function registerIpcHandlers(ipcMain, fileUtils, pathUtils) {
   })
 
   ipcMain.handle('get-file-stats', async (event, filePath) => {
+    if (typeof filePath === 'string' && filePath.startsWith('archive://')) {
+      return getArchiveEntryStats(filePath)
+    }
     return await fileUtils.getFileStats(filePath)
   })
 
@@ -264,7 +306,14 @@ function registerIpcHandlers(ipcMain, fileUtils, pathUtils) {
     }
   })
 
-  // 备份整个存档目录
+  // 返回当前存档对应的备份目录，没有就先建出来，方便设置页直接打开。
+  ipcMain.handle('get-save-backup-directory', () => {
+    const backupRoot = getSaveBackupRoot(resolveSaveDataDirectory())
+    fs.mkdirSync(backupRoot, { recursive: true })
+    return backupRoot
+  })
+
+  // 备份整个存档目录。备份不放在存档旁边，避免存档目录损坏时备份一起丢失。
   ipcMain.handle('backup-save-data-directory', async (event, saveDataDir, maxBackups = MAX_BACKUP_FILES) => {
     try {
       console.log('=== 开始备份整个存档目录 ===')
@@ -274,27 +323,27 @@ function registerIpcHandlers(ipcMain, fileUtils, pathUtils) {
         return { success: false, error: '存档目录不存在' }
       }
 
-      const parentDir = path.dirname(saveDataDir)
       const saveDataName = path.basename(saveDataDir)
+      /** 系统用户目录下的备份根。Windows 上一般在 C 盘的 AppData。 */
+      const backupRoot = getSaveBackupRoot(saveDataDir)
+      fs.mkdirSync(backupRoot, { recursive: true })
 
       // 查找下一个可用的备份编号
       let backupNumber = 1
-      if (fs.existsSync(parentDir)) {
-        const items = fs.readdirSync(parentDir)
-        const backupPattern = new RegExp(`^${saveDataName}_(\\d+)$`)
-        let maxNumber = 0
-        for (const item of items) {
-          const match = item.match(backupPattern)
-          if (match) {
-            const num = parseInt(match[1])
-            if (num > maxNumber) {
-              maxNumber = num
-            }
+      const items = fs.readdirSync(backupRoot)
+      const backupPattern = new RegExp(`^${escapeRegExp(saveDataName)}_(\\d+)$`)
+      let maxNumber = 0
+      for (const item of items) {
+        const match = item.match(backupPattern)
+        if (match) {
+          const num = parseInt(match[1])
+          if (num > maxNumber) {
+            maxNumber = num
           }
         }
-        backupNumber = maxNumber + 1
       }
-      const backupPath = path.join(parentDir, `${saveDataName}_${backupNumber}`)
+      backupNumber = maxNumber + 1
+      const backupPath = path.join(backupRoot, `${saveDataName}_${backupNumber}`)
       console.log('备份路径:', backupPath)
 
       let copiedFiles = 0
@@ -321,16 +370,15 @@ function registerIpcHandlers(ipcMain, fileUtils, pathUtils) {
       console.log('  - 复制文件数:', copiedFiles)
       console.log('  - 复制文件夹数:', copiedFolders)
 
-      // 清理旧备份
-      const items = fs.readdirSync(parentDir)
-      const backupPattern = new RegExp(`^${saveDataName}_(\\d+)$`)
-      const backups = items
+      // 清理旧备份。只清理系统目录里这一份存档的备份，不动存档旁边以前留下的副本。
+      const backupItems = fs.readdirSync(backupRoot)
+      const backups = backupItems
         .filter(item => item.match(backupPattern))
         .map(item => ({
           name: item,
-          path: path.join(parentDir, item),
+          path: path.join(backupRoot, item),
           number: parseInt(item.match(backupPattern)[1]),
-          mtime: fs.statSync(path.join(parentDir, item)).mtime.getTime()
+          mtime: fs.statSync(path.join(backupRoot, item)).mtime.getTime()
         }))
         .sort((a, b) => b.number - a.number)
 
@@ -369,6 +417,30 @@ function registerIpcHandlers(ipcMain, fileUtils, pathUtils) {
   ipcMain.handle('find-relocated-resource', async (event, oldPath, fingerprint, allowPageCountOnly) => {
     return findRelocatedResource(oldPath, fingerprint, !!allowPageCountOnly)
   })
+}
+
+/**
+ * 转义正则特殊字符，避免存档文件夹名字里的符号被当成表达式。
+ * @param {string} value 原始文件夹名
+ * @returns {string}
+ */
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * 自动备份的存放目录。
+ * 放在 Electron 用户数据目录，而不是存档的上一级。
+ * Windows 上这个目录在用户配置里，一般位于 C 盘。存档文件夹或它所在的磁盘坏了，备份还在。
+ * 不同存档路径用路径摘要分开，避免两个都叫 SaveData 的目录互相覆盖。
+ * @param {string} saveDataDir 当前存档目录
+ * @returns {string}
+ */
+function getSaveBackupRoot(saveDataDir) {
+  const resolved = path.resolve(saveDataDir)
+  const digest = crypto.createHash('sha1').update(resolved).digest('hex').slice(0, 8)
+  const baseName = path.basename(resolved).replace(/[<>:"/\\|?*]/g, '_') || 'SaveData'
+  return path.join(app.getPath('userData'), 'SaveBackups', `${baseName}_${digest}`)
 }
 
 module.exports = {

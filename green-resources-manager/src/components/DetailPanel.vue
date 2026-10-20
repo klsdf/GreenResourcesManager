@@ -21,14 +21,14 @@
               @error="handleImageError"
             >
             <!-- 文件不存在错误图标 -->
-            <div v-if="showFileError" class="file-error-icon" title="本地文件不存在">
+            <div v-if="showFileError" class="file-error-icon" :title="$lt('本地文件不存在')">
               ⚠️
             </div>
           </div>
           
           <!-- 玩家评价区域 -->
           <div class="detail-rating">
-            <h4 class="rating-title">玩家评价</h4>
+            <h4 class="rating-title">{{ $lt('玩家评价') }}</h4>
             <fun-rate
               :model-value="getFieldValue(item.rating) || 0"
               :comment="getFieldValue(item.comment) || getFieldValue(item.notes) || ''"
@@ -52,7 +52,7 @@
               :class="getObjectiveInfoClass(info.field)"
               :title="info.value"
             >
-              <span v-if="info.label" class="info-label">{{ info.label }}：</span>{{ info.value }}
+              <span v-if="info.label" class="info-label">{{ $lt(info.label) }}：</span>{{ info.value }}
             </p>
           </template>
           
@@ -81,7 +81,7 @@
               :key="stat.label" 
               class="stat-item"
             >
-              <span class="stat-label">{{ stat.label }}</span>
+              <span class="stat-label">{{ $lt(stat.label) }}</span>
               <span class="stat-value">{{ stat.value }}</span>
             </div>
           </div>
@@ -105,7 +105,7 @@
               }"
             >
               <span class="btn-icon">{{ action.icon }}</span>
-              {{ action.label }}
+              {{ $lt(action.label) }}
             </button>
           </div>
         </div>

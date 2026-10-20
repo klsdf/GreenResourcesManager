@@ -2,8 +2,8 @@
   <div class="settings-section">
     <div class="settings-grid">
       <SettingSlider
-        title="JPEG压缩质量"
-        description="设置缩略图生成的JPEG压缩质量 (1-100)"
+        :title="$lt('JPEG压缩质量')"
+        :description="$lt('设置缩略图生成的JPEG压缩质量 (1-100)')"
         :model-value="settings.image.jpegQuality"
         :min="10"
         :max="100"
@@ -12,8 +12,8 @@
       />
       
       <SettingSlider
-        title="缩略图尺寸"
-        description="设置缩略图的最大宽度和高度 (像素)"
+        :title="$lt('缩略图尺寸')"
+        :description="$lt('设置缩略图的最大宽度和高度 (像素)')"
         :model-value="settings.image.thumbnailSize"
         :min="100"
         :max="500"
@@ -23,8 +23,8 @@
       />
       
       <SettingSlider
-        title="图片缓存大小"
-        description="设置图片缓存的最大内存占用 (MB)"
+        :title="$lt('图片缓存大小')"
+        :description="$lt('设置图片缓存的最大内存占用 (MB)')"
         :model-value="settings.image.cacheSize"
         :min="10"
         :max="200"
@@ -34,15 +34,15 @@
       />
       
       <SettingToggle
-        title="启用缩略图模式"
-        description="在预览网格中使用缩略图以节省内存"
+        :title="$lt('启用缩略图模式')"
+        :description="$lt('在预览网格中使用缩略图以节省内存')"
         :model-value="settings.image.enableThumbnails"
         @update:model-value="updateSetting('image.enableThumbnails', $event)"
       />
       
       <SettingSlider
-        title="图片预加载数量"
-        description="在阅读器中预加载的图片数量"
+        :title="$lt('图片预加载数量')"
+        :description="$lt('在阅读器中预加载的图片数量')"
         :model-value="settings.image.preloadCount"
         :min="1"
         :max="10"
@@ -51,23 +51,23 @@
       />
       
       <SettingToggle
-        title="启用硬件加速"
-        description="使用GPU硬件加速渲染图片"
+        :title="$lt('启用硬件加速')"
+        :description="$lt('使用GPU硬件加速渲染图片')"
         :model-value="settings.image.hardwareAcceleration"
         @update:model-value="updateSetting('image.hardwareAcceleration', $event)"
       />
       
       <SettingSelect
-        title="图片渲染质量"
-        description="设置图片的渲染质量级别"
+        :title="$lt('图片渲染质量')"
+        :description="$lt('设置图片的渲染质量级别')"
         :model-value="settings.image.renderQuality"
         :options="renderQualityOptions"
         @update:model-value="updateSetting('image.renderQuality', $event)"
       />
       
       <SettingSlider
-        title="详情页显示图片数量"
-        description="设置详情页中每页显示的图片数量"
+        :title="$lt('详情页显示图片数量')"
+        :description="$lt('设置详情页中每页显示的图片数量')"
         :model-value="settings.image.detailPageSize"
         :min="10"
         :max="100"
@@ -78,13 +78,11 @@
       
       <div class="setting-item">
         <label class="setting-label">
-          <span class="setting-title">测试图片设置</span>
-          <span class="setting-desc">测试当前图片设置是否正确保存</span>
+          <span class="setting-title">{{ $lt('测试图片设置') }}</span>
+          <span class="setting-desc">{{ $lt('测试当前图片设置是否正确保存') }}</span>
         </label>
         <div class="setting-control">
-          <button class="btn-test-image-settings" @click="testImageSettings">
-            测试设置
-          </button>
+          <button class="btn-test-image-settings" @click="testImageSettings"> {{ $lt('测试设置') }} </button>
         </div>
       </div>
     </div>

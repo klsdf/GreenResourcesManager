@@ -4,31 +4,25 @@
     <div class="text-content" :style="contentStyle">
       <div v-if="loading" class="loading-content">
         <div class="loading-spinner"></div>
-        <p>正在加载小说内容...</p>
+        <p>{{ $lt('正在加载小说内容...') }}</p>
       </div>
       <div v-else-if="error" class="error-content">
-        <p>加载小说内容失败: {{ error }}</p>
-        <button class="btn-retry" @click="loadContent">重试</button>
+        <p>{{ $lt('加载小说内容失败:') }} {{ error }}</p>
+        <button class="btn-retry" @click="loadContent">{{ $lt('重试') }}</button>
       </div>
       <div v-else-if="formattedContent" class="novel-text" :style="textStyle" v-html="formattedContent"></div>
       <div v-else class="no-content">
-        <p>无法加载小说内容</p>
-        <button class="btn-retry" @click="loadContent">重试</button>
+        <p>{{ $lt('无法加载小说内容') }}</p>
+        <button class="btn-retry" @click="loadContent">{{ $lt('重试') }}</button>
       </div>
     </div>
 
     <!-- 底部导航栏 -->
     <div class="text-navigation">
-      <button class="btn-nav" @click="previousPage" :disabled="!canGoPrevious" title="上一页">
-        <span class="btn-icon">←</span>
-        上一页
-      </button>
-      <span class="page-info">
-        第 {{ currentPage }} / {{ totalPages }} 页
-      </span>
-      <button class="btn-nav" @click="nextPage" :disabled="!canGoNext" title="下一页">
-        下一页
-        <span class="btn-icon">→</span>
+      <button class="btn-nav" @click="previousPage" :disabled="!canGoPrevious" :title="$lt('上一页')">
+        <span class="btn-icon">←</span> {{ $lt('上一页') }} </button>
+      <span class="page-info"> {{ $lt('第') }} {{ currentPage }} / {{ totalPages }} {{ $lt('页') }} </span>
+      <button class="btn-nav" @click="nextPage" :disabled="!canGoNext" :title="$lt('下一页')"> {{ $lt('下一页') }} <span class="btn-icon">→</span>
       </button>
     </div>
   </div>

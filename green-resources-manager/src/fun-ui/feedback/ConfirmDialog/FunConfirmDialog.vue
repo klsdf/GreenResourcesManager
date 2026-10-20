@@ -19,16 +19,12 @@
           class="fun-confirm__button fun-confirm__button--confirm" 
           @click="handleConfirm" 
           ref="confirmButtonRef"
-        >
-          确定
-        </fun-button>
+        > {{ $lt('确定') }} </fun-button>
         <fun-button 
           class="fun-confirm__button fun-confirm__button--cancel" 
           @click="handleCancel" 
           ref="cancelButtonRef"
-        >
-          取消
-        </fun-button>
+        > {{ $lt('取消') }} </fun-button>
       </div>
     </div>
   </div>

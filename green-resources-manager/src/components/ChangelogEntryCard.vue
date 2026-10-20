@@ -8,31 +8,31 @@
     </div>
     <!-- 注意事项（置顶） -->
     <div v-if="entry.notice" class="changelog-notice-block">
-      <h4 class="changelog-block-title notice">注意事项</h4>
+      <h4 class="changelog-block-title notice">{{ $lt('注意事项') }}</h4>
       <p class="changelog-notice-text">{{ entry.notice }}</p>
     </div>
     <!-- 按模块展示：重构、新功能、体验优化、bug 修复 -->
     <template v-if="hasVersionBlocks">
       <div v-if="entry.refactor?.length" class="changelog-block">
-        <h4 class="changelog-block-title refactor">重构</h4>
+        <h4 class="changelog-block-title refactor">{{ $lt('重构') }}</h4>
         <ul class="changelog-items">
           <li v-for="(item, i) in entry.refactor" :key="'r-' + i">{{ item }}</li>
         </ul>
       </div>
       <div v-if="entry.features?.length" class="changelog-block">
-        <h4 class="changelog-block-title features">新功能</h4>
+        <h4 class="changelog-block-title features">{{ $lt('新功能') }}</h4>
         <ul class="changelog-items">
           <li v-for="(item, i) in entry.features" :key="'f-' + i">{{ item }}</li>
         </ul>
       </div>
       <div v-if="entry.experience?.length" class="changelog-block">
-        <h4 class="changelog-block-title experience">体验优化</h4>
+        <h4 class="changelog-block-title experience">{{ $lt('体验优化') }}</h4>
         <ul class="changelog-items">
           <li v-for="(item, i) in entry.experience" :key="'e-' + i">{{ item }}</li>
         </ul>
       </div>
       <div v-if="entry.bugfixes?.length" class="changelog-block">
-        <h4 class="changelog-block-title bugfixes">bug 修复</h4>
+        <h4 class="changelog-block-title bugfixes">{{ $lt('bug 修复') }}</h4>
         <ul class="changelog-items">
           <li v-for="(item, i) in entry.bugfixes" :key="'b-' + i">{{ item }}</li>
         </ul>

@@ -20,7 +20,7 @@
         @click="handleItemClick(item)"
       >
         <span class="fun-context-icon">{{ item.icon }}</span>
-        <span class="fun-context-label">{{ item.label }}</span>
+        <span class="fun-context-label">{{ $lt(item.label) }}</span>
         <span v-if="item.children && item.children.length > 0" class="fun-context-arrow">▶</span>
       </div>
       <!-- 二级菜单 -->
@@ -40,7 +40,7 @@
           @click="handleItemClick(subItem)"
         >
           <span class="fun-context-icon">{{ subItem.icon }}</span>
-          <span class="fun-context-label">{{ subItem.label }}</span>
+          <span class="fun-context-label">{{ $lt(subItem.label) }}</span>
         </div>
       </div>
     </div>

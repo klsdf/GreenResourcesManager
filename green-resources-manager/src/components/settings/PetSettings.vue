@@ -2,8 +2,8 @@
   <div class="settings-section">
     <div class="settings-grid">
       <SettingToggle
-        title="显示桌宠"
-        description="在桌面上显示一个可拖动的桌宠"
+        :title="$lt('显示桌宠')"
+        :description="$lt('在桌面上显示一个可拖动的桌宠')"
         :model-value="petWindowVisible"
         @update:model-value="onPetWindowToggle"
       />

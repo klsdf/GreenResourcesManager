@@ -1,7 +1,7 @@
 <template>
   <div id="menu" :class="{ show: isVisible, hidden: !isVisible }" class="pet-menu">
     <div id="menu-header" class="menu-header">
-      <div id="menu-title" class="menu-title">桌宠菜单</div>
+      <div id="menu-title" class="menu-title">{{ $lt('桌宠菜单') }}</div>
       <div class="menu-coins" v-if="coins !== undefined">
         <span class="coins-icon">🪙</span>
         <span class="coins-value">{{ coins }}</span>

@@ -12,8 +12,8 @@
     <div class="fun-achievement-item__info">
       <div class="fun-achievement-item__title">
         {{ displayTitle }}
-        <span v-if="achievement.unlocked" class="fun-achievement-item__badge fun-achievement-item__badge--completed">已完成</span>
-        <span v-else class="fun-achievement-item__badge fun-achievement-item__badge--in-progress">进行中</span>
+        <span v-if="achievement.unlocked" class="fun-achievement-item__badge fun-achievement-item__badge--completed">{{ $lt('已完成') }}</span>
+        <span v-else class="fun-achievement-item__badge fun-achievement-item__badge--in-progress">{{ $lt('进行中') }}</span>
       </div>
       <div class="fun-achievement-item__description">{{ displayDescription }}</div>
       <div

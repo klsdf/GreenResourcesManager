@@ -45,6 +45,18 @@
     "chinese": "中国古風",
     "forest": "森のテーマ",
     "ocean": "海のテーマ",
+    "cream": "クリーム",
+    "sky": "晴空",
+    "ink": "墨白",
+    "moss": "苔",
+    "sand": "暖砂",
+    "dusk": "暮霞",
+    "dunhuang": "敦煌",
+    "morandi": "モランディ",
+    "matisse": "マティス",
+    "memphis": "メンフィス",
+    "night": "夜航",
+    "night-ink": "夜墨",
     "auto": "システムに従う"
   },
   "autoStart": {
@@ -88,13 +100,17 @@
   },
   "autoBackup": {
     "title": "自動バックアップを有効化",
-    "description": "有効にすると、システムは指定された間隔でセーブディレクトリ全体を自動的にバックアップ",
+    "description": "設定した間隔でセーブ全体をバックアップします。バックアップはシステムユーザーフォルダ（Windows では通常 C ドライブ）に置き、セーブとは分けて保存します",
     "intervalTitle": "自動バックアップ間隔",
     "intervalDesc": "セーブ全体の自動バックアップの時間間隔を設定",
     "unitMinutes": "分",
     "maxCountTitle": "バックアップ保持数",
     "maxCountDesc": "自動バックアップ時に保持するバックアップ数を設定、この数を超えた古いバックアップは自動的に削除",
-    "unitCount": "個"
+    "unitCount": "個",
+    "openFolderTitle": "バックアップフォルダを開く",
+    "openFolderDesc": "自動バックアップの保存先をエクスプローラーで開く",
+    "openFolderButton": "フォルダを開く",
+    "openedDetail": "バックアップフォルダを開きました: {path}"
   },
   "personalization": {
     "customAppTitle": "カスタムアプリタイトル",

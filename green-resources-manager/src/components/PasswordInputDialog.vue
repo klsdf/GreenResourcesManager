@@ -8,7 +8,7 @@
       <div class="modal-body">
         <p class="dialog-message">{{ message }}</p>
         <div class="password-input-group">
-          <label>密码：</label>
+          <label>{{ $lt('密码：') }}</label>
           <input
             type="password"
             v-model="passwordValue"
@@ -16,14 +16,14 @@
             @keyup.esc="handleCancel"
             ref="passwordInput"
             class="password-input"
-            placeholder="请输入密码"
+            :placeholder="$lt('请输入密码')"
             autofocus
           />
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn-cancel" @click="handleCancel">取消</button>
-        <button class="btn-confirm" @click="handleConfirm" :disabled="!passwordValue">确认</button>
+        <button class="btn-cancel" @click="handleCancel">{{ $lt('取消') }}</button>
+        <button class="btn-confirm" @click="handleConfirm" :disabled="!passwordValue">{{ $lt('确认') }}</button>
       </div>
     </div>
   </div>

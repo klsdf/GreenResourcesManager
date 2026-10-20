@@ -2,7 +2,7 @@
   <div class="tag-manage-page">
     <!-- 左侧：资源类型 → 字段树 -->
     <aside class="tm-sidebar">
-      <h3 class="tm-title">🏷️ 标签管理</h3>
+      <h3 class="tm-title">{{ $lt('🏷️ 标签管理') }}</h3>
       <div v-for="res in registry" :key="res.type" class="tm-res-group">
         <div class="tm-res-name">{{ res.label }}</div>
         <div
@@ -25,27 +25,19 @@
             v-model="keyword"
             class="tm-search"
             type="text"
-            placeholder="搜索标签名称..."
+            :placeholder="$lt('搜索标签名称...')"
           />
           <label class="tm-check">
-            <input v-model="unusedOnly" type="checkbox" />
-            仅看未使用
-          </label>
+            <input v-model="unusedOnly" type="checkbox" /> {{ $lt('仅看未使用') }} </label>
           <label class="tm-check">
-            <input v-model="duplicatesOnly" type="checkbox" />
-            疑似重复
-          </label>
-          <button class="tm-btn" @click="loadTags">刷新</button>
-          <button class="tm-btn tm-btn-warn" @click="onRebuild">重建索引</button>
+            <input v-model="duplicatesOnly" type="checkbox" /> {{ $lt('疑似重复') }} </label>
+          <button class="tm-btn" @click="loadTags">{{ $lt('刷新') }}</button>
+          <button class="tm-btn tm-btn-warn" @click="onRebuild">{{ $lt('重建索引') }}</button>
         </header>
 
-        <div class="tm-bulk-bar" v-if="checkedNorms.size > 0">
-          已选择 {{ checkedNorms.size }} 个标签
-          <button class="tm-btn tm-btn-primary" :disabled="checkedNorms.size < 2" @click="openMergeDialog">
-            合并为…
-          </button>
-          <button class="tm-btn" @click="checkedNorms.clear()">取消选择</button>
-          <span v-if="checkedNorms.size < 2" class="tm-hint">合并需选择至少 2 个标签</span>
+        <div class="tm-bulk-bar" v-if="checkedNorms.size > 0"> {{ $lt('已选择') }} {{ checkedNorms.size }} {{ $lt('个标签') }} <button class="tm-btn tm-btn-primary" :disabled="checkedNorms.size < 2" @click="openMergeDialog"> {{ $lt('合并为…') }} </button>
+          <button class="tm-btn" @click="checkedNorms.clear()">{{ $lt('取消选择') }}</button>
+          <span v-if="checkedNorms.size < 2" class="tm-hint">{{ $lt('合并需选择至少 2 个标签') }}</span>
         </div>
 
         <div class="tm-table-wrap">
@@ -53,17 +45,17 @@
             <thead>
               <tr>
                 <th class="col-check"></th>
-                <th class="col-name">标签名</th>
-                <th class="col-count">使用数</th>
-                <th class="col-actions">操作</th>
+                <th class="col-name">{{ $lt('标签名') }}</th>
+                <th class="col-count">{{ $lt('使用数') }}</th>
+                <th class="col-actions">{{ $lt('操作') }}</th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="loading">
-                <td colspan="4" class="tm-empty">加载中…</td>
+                <td colspan="4" class="tm-empty">{{ $lt('加载中…') }}</td>
               </tr>
               <tr v-else-if="tags.length === 0">
-                <td colspan="4" class="tm-empty">没有符合条件的标签</td>
+                <td colspan="4" class="tm-empty">{{ $lt('没有符合条件的标签') }}</td>
               </tr>
               <tr v-for="item in tags" :key="item.norm">
                 <td class="col-check">
@@ -75,15 +67,14 @@
                 </td>
                 <td class="col-name">
                   {{ item.name }}
-                  <span v-if="item.rawVariants > 1" class="tm-badge tm-badge-warn" title="同一标签存在不同大小写/写法">
-                    ×{{ item.rawVariants }} 种写法
-                  </span>
-                  <span v-if="item.count === 0" class="tm-badge">未使用</span>
+                  <span v-if="item.rawVariants > 1" class="tm-badge tm-badge-warn" :title="$lt('同一标签存在不同大小写/写法')">
+                    ×{{ item.rawVariants }} {{ $lt('种写法') }} </span>
+                  <span v-if="item.count === 0" class="tm-badge">{{ $lt('未使用') }}</span>
                 </td>
                 <td class="col-count">{{ item.count }}</td>
                 <td class="col-actions">
-                  <button class="tm-btn tm-btn-small" @click="openRenameDialog(item)">重命名</button>
-                  <button class="tm-btn tm-btn-small tm-btn-danger" @click="openRemoveDialog(item)">删除</button>
+                  <button class="tm-btn tm-btn-small" @click="openRenameDialog(item)">{{ $lt('重命名') }}</button>
+                  <button class="tm-btn tm-btn-small tm-btn-danger" @click="openRemoveDialog(item)">{{ $lt('删除') }}</button>
                 </td>
               </tr>
             </tbody>
@@ -91,32 +82,26 @@
         </div>
       </template>
 
-      <div v-else-if="!electronAvailable" class="tm-empty-page">
-        标签索引需要在 Electron 环境中使用，请通过桌面客户端打开本页面。
-      </div>
-      <div v-else class="tm-empty-page">请在左侧选择一个字段查看标签</div>
+      <div v-else-if="!electronAvailable" class="tm-empty-page"> {{ $lt('标签索引需要在 Electron 环境中使用，请通过桌面客户端打开本页面。') }} </div>
+      <div v-else class="tm-empty-page">{{ $lt('请在左侧选择一个字段查看标签') }}</div>
     </main>
 
     <!-- 重命名 / 合并 对话框 -->
     <div v-if="dialog.visible" class="tm-modal-mask" @click.self="closeDialog">
       <div class="tm-modal">
         <h4>{{ dialog.mode === 'merge' ? '合并标签' : '重命名标签' }}</h4>
-        <p class="tm-dialog-desc" v-if="dialog.mode === 'rename'">
-          将「{{ dialog.sourceNames[0] }}」重命名为新名称，会同步修改所有引用它的资源。
-        </p>
-        <p class="tm-dialog-desc" v-else>
-          将 {{ dialog.sourceNames.length }} 个标签合并为一个名称，会同步修改所有引用资源。
-        </p>
+        <p class="tm-dialog-desc" v-if="dialog.mode === 'rename'"> {{ $lt('将「') }}{{ dialog.sourceNames[0] }}{{ $lt('」重命名为新名称，会同步修改所有引用它的资源。') }} </p>
+        <p class="tm-dialog-desc" v-else> {{ $lt('将') }} {{ dialog.sourceNames.length }} {{ $lt('个标签合并为一个名称，会同步修改所有引用资源。') }} </p>
         <input
           ref="dialogInput"
           v-model="dialog.targetName"
           class="tm-search"
           type="text"
-          placeholder="输入新的标签名称"
+          :placeholder="$lt('输入新的标签名称')"
           @keyup.enter="confirmDialog"
         />
         <div class="tm-modal-actions">
-          <button class="tm-btn" @click="closeDialog">取消</button>
+          <button class="tm-btn" @click="closeDialog">{{ $lt('取消') }}</button>
           <button class="tm-btn tm-btn-primary" :disabled="!dialog.targetName.trim() || dialog.busy" @click="confirmDialog">
             {{ dialog.busy ? '处理中…' : '确定' }}
           </button>
@@ -127,13 +112,10 @@
     <!-- 删除确认对话框 -->
     <div v-if="removeDialog.visible" class="tm-modal-mask" @click.self="closeRemoveDialog">
       <div class="tm-modal">
-        <h4>删除标签</h4>
-        <p class="tm-dialog-desc">
-          确定删除标签「{{ removeDialog.name }}」吗？
-          该标签将从 <strong>{{ removeDialog.count }}</strong> 个资源中移除，资源本身不会被删除。
-        </p>
+        <h4>{{ $lt('删除标签') }}</h4>
+        <p class="tm-dialog-desc"> {{ $lt('确定删除标签「') }}{{ removeDialog.name }}{{ $lt('」吗？ 该标签将从') }} <strong>{{ removeDialog.count }}</strong> {{ $lt('个资源中移除，资源本身不会被删除。') }} </p>
         <div class="tm-modal-actions">
-          <button class="tm-btn" @click="closeRemoveDialog">取消</button>
+          <button class="tm-btn" @click="closeRemoveDialog">{{ $lt('取消') }}</button>
           <button class="tm-btn tm-btn-danger" :disabled="removeDialog.busy" @click="confirmRemove">
             {{ removeDialog.busy ? '删除中…' : '确认删除' }}
           </button>

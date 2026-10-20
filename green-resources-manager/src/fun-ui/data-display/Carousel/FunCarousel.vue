@@ -7,7 +7,7 @@
       v-if="items.length > 1"
       type="button"
       class="fun-carousel__arrow fun-carousel__arrow--left"
-      aria-label="上一张"
+      :aria-label="$lt('上一张')"
       @click.stop="goPrev"
     >
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
@@ -16,7 +16,7 @@
       v-if="items.length > 1"
       type="button"
       class="fun-carousel__arrow fun-carousel__arrow--right"
-      aria-label="下一张"
+      :aria-label="$lt('下一张')"
       @click.stop="goNext"
     >
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>

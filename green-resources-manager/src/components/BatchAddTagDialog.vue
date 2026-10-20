@@ -3,22 +3,22 @@
     <div class="modal-wrapper">
       <div class="modal-content" @mousedown.stop>
         <div class="modal-header">
-          <h3>批量增加标签</h3>
+          <h3>{{ $lt('批量增加标签') }}</h3>
           <button class="btn-close" @click="handleClose">✕</button>
         </div>
         <div class="modal-body">
           <div class="form-field-wrapper">
-            <label class="form-label">标签</label>
+            <label class="form-label">{{ $lt('标签') }}</label>
             <fun-tag-input
               v-model="tags"
-              placeholder="输入标签后按回车添加"
+              :placeholder="$lt('输入标签后按回车添加')"
               :allowDuplicate="false"
             />
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn-cancel" @click="handleClose">取消</button>
-          <button class="btn-confirm" @click="handleConfirm">保存</button>
+          <button class="btn-cancel" @click="handleClose">{{ $lt('取消') }}</button>
+          <button class="btn-confirm" @click="handleConfirm">{{ $lt('保存') }}</button>
         </div>
       </div>
     </div>

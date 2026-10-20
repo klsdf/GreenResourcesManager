@@ -5,7 +5,7 @@
       id="pet-image"
       class="pet-image"
       src="/imgs/pets/仓鼠娘.png"
-      alt="桌宠"
+      :alt="$lt('桌宠')"
     />
 
     <!-- 交互区域 -->
@@ -28,7 +28,7 @@
       id="debug-toggle"
       class="debug-toggle-button"
       :class="{ active: debugMode }"
-      title="调试模式 (D)"
+      :title="$lt('调试模式 (D)')"
       @click="toggleDebugMode"
     >
       D

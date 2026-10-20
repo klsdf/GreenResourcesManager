@@ -181,7 +181,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // 写入密码列表到文件
   writeArchivePasswords: (passwords) => ipcRenderer.invoke('write-archive-passwords', passwords),
-  
+
+  // 资源管理器右键「解压到此处」
+  getShellExtractMenu: () => ipcRenderer.invoke('get-shell-extract-menu'),
+  setShellExtractMenu: (enabled) => ipcRenderer.invoke('set-shell-extract-menu', enabled),
+
   // 通知
   showNotification: (title, body) => ipcRenderer.invoke('show-notification', title, body),
   
@@ -260,6 +264,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // 备份整个存档目录
   backupSaveDataDirectory: (saveDataDir, maxBackups) => ipcRenderer.invoke('backup-save-data-directory', saveDataDir, maxBackups),
+  /** 当前存档的自动备份目录。目录不存在时会先创建。 */
+  getSaveBackupDirectory: () => ipcRenderer.invoke('get-save-backup-directory'),
   
   // 封面管理
   saveCoverToFolder: (sourceImagePath, saveDataDir, resourceType, resourceId) => ipcRenderer.invoke('save-cover-to-folder', sourceImagePath, saveDataDir, resourceType, resourceId),

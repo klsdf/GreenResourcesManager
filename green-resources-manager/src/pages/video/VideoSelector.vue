@@ -3,14 +3,12 @@
     <div class="video-selector-header">
       <h4>{{ title }}</h4>
       <div class="selection-info">
-        <span class="selected-count">已选择 {{ selectedVideos.length }} 个视频</span>
+        <span class="selected-count">{{ $lt('已选择') }} {{ selectedVideos.length }} {{ $lt('个视频') }}</span>
         <button 
           v-if="selectedVideos.length > 0" 
           @click="clearSelection" 
           class="btn-clear"
-        >
-          清空选择
-        </button>
+        > {{ $lt('清空选择') }} </button>
       </div>
     </div>
     
@@ -43,7 +41,7 @@
     </div>
     
     <div v-if="videos.length === 0" class="empty-state">
-      <p>没有可选择的视频</p>
+      <p>{{ $lt('没有可选择的视频') }}</p>
     </div>
   </div>
 </template>

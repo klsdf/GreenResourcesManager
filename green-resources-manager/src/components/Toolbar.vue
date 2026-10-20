@@ -9,7 +9,7 @@
           :icon="item.icon"
           @click="handleButtonClick(item)"
         >
-          {{ item.label }}
+          {{ $lt(item.label) }}
         </fun-button>
 
         <!-- 搜索框 -->
@@ -18,7 +18,7 @@
             type="text" 
             :value="searchQuery" 
             @input="handleSearchInput($event, item)"
-            :placeholder="item.placeholder"
+            :placeholder="$lt(item.placeholder)"
             class="search-input"
           >
           <span class="search-icon">🔍</span>
@@ -34,7 +34,7 @@
           :type="isMultiSelectMode ? 'secondary' : 'primary'"
           @click="handleToggleMultiSelect"
         >
-          {{ isMultiSelectMode ? '退出多选' : '多选模式' }}
+          {{ isMultiSelectMode ? $lt('退出多选') : $lt('多选模式') }}
         </fun-button>
 
         <!-- 布局控制 -->
@@ -53,13 +53,13 @@
               :key="group.field"
               :value="group.field"
             >
-              {{ group.label }}
+              {{ $lt(group.label) }}
             </option>
           </select>
           <button
             type="button"
             class="sort-order-btn"
-            :title="currentSortOrder === 'asc' ? '当前升序，点击改为降序' : '当前降序，点击改为升序'"
+            :title="currentSortOrder === 'asc' ? $lt('当前升序，点击改为降序') : $lt('当前降序，点击改为升序')"
             @click="handleSortOrderToggle"
           >
             {{ currentSortOrder === 'asc' ? '↑' : '↓' }}

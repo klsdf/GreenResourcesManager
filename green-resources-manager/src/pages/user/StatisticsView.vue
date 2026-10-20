@@ -6,40 +6,40 @@
       <div class="statistics-body">
         <!-- 时间统计 -->
         <div class="statistics-section">
-          <h5>⏰ 时间统计</h5>
+          <h5>{{ $lt('⏰ 时间统计') }}</h5>
           <div class="time-statistics-grid">
             <div class="time-statistics-card">
               <div class="time-statistics-icon">📅</div>
               <div class="time-statistics-content">
-                <div class="time-statistics-label">第一次使用时间</div>
+                <div class="time-statistics-label">{{ $lt('第一次使用时间') }}</div>
                 <div class="time-statistics-value">{{ formatJoinDate }}</div>
               </div>
             </div>
             <div class="time-statistics-card">
               <div class="time-statistics-icon">🕒</div>
               <div class="time-statistics-content">
-                <div class="time-statistics-label">本次登录时间</div>
+                <div class="time-statistics-label">{{ $lt('本次登录时间') }}</div>
                 <div class="time-statistics-value">{{ formatCurrentLogin }}</div>
               </div>
             </div>
             <div class="time-statistics-card">
               <div class="time-statistics-icon">🕐</div>
               <div class="time-statistics-content">
-                <div class="time-statistics-label">上一次登录时间</div>
+                <div class="time-statistics-label">{{ $lt('上一次登录时间') }}</div>
                 <div class="time-statistics-value">{{ formatLastActive }}</div>
               </div>
             </div>
             <div class="time-statistics-card">
               <div class="time-statistics-icon">⏱️</div>
               <div class="time-statistics-content">
-                <div class="time-statistics-label">总使用时长</div>
+                <div class="time-statistics-label">{{ $lt('总使用时长') }}</div>
                 <div class="time-statistics-value">{{ formatTotalUsageTimeWithSession }}</div>
               </div>
             </div>
             <div class="time-statistics-card">
               <div class="time-statistics-icon">🕐</div>
               <div class="time-statistics-content">
-                <div class="time-statistics-label">本次会话时长</div>
+                <div class="time-statistics-label">{{ $lt('本次会话时长') }}</div>
                 <div class="time-statistics-value">{{ formatCurrentSessionTime }}</div>
               </div>
             </div>
@@ -48,7 +48,7 @@
 
         <!-- 登录日历 -->
         <div class="statistics-section">
-          <h5>📅 登录日历</h5>
+          <h5>{{ $lt('📅 登录日历') }}</h5>
           <div class="calendar-container">
             <div class="calendar-header">
               <button @click="previousMonth" class="calendar-nav-btn">‹</button>
@@ -74,15 +74,15 @@
             <div class="calendar-stats">
               <div class="stat-item">
                 <span class="stat-number">{{ totalCheckDays }}</span>
-                <span class="stat-label">总登录天数</span>
+                <span class="stat-label">{{ $lt('总登录天数') }}</span>
               </div>
               <div class="stat-item">
                 <span class="stat-number">{{ currentMonthCheckDays }}</span>
-                <span class="stat-label">本月登录</span>
+                <span class="stat-label">{{ $lt('本月登录') }}</span>
               </div>
               <div class="stat-item">
                 <span class="stat-number">{{ currentStreak }}</span>
-                <span class="stat-label">连续登录</span>
+                <span class="stat-label">{{ $lt('连续登录') }}</span>
               </div>
             </div>
           </div>
@@ -90,7 +90,7 @@
 
         <!-- 媒体数量总览 -->
         <div class="statistics-section">
-          <h5>📈 媒体数量总览</h5>
+          <h5>{{ $lt('📈 媒体数量总览') }}</h5>
           <div class="stats-grid">
             <div class="stat-card" :class="{ loading: isLoading }" v-for="stat in mediaStats" :key="stat.type">
               <fun-statistic
@@ -105,12 +105,12 @@
 
         <!-- 游戏数据总览 -->
         <div class="statistics-section">
-          <h5>🎮 游戏数据总览</h5>
+          <h5>{{ $lt('🎮 游戏数据总览') }}</h5>
           <div class="media-overview-grid">
             <div class="media-overview-card">
               <fun-statistic
                 :value="gameStats.count"
-                label="游戏总数"
+                :label="$lt('游戏总数')"
                 icon="📊"
                 :loading="isLoading"
               />
@@ -118,7 +118,7 @@
             <div class="media-overview-card">
               <fun-statistic
                 :value="gameStats.storage"
-                label="空间占用"
+                :label="$lt('空间占用')"
                 icon="💾"
                 :loading="isLoading"
               />
@@ -126,7 +126,7 @@
             <div class="media-overview-card">
               <fun-statistic
                 :value="gameStats.totalTime"
-                label="总游戏时长"
+                :label="$lt('总游戏时长')"
                 icon="⏱️"
                 :loading="isLoading"
               />
@@ -134,7 +134,7 @@
             <div class="media-overview-card">
               <fun-statistic
                 :value="gameStats.playedCount"
-                label="已启动游戏"
+                :label="$lt('已启动游戏')"
                 icon="🎯"
                 :loading="isLoading"
               />
@@ -144,12 +144,12 @@
 
         <!-- 图片数据总览 -->
         <div class="statistics-section">
-          <h5>🖼️ 图片数据总览</h5>
+          <h5>{{ $lt('🖼️ 图片数据总览') }}</h5>
           <div class="media-overview-grid">
             <div class="media-overview-card">
               <fun-statistic
                 :value="imageStats.count"
-                label="图片总数"
+                :label="$lt('图片总数')"
                 icon="📊"
                 :loading="isLoading"
               />
@@ -157,7 +157,7 @@
             <div class="media-overview-card">
               <fun-statistic
                 :value="imageStats.storage"
-                label="空间占用"
+                :label="$lt('空间占用')"
                 icon="💾"
                 :loading="isLoading"
               />
@@ -167,12 +167,12 @@
 
         <!-- 视频数据总览 -->
         <div class="statistics-section">
-          <h5>🎬 视频数据总览</h5>
+          <h5>{{ $lt('🎬 视频数据总览') }}</h5>
           <div class="media-overview-grid">
             <div class="media-overview-card">
               <fun-statistic
                 :value="videoStats.count"
-                label="视频总数"
+                :label="$lt('视频总数')"
                 icon="📊"
                 :loading="isLoading"
               />
@@ -180,7 +180,7 @@
             <div class="media-overview-card">
               <fun-statistic
                 :value="videoStats.storage"
-                label="空间占用"
+                :label="$lt('空间占用')"
                 icon="💾"
                 :loading="isLoading"
               />
@@ -190,12 +190,12 @@
 
         <!-- 小说数据总览 -->
         <div class="statistics-section">
-          <h5>📚 小说数据总览</h5>
+          <h5>{{ $lt('📚 小说数据总览') }}</h5>
           <div class="media-overview-grid">
             <div class="media-overview-card">
               <fun-statistic
                 :value="novelStats.count"
-                label="小说总数"
+                :label="$lt('小说总数')"
                 icon="📊"
                 :loading="isLoading"
               />
@@ -203,7 +203,7 @@
             <div class="media-overview-card">
               <fun-statistic
                 :value="novelStats.storage"
-                label="空间占用"
+                :label="$lt('空间占用')"
                 icon="💾"
                 :loading="isLoading"
               />
@@ -213,12 +213,12 @@
 
         <!-- 网站数据总览 -->
         <div class="statistics-section">
-          <h5>🌐 网站数据总览</h5>
+          <h5>{{ $lt('🌐 网站数据总览') }}</h5>
           <div class="media-overview-grid">
             <div class="media-overview-card">
               <fun-statistic
                 :value="websiteStats.count"
-                label="网站总数"
+                :label="$lt('网站总数')"
                 icon="📊"
                 :loading="isLoading"
               />
@@ -226,7 +226,7 @@
             <div class="media-overview-card">
               <fun-statistic
                 :value="websiteStats.storage"
-                label="空间占用"
+                :label="$lt('空间占用')"
                 icon="💾"
                 :loading="isLoading"
               />
@@ -236,12 +236,12 @@
 
         <!-- 音频数据总览 -->
         <div class="statistics-section">
-          <h5>🎵 音频数据总览</h5>
+          <h5>{{ $lt('🎵 音频数据总览') }}</h5>
           <div class="media-overview-grid">
             <div class="media-overview-card">
               <fun-statistic
                 :value="audioStats.count"
-                label="音频总数"
+                :label="$lt('音频总数')"
                 icon="📊"
                 :loading="isLoading"
               />
@@ -249,7 +249,7 @@
             <div class="media-overview-card">
               <fun-statistic
                 :value="audioStats.storage"
-                label="空间占用"
+                :label="$lt('空间占用')"
                 icon="💾"
                 :loading="isLoading"
               />
@@ -259,7 +259,7 @@
 
         <!-- 月度报告 -->
         <div class="statistics-section">
-          <h5>📅 月度报告</h5>
+          <h5>{{ $lt('📅 月度报告') }}</h5>
           <div class="report-container">
             <div class="report-header">
               <div class="report-title">
@@ -269,7 +269,7 @@
               <div class="report-actions">
                 <button @click="refreshMonthlyReport" class="refresh-btn" :disabled="isLoadingReport">
                   <span class="btn-icon">🔄</span>
-                  <span>刷新</span>
+                  <span>{{ $lt('刷新') }}</span>
                 </button>
               </div>
             </div>
@@ -277,11 +277,11 @@
             <div class="report-content">
               <!-- 使用概览 -->
               <div class="report-section">
-                <h7>📊 使用概览</h7>
+                <h7>{{ $lt('📊 使用概览') }}</h7>
                 <div class="overview-grid">
                   <div class="overview-item">
                     <div class="overview-number">{{ currentMonthReport.overview.newMediaCount }}</div>
-                    <div class="overview-label">新增媒体</div>
+                    <div class="overview-label">{{ $lt('新增媒体') }}</div>
                   </div>
                 </div>
               </div>

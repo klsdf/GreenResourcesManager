@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>解压</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+    body {
+      margin: 0;
+      padding: 20px 22px 16px;
+      background: #f6f7f9;
+      color: #1f2933;
+    }
+    @media (prefers-color-scheme: dark) {
+      body {
+        background: #1c1f24;
+        color: #f3f4f6;
+      }
+      .message { color: #d1d5db; }
+      button.secondary {
+        background: #2a3038;
+        color: #f3f4f6;
+        border-color: #3d4450;
+      }
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 16px;
+      font-weight: 650;
+    }
+    .file {
+      margin: 0 0 10px;
+      font-size: 13px;
+      word-break: break-all;
+    }
+    .message {
+      margin: 0 0 18px;
+      min-height: 40px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #4b5563;
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+    button {
+      border: 0;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font: inherit;
+      cursor: pointer;
+    }
+    button.primary {
+      background: #0f766e;
+      color: white;
+    }
+    button.secondary {
+      background: white;
+      color: #1f2933;
+      border: 1px solid #d0d5dd;
+    }
+    button[hidden] { display: none; }
+  </style>
+</head>
+<body>
+  <h1 id="title">正在解压</h1>
+  <p class="file" id="file"></p>
+  <p class="message" id="message">准备解压</p>
+  <div class="actions">
+    <button class="secondary" id="main" type="button">打开主界面</button>
+    <button class="primary" id="folder" type="button" hidden>打开文件夹</button>
+    <button class="secondary" id="close" type="button">关闭</button>
+  </div>
+  <script>
+    const title = document.getElementById('title')
+    const file = document.getElementById('file')
+    const message = document.getElementById('message')
+    const folderButton = document.getElementById('folder')
+    let outputDir = ''
+
+    window.shellExtract.onUpdate((state) => {
+      file.textContent = state.fileName || ''
+      message.textContent = state.message || ''
+      outputDir = state.outputDir || ''
+      if (state.status === 'success') title.textContent = '解压完成'
+      else if (state.status === 'error') title.textContent = '解压没有完成'
+      else title.textContent = '正在解压'
+      folderButton.hidden = state.status !== 'success' || !outputDir
+    })
+
+    folderButton.addEventListener('click', () => {
+      if (outputDir) window.shellExtract.openFolder(outputDir)
+    })
+    document.getElementById('close').addEventListener('click', () => {
+      window.shellExtract.close()
+    })
+    document.getElementById('main').addEventListener('click', () => {
+      window.shellExtract.showMain()
+    })
+  </script>
+</body>
+</html>

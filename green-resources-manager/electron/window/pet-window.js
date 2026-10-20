@@ -33,6 +33,7 @@ const { BrowserWindow, app, screen } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const fileUtils = require('../utils/file-utils')
+const { resolveMainPreloadPath } = require('../utils/preload-path')
 
 // 桌宠窗口实例
 let petWindow = null
@@ -50,20 +51,12 @@ function createPetWindow(isDev) {
 
   // 获取应用路径（在打包后也能正确工作）
   const appPath = app.getAppPath()
-  
-  // 确定 preload.js 路径
-  let preloadPath
-  if (isDev) {
-    preloadPath = path.join(__dirname, '../../preload.js')
-  } else {
-    const fs = require('fs')
-    const possiblePaths = [
-      path.join(appPath, 'preload.js'),
-      path.join(appPath, 'public', 'preload.js'),
-      path.join(__dirname, '../../preload.js')
-    ]
-    preloadPath = possiblePaths.find(p => fs.existsSync(p)) || possiblePaths[0]
-  }
+
+  /**
+   * 桌宠拖动、好感、缩放都走 IPC。
+   * 以前从 electron/window 往上两级去找 preload，文件不存在，这些调用全部空转。
+   */
+  const preloadPath = resolveMainPreloadPath()
 
   // 获取主显示器信息
   const primaryDisplay = screen.getPrimaryDisplay()

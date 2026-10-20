@@ -5,15 +5,15 @@
       <div class="profile-body">
         <!-- 基本信息 -->
         <div class="profile-section">
-          <h5>基本信息</h5>
+          <h5>{{ $lt('基本信息') }}</h5>
           <div class="form-group">
-            <label for="userName">用户名</label>
+            <label for="userName">{{ $lt('用户名') }}</label>
             <div class="input-group">
               <input
                 id="userName"
                 v-model="userProfile.name"
                 type="text"
-                placeholder="请输入你的用户名"
+                :placeholder="$lt('请输入你的用户名')"
                 class="form-input"
                 @blur="saveUserProfile"
                 @keyup.enter="saveUserProfile"
@@ -24,11 +24,11 @@
                 class="save-btn"
                 :disabled="isSaving"
               >
-                <span v-if="isSaving">保存中...</span>
+                <span v-if="isSaving">{{ $lt('保存中...') }}</span>
                 <span v-else>💾</span>
               </button>
             </div>
-            <p class="input-hint">这个功能现在没有用，是之后会用到的神秘功能</p>
+            <p class="input-hint">{{ $lt('这个功能现在没有用，是之后会用到的神秘功能') }}</p>
           </div>
         </div>
 

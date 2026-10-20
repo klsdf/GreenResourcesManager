@@ -32,6 +32,7 @@
 const { BrowserWindow, app } = require('electron')
 const path = require('path')
 const fs = require('fs')
+const { resolveMainPreloadPath } = require('../utils/preload-path')
 
 // 主窗口实例
 let mainWindow = null
@@ -203,9 +204,12 @@ function bindMainWindowZoom(win) {
  * @param {Function} getMinimizeToTrayEnabled - 获取最小化到托盘功能状态
  * @param {Function} getSystemTray - 获取系统托盘实例的函数
  * @param {Function} displayBalloon - 显示托盘通知的函数
+ * @param {{ showWhenReady?: boolean }} [options] showWhenReady 为 false 时，窗口创建后留在后台（右键解压用）
  * @returns {BrowserWindow} 主窗口实例
  */
-function createMainWindow(isDev, getMinimizeToTrayEnabled, getSystemTray, displayBalloon) {
+function createMainWindow(isDev, getMinimizeToTrayEnabled, getSystemTray, displayBalloon, options = {}) {
+  /** 右键解压拉起时不弹出主界面。 */
+  const showWhenReady = options.showWhenReady !== false
   // 如果窗口已存在，直接返回
   if (mainWindow && !mainWindow.isDestroyed()) {
     return mainWindow
@@ -242,33 +246,9 @@ function createMainWindow(isDev, getMinimizeToTrayEnabled, getSystemTray, displa
   
   // 获取应用路径（在打包后也能正确工作）
   const appPath = app.getAppPath()
-  
-  // 确定 preload.js 路径
-  let preloadPath
-  if (isDev) {
-    // 开发环境：使用相对路径（preload.js 现在在 electron/ 目录下）
-    preloadPath = path.join(__dirname, '../preload.js')
-  } else {
-    // 生产环境：尝试多个可能的路径
-    const fs = require('fs')
-    const possiblePaths = [
-      path.join(appPath, 'electron', 'preload.js'), // resources/app/electron/preload.js
-      path.join(appPath, 'preload.js'),             // resources/app/preload.js (备用)
-      path.join(__dirname, '../preload.js')         // 备用路径
-    ]
-    
-    // 查找存在的 preload.js 文件
-    preloadPath = possiblePaths.find(p => fs.existsSync(p))
-    
-    if (!preloadPath) {
-      // 如果都找不到，使用第一个路径（让 Electron 报错）
-      preloadPath = possiblePaths[0]
-      console.warn('⚠️ 警告: 找不到 preload.js 文件，尝试的路径:', possiblePaths)
-      console.warn('⚠️ 将使用路径:', preloadPath)
-    } else {
-      console.log('✅ 找到 preload.js 文件:', preloadPath)
-    }
-  }
+
+  /** 与桌宠、视频、标签页共用同一解析，避免各窗口把相对路径多写一层 */
+  const preloadPath = resolveMainPreloadPath()
   
   // 创建浏览器窗口
   mainWindow = new BrowserWindow({
@@ -291,7 +271,8 @@ function createMainWindow(isDev, getMinimizeToTrayEnabled, getSystemTray, displa
       : path.join(appPath, 'public', 'butter-icon.ico'), // ✅ 使用 appPath 而不是 __dirname
     titleBarStyle: 'default',
     autoHideMenuBar: true, // 自动隐藏菜单栏（Windows/Linux 上可通过 Alt 键显示）
-    show: false // 先不显示，等加载完成后再显示
+    show: false, // 先不显示，等加载完成后再显示
+    skipTaskbar: !showWhenReady
   })
 
   // 先挂上滚轮缩放，再加载页面，这样第一次 did-finish-load 就能恢复上次的大小
@@ -348,13 +329,12 @@ function createMainWindow(isDev, getMinimizeToTrayEnabled, getSystemTray, displa
 
   // 窗口准备好后显示
   mainWindow.once('ready-to-show', () => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.show()
-      
-      // 开发环境下自动打开开发者工具
-      if (isDev) {
-        mainWindow.webContents.openDevTools()
-      }
+    if (!mainWindow || mainWindow.isDestroyed() || !showWhenReady) return
+    mainWindow.show()
+
+    // 开发环境下自动打开开发者工具
+    if (isDev) {
+      mainWindow.webContents.openDevTools()
     }
   })
   
@@ -430,7 +410,8 @@ function showAndFocusMainWindow() {
       mainWindow.restore()
     }
     
-    // 显示并聚焦窗口
+    // 右键解压时主窗口不在任务栏上，这里再放回来
+    mainWindow.setSkipTaskbar(false)
     mainWindow.show()
     mainWindow.focus()
     

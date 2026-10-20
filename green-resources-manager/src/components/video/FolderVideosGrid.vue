@@ -1,6 +1,6 @@
 <template>
   <div class="folder-videos-section">
-    <h4>文件夹中的视频 ({{ videos.length }} 个)</h4>
+    <h4>{{ $lt('文件夹中的视频 (') }}{{ videos.length }} {{ $lt('个)') }}</h4>
     <div class="folder-videos-grid" v-if="videos.length > 0">
       <div 
         v-for="(video, index) in videos" 
@@ -22,7 +22,7 @@
             <button 
               class="overlay-action-button play-btn" 
               @click.stop="handlePlayVideo(video)"
-              title="播放视频"
+              :title="$lt('播放视频')"
             >
               ▶️
             </button>
@@ -44,7 +44,7 @@
       </div>
     </div>
     <div v-else class="no-videos">
-      <p>该文件夹中没有找到视频文件</p>
+      <p>{{ $lt('该文件夹中没有找到视频文件') }}</p>
     </div>
   </div>
 </template>

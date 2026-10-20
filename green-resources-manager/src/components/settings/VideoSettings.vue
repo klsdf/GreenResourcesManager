@@ -2,8 +2,8 @@
   <div class="settings-section">
     <div class="settings-grid">
       <SettingSelect
-        title="视频播放方式"
-        description="选择视频的播放方式"
+        :title="$lt('视频播放方式')"
+        :description="$lt('选择视频的播放方式')"
         :model-value="settings.videoPlayMode"
         :options="videoPlayModeOptions"
         @update:model-value="updateSetting('videoPlayMode', $event)"

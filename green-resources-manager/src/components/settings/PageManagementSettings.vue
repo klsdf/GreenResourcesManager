@@ -1,16 +1,14 @@
 <template>
   <div class="page-management-settings">
     <div class="settings-section">
-      <h3>页面管理</h3>
-      <p class="section-desc">管理侧边栏显示的页面，可以新增、编辑、排序、隐藏或删除。</p>
+      <h3>{{ $lt('页面管理') }}</h3>
+      <p class="section-desc">{{ $lt('管理侧边栏显示的页面，可以新增、编辑、排序、隐藏或删除。') }}</p>
 
       <div class="actions-bar">
         <button class="btn-primary" @click="openAddDialog">
-          <span class="icon">➕</span> 添加新页面
-        </button>
+          <span class="icon">➕</span> {{ $lt('添加新页面') }} </button>
         <button class="btn-secondary" @click="openConfigDirectory">
-          <span class="icon">📁</span> 打开配置目录
-        </button>
+          <span class="icon">📁</span> {{ $lt('打开配置目录') }} </button>
       </div>
 
       <div class="pages-list" :class="{ 'is-dragging': isDragging }">
@@ -25,7 +23,7 @@
           <div
             class="page-drag-handle"
             draggable="true"
-            title="拖拽排序"
+            :title="$lt('拖拽排序')"
             @dragstart.stop="onDragStart($event, index)"
             @dragend.stop="onDragEnd"
           >
@@ -34,9 +32,9 @@
           <div class="page-icon">{{ page.icon }}</div>
           <div class="page-info">
             <div class="page-name">
-              {{ page.name }}
-              <span v-if="page.isDefault" class="badge system">系统</span>
-              <span v-if="page.isHidden" class="badge hidden">已隐藏</span>
+              {{ $lt(page.name) }}
+              <span v-if="page.isDefault" class="badge system">{{ $lt('系统') }}</span>
+              <span v-if="page.isHidden" class="badge hidden">{{ $lt('已隐藏') }}</span>
             </div>
             <div class="page-type">{{ formatPageTypes(page) }}</div>
           </div>
@@ -44,7 +42,7 @@
           <div class="page-actions">
             <button
               class="btn-icon"
-              title="上移"
+              :title="$lt('上移')"
               @click="moveUp(getActualIndex(page.id))"
               :disabled="getActualIndex(page.id) === 0"
             >
@@ -52,7 +50,7 @@
             </button>
             <button
               class="btn-icon"
-              title="下移"
+              :title="$lt('下移')"
               @click="moveDown(getActualIndex(page.id))"
               :disabled="getActualIndex(page.id) === pages.length - 1"
             >
@@ -65,10 +63,10 @@
             >
               {{ page.isHidden ? '🚫' : '👁️' }}
             </button>
-            <button class="btn-icon" title="编辑" @click="editPage(page)">
+            <button class="btn-icon" :title="$lt('编辑')" @click="editPage(page)">
               ✏️
             </button>
-            <button class="btn-icon delete" title="删除页面" @click="openDeleteDialog(page)">
+            <button class="btn-icon delete" :title="$lt('删除页面')" @click="openDeleteDialog(page)">
               🗑️
             </button>
           </div>
@@ -76,8 +74,8 @@
       </div>
     </div>
 
-    <fun-modal v-model="showAddDialog" title="添加新页面" max-width="720px">
-      <p class="dialog-desc">先选一种内容模板，新页面会按这个类型来管理资源。</p>
+    <fun-modal v-model="showAddDialog" :title="$lt('添加新页面')" max-width="720px">
+      <p class="dialog-desc">{{ $lt('先选一种内容模板，新页面会按这个类型来管理资源。') }}</p>
       <div class="template-grid">
         <button
           v-for="template in pageTemplates"
@@ -88,32 +86,30 @@
           @click="selectTemplate(template.id)"
         >
           <span class="template-icon">{{ template.icon }}</span>
-          <span class="template-label">{{ template.label }}</span>
-          <span class="template-desc">{{ template.description }}</span>
+          <span class="template-label">{{ $lt(template.label) }}</span>
+          <span class="template-desc">{{ $lt(template.description) }}</span>
         </button>
       </div>
       <div class="form-group">
-        <label>页面名称</label>
-        <fun-input v-model="newPageName" type="text" placeholder="例如：我的电影" />
+        <label>{{ $lt('页面名称') }}</label>
+        <fun-input v-model="newPageName" type="text" :placeholder="$lt('例如：我的电影')" />
       </div>
       <template #footer>
-        <button class="btn-secondary" type="button" @click="closeAddDialog">取消</button>
+        <button class="btn-secondary" type="button" @click="closeAddDialog">{{ $lt('取消') }}</button>
         <button class="btn-primary" type="button" :disabled="!canCreatePage || isCreating" @click="confirmCreatePage">
           {{ isCreating ? '正在添加...' : '添加' }}
         </button>
       </template>
     </fun-modal>
 
-    <fun-modal v-model="showDeleteDialog" title="删除页面" max-width="520px">
-      <p class="dialog-desc danger-text">
-        将从侧边栏去掉「{{ deletingPageName }}」。这一页的名单会清掉，资源本身还留着，之后拖进别的页面会接回原来的记录。
-      </p>
-      <p class="dialog-desc">请输入「{{ deleteConfirmText }}」后再确认。</p>
+    <fun-modal v-model="showDeleteDialog" :title="$lt('删除页面')" max-width="520px">
+      <p class="dialog-desc danger-text"> {{ $lt('将从侧边栏去掉「') }}{{ deletingPageName }}{{ $lt('」。这一页的名单会清掉，资源本身还留着，之后拖进别的页面会接回原来的记录。') }} </p>
+      <p class="dialog-desc">{{ $lt('请输入「') }}{{ deleteConfirmText }}{{ $lt('」后再确认。') }}</p>
       <div class="form-group">
         <fun-input v-model="deleteConfirmInput" type="text" :placeholder="deleteConfirmText" />
       </div>
       <template #footer>
-        <button class="btn-secondary" type="button" @click="closeDeleteDialog">取消</button>
+        <button class="btn-secondary" type="button" @click="closeDeleteDialog">{{ $lt('取消') }}</button>
         <button class="btn-danger" type="button" :disabled="!canDeletePage || isDeleting" @click="confirmDeletePage">
           {{ isDeleting ? '正在删除...' : '确认删除' }}
         </button>
@@ -138,6 +134,7 @@ import PageConfigEditor from '../PageConfigEditor.vue'
 import { pageConfigLoader } from '../../configs/pages/PageConfigLoader'
 import { DELETE_PAGE_CONFIRM_TEXT, PAGE_TEMPLATES } from '../../configs/pages/pageTemplates'
 import { defaultAcceptedKindIds, findBasicKind } from '../../configs/resources/resourceKindCatalog'
+import { lt } from '../../locales/lt'
 
 const TYPE_NAME_MAP: Record<string, string> = {
   Game: '游戏',
@@ -204,7 +201,7 @@ export default defineComponent({
     const formatPageTypes = (page: PageConfig) => {
       const legacyTypes = page.resourceTypes?.length ? page.resourceTypes : [page.type]
       const kindIds = page.acceptedKinds?.length ? page.acceptedKinds : defaultAcceptedKindIds(legacyTypes)
-      return kindIds.map(kindId => findBasicKind(kindId)?.label || kindId).join('、')
+      return kindIds.map(kindId => lt(findBasicKind(kindId)?.label || kindId)).join('、')
     }
 
     const previewPages = computed(() => {

@@ -68,7 +68,7 @@
       </button>
 
       <!-- 隐藏按钮 -->
-      <button class="control-btn hide-btn" @click="hidePlayer" title="隐藏播放器">
+      <button class="control-btn hide-btn" @click="hidePlayer" :title="$lt('隐藏播放器')">
         <span class="btn-icon">⬇️</span>
       </button>
     </div>
@@ -76,7 +76,7 @@
     <!-- 播放列表 -->
     <div class="playlist-panel" v-if="showPlaylist && !isHidden">
       <div class="playlist-header">
-        <h4>播放列表</h4>
+        <h4>{{ $lt('播放列表') }}</h4>
         <button class="btn-close-playlist" @click="showPlaylist = false">×</button>
       </div>
       <div class="playlist-content">
@@ -100,12 +100,12 @@
             <div class="item-artist">{{ audio.artist || '未知艺术家' }}</div>
           </div>
           <div class="item-duration">{{ formatDuration(audio.duration) }}</div>
-          <button class="btn-remove" @click.stop="removeFromPlaylist(index)" title="从播放列表移除">
+          <button class="btn-remove" @click.stop="removeFromPlaylist(index)" :title="$lt('从播放列表移除')">
             ×
           </button>
         </div>
         <div v-if="playlist.length === 0" class="empty-playlist">
-          <p>播放列表为空</p>
+          <p>{{ $lt('播放列表为空') }}</p>
         </div>
       </div>
     </div>
@@ -128,7 +128,7 @@
       <div class="show-btn-content">
         <span class="show-btn-icon">🎵</span>
         <span class="show-btn-text" v-if="currentAudio">{{ currentAudio.name }}</span>
-        <span class="show-btn-text" v-else>音频播放器</span>
+        <span class="show-btn-text" v-else>{{ $lt('音频播放器') }}</span>
         <span class="show-btn-arrow">⬆️</span>
       </div>
     </div>
@@ -948,13 +948,17 @@ export default {
 }
 
 /* 暗色主题下的显示按钮 */
-[data-theme="dark"] .show-player-btn {
+[data-theme="dark"] .show-player-btn,
+[data-theme="night"] .show-player-btn,
+[data-theme="night-ink"] .show-player-btn {
   background: rgba(42, 71, 94, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
-[data-theme="dark"] .show-player-btn:hover {
+[data-theme="dark"] .show-player-btn:hover,
+[data-theme="night"] .show-player-btn:hover,
+[data-theme="night-ink"] .show-player-btn:hover {
   background: rgba(42, 71, 94, 0.5);
   box-shadow: 0 6px 25px rgba(0, 0, 0, 0.4);
 }

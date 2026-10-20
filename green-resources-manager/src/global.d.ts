@@ -69,6 +69,10 @@ declare global {
       compressFile: (sourcePath: string, archivePath: string) => Promise<{ success: boolean; archivePath?: string; message?: string; error?: string }>
       readArchivePasswords: () => Promise<{ success: boolean; passwords?: string[]; filePath?: string; fileCreated?: boolean; error?: string }>
       writeArchivePasswords: (passwords: string[] | string) => Promise<{ success: boolean; filePath?: string; error?: string }>
+      /** 资源管理器右键菜单现在是否指向本程序 */
+      getShellExtractMenu: () => Promise<{ success: boolean; supported: boolean; enabled: boolean; stale: boolean; error?: string }>
+      /** 添加或移除资源管理器右键里的「解压到此处」 */
+      setShellExtractMenu: (enabled: boolean) => Promise<{ success: boolean; enabled: boolean; error?: string }>
       
       // 窗口控制
       minimizeWindow: () => Promise<any>
@@ -121,6 +125,8 @@ declare global {
       readJsonFile: (filePath: string) => Promise<{ success: boolean; data?: any; error?: string }>
       // 备份整个存档目录
       backupSaveDataDirectory: (saveDataDir: string, maxBackups?: number) => Promise<{ success: boolean; backupPath?: string; backupNumber?: number; copiedFiles?: number; copiedFolders?: number; error?: string }>
+      /** 当前存档的自动备份目录。目录不存在时会先创建。 */
+      getSaveBackupDirectory: () => Promise<string>
       deleteFile: (filePath: string) => Promise<{ success: boolean; error?: string }>
       deleteDirectory: (dirPath: string) => Promise<{ success: boolean; error?: string }>
       

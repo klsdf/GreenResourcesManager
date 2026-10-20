@@ -1,6 +1,6 @@
 <template>
   <div v-if="isVisible" id="dialog" class="pet-dialog show">
-    <button id="dialog-close" class="dialog-close" title="关闭" @click="handleClose">×</button>
+    <button id="dialog-close" class="dialog-close" :title="$lt('关闭')" @click="handleClose">×</button>
     <div id="dialog-text" class="dialog-text">{{ text }}</div>
   </div>
 </template>

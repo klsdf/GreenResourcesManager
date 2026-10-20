@@ -4,13 +4,13 @@
       <div class="resources-container">
         <div v-if="isLoading" class="loading-state">
           <div class="loading-spinner"></div>
-          <p>正在加载数据...</p>
+          <p>{{ $lt('正在加载数据...') }}</p>
         </div>
 
         <div v-else>
           <!-- 硬盘信息总览 -->
           <div class="disk-section">
-            <h3 class="section-title">💾 硬盘存储概览</h3>
+            <h3 class="section-title">{{ $lt('💾 硬盘存储概览') }}</h3>
             <div class="disk-grid">
               <div v-for="disk in diskInfo" :key="disk.drive" class="disk-card">
                 <div class="disk-header">
@@ -50,15 +50,15 @@
                 <div class="storage-legend">
                   <div class="legend-item">
                     <span class="legend-dot legend-total"></span>
-                    <span class="legend-label">总容量: {{ formatBytes(disk.totalBytes) }}</span>
+                    <span class="legend-label">{{ $lt('总容量:') }} {{ formatBytes(disk.totalBytes) }}</span>
                   </div>
                   <div class="legend-item">
                     <span class="legend-dot legend-used"></span>
-                    <span class="legend-label">硬盘已用: {{ formatBytes(disk.usedBytes) }} ({{ disk.usagePercent }}%)</span>
+                    <span class="legend-label">{{ $lt('硬盘已用:') }} {{ formatBytes(disk.usedBytes) }} ({{ disk.usagePercent }}%)</span>
                   </div>
                   <div class="legend-item">
                     <span class="legend-dot legend-resources"></span>
-                    <span class="legend-label">管理器资源: {{ formatBytes(getResourceSizeByDrive(disk.drive)) }}</span>
+                    <span class="legend-label">{{ $lt('管理器资源:') }} {{ formatBytes(getResourceSizeByDrive(disk.drive)) }}</span>
                   </div>
                 </div>
               </div>
@@ -67,21 +67,21 @@
 
           <!-- 资源分布 -->
           <div class="distribution-section">
-            <h3 class="section-title">📊 资源分布</h3>
+            <h3 class="section-title">{{ $lt('📊 资源分布') }}</h3>
             
             <!-- 筛选器 -->
             <div class="filter-section">
               <div class="filter-group">
-                <label>按硬盘筛选:</label>
+                <label>{{ $lt('按硬盘筛选:') }}</label>
                 <select v-model="selectedDrive" @change="applyFilters">
-                  <option value="all">全部硬盘</option>
+                  <option value="all">{{ $lt('全部硬盘') }}</option>
                   <option v-for="disk in diskInfo" :key="disk.drive" :value="disk.drive">{{ disk.drive }} - {{ disk.friendlyName }}</option>
                 </select>
               </div>
               <div class="filter-group">
-                <label>按资源类型筛选:</label>
+                <label>{{ $lt('按资源类型筛选:') }}</label>
                 <select v-model="selectedResourceType" @change="applyFilters">
-                  <option value="all">全部类型</option>
+                  <option value="all">{{ $lt('全部类型') }}</option>
                   <option v-for="type in resourceTypes" :key="type.id" :value="type.id">{{ type.icon }} {{ type.name }}</option>
                 </select>
               </div>
@@ -90,7 +90,7 @@
             <!-- 分布统计 -->
             <div class="distribution-grid">
               <div class="distribution-card">
-                <h4>按硬盘分布</h4>
+                <h4>{{ $lt('按硬盘分布') }}</h4>
                 <div class="distribution-list">
                   <div v-for="item in distributionByDrive" :key="item.drive" class="distribution-item">
                     <span class="distribution-label">{{ item.drive }}</span>
@@ -100,13 +100,13 @@
                         :style="{ width: (item.percent || 0) + '%' }"
                       ></div>
                     </div>
-                    <span class="distribution-value">{{ formatBytes(item.size) }} ({{ item.count }}个)</span>
+                    <span class="distribution-value">{{ formatBytes(item.size) }} ({{ item.count }}{{ $lt('个)') }}</span>
                   </div>
                 </div>
               </div>
 
               <div class="distribution-card">
-                <h4>按类型分布</h4>
+                <h4>{{ $lt('按类型分布') }}</h4>
                 <div class="distribution-list">
                   <div v-for="item in distributionByType" :key="item.type" class="distribution-item">
                     <span class="distribution-label">{{ item.icon }} {{ item.name }}</span>
@@ -116,7 +116,7 @@
                         :style="{ width: (item.percent || 0) + '%' }"
                       ></div>
                     </div>
-                    <span class="distribution-value">{{ formatBytes(item.size) }} ({{ item.count }}个)</span>
+                    <span class="distribution-value">{{ formatBytes(item.size) }} ({{ item.count }}{{ $lt('个)') }}</span>
                   </div>
                 </div>
               </div>

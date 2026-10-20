@@ -3,23 +3,21 @@
     <div class="modal-wrapper">
       <div class="modal-content" @mousedown.stop>
         <div class="modal-header">
-          <h3>批量删除文件</h3>
+          <h3>{{ $lt('批量删除文件') }}</h3>
           <button class="btn-close" @click="handleClose">✕</button>
         </div>
         <div class="modal-body">
           <div class="delete-warning">
             <div class="warning-icon">⚠️</div>
             <div class="warning-content">
-              <p class="warning-title">确定要删除选中的项目吗？</p>
-              <p class="warning-description">
-                将删除 <strong>{{ count }}</strong> 个项目，此操作不可撤销。
-              </p>
+              <p class="warning-title">{{ $lt('确定要删除选中的项目吗？') }}</p>
+              <p class="warning-description"> {{ $lt('将删除') }} <strong>{{ count }}</strong> {{ $lt('个项目，此操作不可撤销。') }} </p>
             </div>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn-cancel" @click="handleClose">取消</button>
-          <button class="btn-confirm" @click="handleConfirm">确认删除</button>
+          <button class="btn-cancel" @click="handleClose">{{ $lt('取消') }}</button>
+          <button class="btn-confirm" @click="handleConfirm">{{ $lt('确认删除') }}</button>
         </div>
       </div>
     </div>

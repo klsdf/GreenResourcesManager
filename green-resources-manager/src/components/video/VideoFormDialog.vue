@@ -15,22 +15,22 @@
         />
         
         <FormField
-          label="系列名"
+          :label="$lt('系列名')"
           type="text"
           v-model="localFormData.series"
-          placeholder="如：复仇者联盟"
+          :placeholder="$lt('如：复仇者联盟')"
         />
 
         <FormField
-          label="演员"
+          :label="$lt('演员')"
           type="text"
           v-model="localActorsInput"
-          placeholder="用逗号分隔多个演员"
+          :placeholder="$lt('用逗号分隔多个演员')"
           @blur="parseActors"
         />
 
         <FormField
-          label="标签"
+          :label="$lt('标签')"
           type="tags"
           v-model="localFormData.tags"
           v-model:tagInput="localTagsInput"
@@ -39,15 +39,15 @@
         />
 
         <FormField
-          label="描述"
+          :label="$lt('描述')"
           type="textarea"
           v-model="localFormData.description"
-          placeholder="视频描述..."
+          :placeholder="$lt('视频描述...')"
           :rows="3"
         />
 
         <FormField
-          label="视频文件"
+          :label="$lt('视频文件')"
           type="file"
           v-model="localFormData.filePath"
           :placeholder="mode === 'add' ? '选择视频文件...' : '选择视频文件'"
@@ -55,18 +55,16 @@
         />
 
         <div class="form-group">
-          <label>缩略图</label>
+          <label>{{ $lt('缩略图') }}</label>
           <div class="file-input-group">
             <input type="text" v-model="localFormData.thumbnail" readonly>
-            <button type="button" class="btn-select-file" @click="handleBrowseThumbnailFile">选择图片</button>
+            <button type="button" class="btn-select-file" @click="handleBrowseThumbnailFile">{{ $lt('选择图片') }}</button>
             <button 
               type="button" 
               class="btn-select-file" 
               @click="handleRandomizeThumbnail"
               :disabled="!localFormData.filePath"
-            >
-              随机封面
-            </button>
+            > {{ $lt('随机封面') }} </button>
           </div>
           <div class="thumb-preview-wrapper">
             <img 
@@ -77,17 +75,17 @@
               @error="(event: Event) => handleThumbnailPreviewError(event)"
               @load="handleThumbnailPreviewLoad ? (event: Event) => handleThumbnailPreviewLoad(event) : undefined"
             >
-            <div v-else class="thumb-placeholder">无缩略图</div>
+            <div v-else class="thumb-placeholder">{{ $lt('无缩略图') }}</div>
           </div>
         </div>
 
         <div class="form-group">
-          <label>时长 (分钟)</label>
+          <label>{{ $lt('时长 (分钟)') }}</label>
           <input type="number" v-model.number="localFormData.duration" min="0">
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" @click="handleClose" class="btn btn-cancel">取消</button>
+        <button type="button" @click="handleClose" class="btn btn-cancel">{{ $lt('取消') }}</button>
         <button 
           type="button" 
           @click="handleSubmit" 

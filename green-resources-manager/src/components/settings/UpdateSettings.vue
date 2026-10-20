@@ -3,8 +3,8 @@
     <div class="settings-grid">
       <div class="setting-item">
         <label class="setting-label">
-          <span class="setting-title">当前版本</span>
-          <span class="setting-desc">应用当前安装的版本号</span>
+          <span class="setting-title">{{ $lt('当前版本') }}</span>
+          <span class="setting-desc">{{ $lt('应用当前安装的版本号') }}</span>
         </label>
         <div class="setting-control">
           <span class="version-info">{{ currentVersion }}</span>
@@ -12,16 +12,16 @@
       </div>
 
       <SettingToggle
-        title="自动检查更新"
-        description="应用启动时自动检查是否有新版本"
+        :title="$lt('自动检查更新')"
+        :description="$lt('应用启动时自动检查是否有新版本')"
         :model-value="autoCheckUpdatesValue"
         @update:model-value="updateSetting('autoCheckUpdates', $event)"
       />
 
       <div class="setting-item">
         <label class="setting-label">
-          <span class="setting-title">更新检查</span>
-          <span class="setting-desc">手动检查是否有新版本可用</span>
+          <span class="setting-title">{{ $lt('更新检查') }}</span>
+          <span class="setting-desc">{{ $lt('手动检查是否有新版本可用') }}</span>
         </label>
         <div class="setting-control">
           <button 
@@ -29,8 +29,8 @@
             @click="checkForUpdates"
             :disabled="isCheckingUpdates"
           >
-            <span v-if="isCheckingUpdates">检查中...</span>
-            <span v-else>检查更新</span>
+            <span v-if="isCheckingUpdates">{{ $lt('检查中...') }}</span>
+            <span v-else>{{ $lt('检查更新') }}</span>
           </button>
         </div>
       </div>
@@ -39,18 +39,16 @@
       <div v-if="updateStatus" class="update-status">
         <div class="status-item" v-if="updateStatus.checking">
           <div class="status-icon">🔄</div>
-          <div class="status-text">正在检查更新...</div>
+          <div class="status-text">{{ $lt('正在检查更新...') }}</div>
         </div>
         
         <div class="status-item" v-if="updateStatus.notAvailable">
           <div class="status-icon">✅</div>
           <div class="status-content">
-            <div class="status-text">当前已是最新版本</div>
+            <div class="status-text">{{ $lt('当前已是最新版本') }}</div>
             <div class="status-actions">
               <button class="btn btn-info" @click="openGitHubPage">
-                <span class="btn-icon">🌐</span>
-                查看GitHub发布页
-              </button>
+                <span class="btn-icon">🌐</span> {{ $lt('查看GitHub发布页') }} </button>
             </div>
           </div>
         </div>
@@ -58,17 +56,12 @@
         <div class="status-item" v-if="updateStatus.available">
           <div class="status-icon">✨</div>
           <div class="status-content">
-            <div class="status-text">
-              发现新版本 {{ updateStatus.version }}
-              <span v-if="updateStatus.manualDownload" class="manual-download-hint">
-                （需要手动下载）
-              </span>
+            <div class="status-text"> {{ $lt('发现新版本') }} {{ updateStatus.version }}
+              <span v-if="updateStatus.manualDownload" class="manual-download-hint"> {{ $lt('（需要手动下载）') }} </span>
             </div>
             <div class="status-actions">
               <button class="btn btn-info" @click="openGitHubPage">
-                <span class="btn-icon">🌐</span>
-                手动下载
-              </button>
+                <span class="btn-icon">🌐</span> {{ $lt('手动下载') }} </button>
             </div>
           </div>
         </div>
@@ -76,12 +69,10 @@
         <div class="status-item" v-if="updateStatus.error && !updateStatus.checksumError">
           <div class="status-icon">❌</div>
           <div class="status-content">
-            <div class="status-text">更新检查失败: {{ updateStatus.error }}</div>
+            <div class="status-text">{{ $lt('更新检查失败:') }} {{ updateStatus.error }}</div>
             <div class="status-actions">
               <button class="btn btn-info" @click="openGitHubPage">
-                <span class="btn-icon">🌐</span>
-                手动下载
-              </button>
+                <span class="btn-icon">🌐</span> {{ $lt('手动下载') }} </button>
             </div>
           </div>
         </div>

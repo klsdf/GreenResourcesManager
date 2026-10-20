@@ -23,7 +23,7 @@
       :inputStyle="inputStyle"
     />
     <div v-if="maxTags && modelValue.length >= maxTags" class="fun-tag-input__max-hint">
-      <span class="fun-tag-input__max-text">已达到最大标签数 ({{ maxTags }})</span>
+      <span class="fun-tag-input__max-text">{{ $lt('已达到最大标签数 (') }}{{ maxTags }})</span>
     </div>
   </div>
 </template>

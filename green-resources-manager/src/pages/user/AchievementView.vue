@@ -14,15 +14,15 @@
         <div class="achievement-stats">
           <div class="stat-item">
             <div class="stat-number">{{ unlockedAchievements }}</div>
-            <div class="stat-label">已解锁</div>
+            <div class="stat-label">{{ $lt('已解锁') }}</div>
           </div>
           <div class="stat-item">
             <div class="stat-number">{{ totalAchievements }}</div>
-            <div class="stat-label">总成就</div>
+            <div class="stat-label">{{ $lt('总成就') }}</div>
           </div>
           <div class="stat-item">
             <div class="stat-number">{{ achievementProgress }}%</div>
-            <div class="stat-label">完成度</div>
+            <div class="stat-label">{{ $lt('完成度') }}</div>
           </div>
         </div>
 

@@ -8,9 +8,7 @@
           <div class="reader-footer">
             <div class="reader-navigation">
               <button class="btn-prev" @click="prevPage" :disabled="!canGoPrevious">
-                <span class="btn-icon">←</span>
-                上一页
-              </button>
+                <span class="btn-icon">←</span> {{ $lt('上一页') }} </button>
               <div class="progress-section">
                 <span class="page-info">{{ progress }}%</span>
                 <div class="progress-wrapper">
@@ -27,9 +25,7 @@
                     ref="progress">
                 </div>
               </div>
-              <button class="btn-next" @click="nextPage" :disabled="!canGoNext">
-                下一页
-                <span class="btn-icon">→</span>
+              <button class="btn-next" @click="nextPage" :disabled="!canGoNext"> {{ $lt('下一页') }} <span class="btn-icon">→</span>
               </button>
             </div>
           </div>

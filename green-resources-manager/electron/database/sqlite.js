@@ -1211,7 +1211,6 @@ async function saveSettingsToSqlite(settings) {
     )
 
     db.close()
-    console.log('[SQLite] 设置数据保存成功')
     return { ok: true }
   } catch (error) {
     console.error('[SQLite] 保存设置数据失败:', error)

@@ -2,21 +2,21 @@
   <div class="debug-view">
     <div class="debug-content">
       <div class="debug-header">
-        <h2>🐛 Debug 页面</h2>
-        <p>用于各种调试和测试</p>
+        <h2>{{ $lt('🐛 Debug 页面') }}</h2>
+        <p>{{ $lt('用于各种调试和测试') }}</p>
       </div>
 
       <div class="debug-section">
-        <h3>快速测试</h3>
+        <h3>{{ $lt('快速测试') }}</h3>
         <div class="test-actions">
-          <button @click="testNotification" class="btn btn-primary">测试通知</button>
-          <button @click="testAlert" class="btn btn-primary">测试弹窗</button>
-          <button @click="testConfirm" class="btn btn-primary">测试确认</button>
+          <button @click="testNotification" class="btn btn-primary">{{ $lt('测试通知') }}</button>
+          <button @click="testAlert" class="btn btn-primary">{{ $lt('测试弹窗') }}</button>
+          <button @click="testConfirm" class="btn btn-primary">{{ $lt('测试确认') }}</button>
         </div>
       </div>
 
       <div class="debug-section">
-        <h3>资源测试</h3>
+        <h3>{{ $lt('资源测试') }}</h3>
         <div class="resources-grid">
           <div v-for="(resource, index) in exampleResources" :key="`${resource.type}-${index}`" class="resource-item">
             <h4 class="resource-type-label">{{ resource.typeLabel }}</h4>

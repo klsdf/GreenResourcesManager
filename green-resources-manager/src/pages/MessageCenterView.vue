@@ -3,22 +3,16 @@
     <!-- 工具栏 -->
     <div class="toolbar">
       <div class="toolbar-left">
-        <h3>信息中心</h3>
-        <p>查看系统通知和操作历史</p>
+        <h3>{{ $lt('信息中心') }}</h3>
+        <p>{{ $lt('查看系统通知和操作历史') }}</p>
       </div>
       <div class="toolbar-right">
         <button class="btn btn-secondary" @click="testNotifications">
-          <span class="btn-icon">🧪</span>
-          测试通知
-        </button>
+          <span class="btn-icon">🧪</span> {{ $lt('测试通知') }} </button>
         <button class="btn btn-secondary" @click="clearAllMessages" :disabled="messages.length === 0">
-          <span class="btn-icon">🗑️</span>
-          清空所有
-        </button>
+          <span class="btn-icon">🗑️</span> {{ $lt('清空所有') }} </button>
         <button class="btn btn-primary" @click="refreshMessages">
-          <span class="btn-icon">🔄</span>
-          刷新
-        </button>
+          <span class="btn-icon">🔄</span> {{ $lt('刷新') }} </button>
       </div>
     </div>
 
@@ -41,7 +35,7 @@
         <input 
           type="text" 
           v-model="searchQuery" 
-          placeholder="搜索消息内容..."
+          :placeholder="$lt('搜索消息内容...')"
           class="search-input"
         >
         <span class="search-icon">🔍</span>
@@ -52,7 +46,7 @@
     <div class="messages-container">
       <div v-if="paginatedMessages.length === 0" class="empty-state">
         <div class="empty-icon">📭</div>
-        <h4>暂无消息</h4>
+        <h4>{{ $lt('暂无消息') }}</h4>
         <p>{{ getEmptyMessage() }}</p>
       </div>
       
@@ -80,10 +74,10 @@
           </div>
           
           <div class="message-actions">
-            <button class="action-btn" @click="removeMessage(message.id)" title="删除消息">
+            <button class="action-btn" @click="removeMessage(message.id)" :title="$lt('删除消息')">
               <span>🗑️</span>
             </button>
-            <button class="action-btn" @click="copyMessage(message)" title="复制消息">
+            <button class="action-btn" @click="copyMessage(message)" :title="$lt('复制消息')">
               <span>📋</span>
             </button>
           </div>
@@ -97,35 +91,25 @@
         class="page-btn" 
         :disabled="currentPage === 1"
         @click="currentPage = 1"
-      >
-        首页
-      </button>
+      > {{ $lt('首页') }} </button>
       <button 
         class="page-btn" 
         :disabled="currentPage === 1"
         @click="currentPage--"
-      >
-        上一页
-      </button>
+      > {{ $lt('上一页') }} </button>
       
-      <span class="page-info">
-        第 {{ currentPage }} 页，共 {{ totalPages }} 页
-      </span>
+      <span class="page-info"> {{ $lt('第') }} {{ currentPage }} {{ $lt('页，共') }} {{ totalPages }} {{ $lt('页') }} </span>
       
       <button 
         class="page-btn" 
         :disabled="currentPage === totalPages"
         @click="currentPage++"
-      >
-        下一页
-      </button>
+      > {{ $lt('下一页') }} </button>
       <button 
         class="page-btn" 
         :disabled="currentPage === totalPages"
         @click="currentPage = totalPages"
-      >
-        末页
-      </button>
+      > {{ $lt('末页') }} </button>
     </div>
   </div>
 </template>
