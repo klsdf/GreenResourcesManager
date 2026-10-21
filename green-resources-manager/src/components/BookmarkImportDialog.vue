@@ -556,7 +556,7 @@ defineExpose({
   // 确认按钮
   &--confirm {
     background: var(--accent-color);
-    color: white;
+    color: var(--text-on-accent, #1a1a1a);
     
     &:hover:not(:disabled) {
       background: var(--accent-hover);

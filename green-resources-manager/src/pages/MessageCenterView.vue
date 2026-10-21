@@ -375,7 +375,7 @@ export default {
 
 .btn-primary {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   border-color: var(--accent-color);
 }
 
@@ -425,7 +425,7 @@ export default {
 
 .tab-btn.active {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   border-color: var(--accent-color);
 }
 

@@ -13,6 +13,7 @@
           <div class="page-nav-group">
             <button
               class="page-nav-btn page-nav-btn-prev"
+              @mousedown.prevent
               @click="previousPage"
               :disabled="currentPageIndex <= 0"
               :title="$lt('上一页 (←)')"
@@ -23,6 +24,7 @@
                 v-model.number="jumpToPage"
                 :min="1"
                 :max="pages.length"
+                :style="pageJumpInputStyle"
                 @keyup.enter="jumpToPageNumber"
                 class="page-jump-input"
                 :title="$lt('输入页码后回车跳转')"
@@ -32,6 +34,7 @@
             </span>
             <button
               class="page-nav-btn page-nav-btn-next"
+              @mousedown.prevent
               @click="nextPage"
               :disabled="currentPageIndex >= pages.length - 1"
               :title="$lt('下一页 (→)')"
@@ -61,6 +64,19 @@
           </div>
           <fun-button
             type="secondary"
+            icon="↺"
+            :title="$lt('向左旋转 90°（Shift+R）')"
+            @click="rotateCounterclockwise"
+          />
+          <span class="rotation-level" :title="$lt('当前旋转角度，翻页时保持不变')">{{ imageRotation }}°</span>
+          <fun-button
+            type="secondary"
+            icon="↻"
+            :title="$lt('向右旋转 90°（R）')"
+            @click="rotateClockwise"
+          />
+          <fun-button
+            type="secondary"
             icon="⛶"
             @click="toggleFullscreen"
           > {{ $lt('全屏') }} </fun-button>
@@ -77,22 +93,24 @@
         <!-- 左侧预览栏 -->
         <div class="sidebar-preview">
           <div class="sidebar-title">{{ $lt('页面预览') }}</div>
-          <div class="thumbnail-list" ref="thumbnailList">
-            <div 
-              v-for="(page, index) in pages" 
-              :key="index"
-              class="thumbnail-item"
-              :class="{ active: index === currentPageIndex }"
-              @click="jumpToThumbnailPage(index)"
-            >
-              <div class="thumbnail-number">{{ index + 1 }}</div>
-              <img 
-                :src="getThumbnailUrl(page)" 
-                :alt="`第 ${index + 1} 页`"
-                class="thumbnail-image"
-                @load="onThumbnailLoad"
-                @error="onThumbnailError"
+          <div class="thumbnail-list" ref="thumbnailList" @scroll="onThumbnailScroll">
+            <div class="thumbnail-track" :style="{ height: thumbnailTrackHeight + 'px' }">
+              <div
+                v-for="index in visibleThumbnailIndexes"
+                :key="index"
+                class="thumbnail-item"
+                :class="{ active: index === currentPageIndex }"
+                :style="{ transform: `translateY(${index * thumbnailSlotHeight}px)` }"
+                @click="jumpToThumbnailPage(index)"
               >
+                <div class="thumbnail-number">{{ index + 1 }}</div>
+                <img
+                  :src="getThumbnailUrl(pages[index])"
+                  :alt="`第 ${index + 1} 页`"
+                  class="thumbnail-image"
+                  @error="onThumbnailError"
+                >
+              </div>
             </div>
           </div>
         </div>
@@ -105,7 +123,7 @@
               :src="currentPageImage" 
               :alt="`第 ${currentPageIndex + 1} 页`"
               class="comic-image"
-              :style="{ transform: `translate3d(${imageOffsetX}px, ${imageOffsetY}px, 0) scale(${zoomLevel})` }"
+              :style="imageViewStyle"
               @load="onImageLoad"
               @error="onImageError"
               @wheel="onImageWheel"
@@ -124,6 +142,7 @@
           <div
             class="page-nav-zone page-nav-prev"
             :class="{ disabled: currentPageIndex <= 0 }"
+            @mousedown.prevent
             @click="currentPageIndex > 0 && previousPage()"
             :title="$lt('上一页 (←)')"
           >
@@ -132,6 +151,7 @@
           <div
             class="page-nav-zone page-nav-next"
             :class="{ disabled: currentPageIndex >= pages.length - 1 }"
+            @mousedown.prevent
             @click="currentPageIndex < pages.length - 1 && nextPage()"
             :title="$lt('下一页 (→)')"
           >
@@ -141,7 +161,7 @@
       </div>
       
       <!-- 图片文件名显示 -->
-      <div class="image-filename" v-if="currentPageImage && pages[currentPageIndex]">
+      <div class="image-filename" v-if="currentPageImage && pages[currentPageIndex]" @selectstart.prevent>
         {{ getImageFileName(pages[currentPageIndex]) }}
         <span class="file-size">({{ fileSizeText }})</span>
       </div>
@@ -178,6 +198,15 @@ export default {
   emits: ['close', 'page-change', 'view-count-update'],
   computed: {
     /**
+     * 页码输入框的宽度。
+     * 浏览器自带的上下箭头会占掉大半个框，42 像素里只能看见两位。按总页数留出位数，箭头另在样式里去掉。
+     */
+    pageJumpInputStyle() {
+      /** 至少按三位数留空，短漫画也不会缩成两个字。 */
+      const digits = Math.max(String(this.pages?.length || 1).length, 3)
+      return { width: `${digits + 2}ch` }
+    },
+    /**
      * 底部括号里的大小文字。
      * 大小为 0 时不能再写成获取中，否则读失败或空文件会一直转圈。
      */
@@ -185,6 +214,43 @@ export default {
       if (this.fileSizeState === 'loading') return '获取中...'
       if (this.fileSizeState === 'failed') return '未知'
       return this.formatFileSize(this.currentFileSize)
+    },
+    /**
+     * 当前页的位移、旋转和缩放。
+     * 先缩放再旋转，拖动仍按屏幕方向移动。转到 90° 或 270° 时宽高约束对调，竖图转横后才能铺满阅读区，而不是转完被裁掉。
+     */
+    imageViewStyle() {
+      /** 直角旋转后，图片原来的宽会变成屏幕上的高。 */
+      const quarterTurn = this.imageRotation % 180 !== 0
+      return {
+        transform: `translate3d(${this.imageOffsetX}px, ${this.imageOffsetY}px, 0) rotate(${this.imageRotation}deg) scale(${this.zoomLevel})`,
+        maxWidth: quarterTurn ? '100cqh' : '100%',
+        maxHeight: quarterTurn ? '100cqw' : '100%'
+      }
+    },
+    /**
+     * 左侧预览轨道的总高度。
+     * 每条占位高度固定，这样不用把几千个节点都排进文档，滚动条长度仍然对得上整本漫画。
+     */
+    thumbnailTrackHeight() {
+      return (this.pages?.length || 0) * this.thumbnailSlotHeight
+    },
+    /**
+     * 当前该画出来的预览下标。
+     * 只取视口里的条目，再向上下各多留几条。滚出视口的原图不会创建 img，避免一次解码几千张。
+     */
+    visibleThumbnailIndexes() {
+      const total = this.pages?.length || 0
+      if (total === 0) return []
+      const slot = this.thumbnailSlotHeight
+      const viewHeight = this.thumbnailViewportHeight || slot * 8
+      const start = Math.max(0, Math.floor(this.thumbnailScrollTop / slot) - this.thumbnailOverscan)
+      const end = Math.min(total - 1, Math.ceil((this.thumbnailScrollTop + viewHeight) / slot) + this.thumbnailOverscan)
+      const indexes = []
+      for (let index = start; index <= end; index += 1) {
+        indexes.push(index)
+      }
+      return indexes
     }
   },
   data() {
@@ -195,6 +261,8 @@ export default {
       /** loading 还在读，ready 已经有大小，failed 读失败 */
       fileSizeState: 'loading',
       zoomLevel: 1,
+      /** 当前阅读角度，0、90、180、270。翻页不重置，同一本竖图不用每页再转一次。 */
+      imageRotation: 0,
       jumpToPage: 1,
       isFullscreen: false,
       // 图片拖动相关
@@ -217,7 +285,18 @@ export default {
       cacheSize: 50,
       preloadCount: 3,
       hardwareAcceleration: true,
-      renderQuality: 'high'
+      renderQuality: 'high',
+      /**
+       * 左侧一条预览的占位高度，含条目之间的空隙。
+       * 必须和样式里 .thumbnail-item 的高度加间距一致，否则滚动位置会对不齐。
+       */
+      thumbnailSlotHeight: 162,
+      /** 视口上下各多保留的条数，快速拖滚动条时不露空白。 */
+      thumbnailOverscan: 6,
+      /** 预览列表当前滚过的距离。 */
+      thumbnailScrollTop: 0,
+      /** 预览列表看得见的高度。为 0 时先按大约八条来算，避免一打开就铺满。 */
+      thumbnailViewportHeight: 0
     }
   },
   watch: {
@@ -229,6 +308,10 @@ export default {
           this.loadCurrentPage()
           // 添加键盘事件监听
           document.addEventListener('keydown', this.handleKeydown)
+          this.$nextTick(() => {
+            this.updateThumbnailViewport()
+            this.scrollThumbnailIntoView(this.currentPageIndex)
+          })
         } else {
           // 移除键盘事件监听
           document.removeEventListener('keydown', this.handleKeydown)
@@ -249,6 +332,10 @@ export default {
         if (this.visible && newPages && newPages.length > 0 && (!oldPages || oldPages.length === 0)) {
           console.log('ComicViewer: pages数组已加载，重新加载当前页')
           this.loadCurrentPage()
+          this.$nextTick(() => {
+            this.updateThumbnailViewport()
+            this.scrollThumbnailIntoView(this.currentPageIndex)
+          })
         }
       },
       immediate: false
@@ -280,6 +367,7 @@ export default {
       this.currentPageImage = null
       this.currentFileSize = 0
       this.zoomLevel = 1
+      this.imageRotation = 0
       this.jumpToPage = 1
       
       // 重置拖动状态
@@ -330,8 +418,20 @@ export default {
       }
     },
 
+    /**
+     * 清掉鼠标连点留下的文字选区。
+     * 连点下一页时，按下和松开之间页面会重绘，浏览器会把底部文件名当成被拖选的文字。
+     */
+    clearTextSelection() {
+      const selection = window.getSelection()
+      if (selection && selection.rangeCount > 0) {
+        selection.removeAllRanges()
+      }
+    },
+
     // 下一页
     async nextPage() {
+      this.clearTextSelection()
       if (this.currentPageIndex < this.pages.length - 1) {
         this.currentPageIndex++
         // 切换页面时重置拖动偏移
@@ -345,6 +445,7 @@ export default {
 
     // 上一页
     async previousPage() {
+      this.clearTextSelection()
       if (this.currentPageIndex > 0) {
         this.currentPageIndex--
         // 切换页面时重置拖动偏移
@@ -400,6 +501,35 @@ export default {
           })
         }
       }
+    },
+
+    /**
+     * 把当前角度转 90°。
+     * 整本漫画通常是同一个方向，所以只改阅读器角度，不跟某一页绑定。
+     * @param {number} delta 90 为向右，-90 为向左
+     */
+    rotateBy(delta) {
+      const next = (this.imageRotation + delta) % 360
+      this.imageRotation = next < 0 ? next + 360 : next
+      this.imageOffsetX = 0
+      this.imageOffsetY = 0
+      this.$nextTick(() => {
+        this.constrainImagePosition()
+      })
+    },
+
+    /**
+     * 向右旋转 90°，把竖图转到横屏阅读区里。
+     */
+    rotateClockwise() {
+      this.rotateBy(90)
+    },
+
+    /**
+     * 向左旋转 90°。扫描件方向反了时不用连按三次向右。
+     */
+    rotateCounterclockwise() {
+      this.rotateBy(-90)
     },
 
     // 全屏切换
@@ -707,32 +837,20 @@ export default {
       
       if (imageWidth === 0 || imageHeight === 0) return
       
-      // 计算缩放后的图片尺寸
-      const scaledWidth = imageWidth * this.zoomLevel
-      const scaledHeight = imageHeight * this.zoomLevel
-      
-      // 计算图片在容器中的显示尺寸（考虑 object-fit: contain）
-      const containerAspectRatio = containerWidth / containerHeight
-      const imageAspectRatio = imageWidth / imageHeight
-      
-      let displayWidth, displayHeight
-      if (imageAspectRatio > containerAspectRatio) {
-        // 图片更宽，以宽度为准
-        displayWidth = Math.min(scaledWidth, containerWidth)
-        displayHeight = displayWidth / imageAspectRatio
-      } else {
-        // 图片更高，以高度为准
-        displayHeight = Math.min(scaledHeight, containerHeight)
-        displayWidth = displayHeight * imageAspectRatio
-      }
-      
+      // 直角旋转后，屏幕上的宽高和图片文件里的宽高是对调的
+      const quarterTurn = this.imageRotation % 180 !== 0
+      const fittedWidth = quarterTurn ? imageHeight : imageWidth
+      const fittedHeight = quarterTurn ? imageWidth : imageHeight
+      const fittedScaledWidth = fittedWidth * this.zoomLevel
+      const fittedScaledHeight = fittedHeight * this.zoomLevel
+
       // 计算最大允许的偏移量
       // 当图片放大后超出容器时，允许拖动的距离
-      const maxOffsetX = Math.max(0, (scaledWidth - containerWidth) / 2)
-      const maxOffsetY = Math.max(0, (scaledHeight - containerHeight) / 2)
+      const maxOffsetX = Math.max(0, (fittedScaledWidth - containerWidth) / 2)
+      const maxOffsetY = Math.max(0, (fittedScaledHeight - containerHeight) / 2)
       
       // 限制X轴偏移
-      if (scaledWidth <= containerWidth) {
+      if (fittedScaledWidth <= containerWidth) {
         // 图片宽度小于等于容器，不允许水平拖动
         this.imageOffsetX = 0
       } else {
@@ -741,7 +859,7 @@ export default {
       }
       
       // 限制Y轴偏移
-      if (scaledHeight <= containerHeight) {
+      if (fittedScaledHeight <= containerHeight) {
         // 图片高度小于等于容器，不允许垂直拖动
         this.imageOffsetY = 0
       } else {
@@ -807,6 +925,13 @@ export default {
           event.preventDefault()
           this.toggleFullscreen()
           break
+        case 'r':
+        case 'R':
+          if (isEditable) return
+          event.preventDefault()
+          if (event.shiftKey) this.rotateCounterclockwise()
+          else this.rotateClockwise()
+          break
       }
     },
 
@@ -830,11 +955,6 @@ export default {
       return `file:///${normalizedPath}`
     },
 
-    // 缩略图加载完成
-    onThumbnailLoad() {
-      // 可以在这里添加加载完成的逻辑
-    },
-
     // 缩略图加载失败
     onThumbnailError(event) {
       event.target.src = './default-image.png'
@@ -855,19 +975,45 @@ export default {
       }
     },
 
-    // 滚动缩略图到可视区域（当前页尽量居中，到顶/到底时自然停在边界）
+    /**
+     * 记下预览列表滚过的距离，用来算出该显示哪几条。
+     * @param {Event} event 列表的滚动事件
+     */
+    onThumbnailScroll(event) {
+      this.thumbnailScrollTop = event.target?.scrollTop || 0
+    },
+    /**
+     * 量一次预览列表的可视高度。
+     * 窗口大小变了、阅读器刚打开时都要重算，否则窗口范围会停在旧高度上。
+     */
+    updateThumbnailViewport() {
+      const list = this.$refs.thumbnailList
+      if (!list) return
+      this.thumbnailViewportHeight = list.clientHeight
+    },
+    /**
+     * 把当前页的预览滚到列表中间。
+     * 列表里只有附近几条真实节点，不能再按子元素下标去找，只能按固定占位高度算滚动距离。
+     * @param {number} index 页码下标
+     */
     scrollThumbnailIntoView(index) {
       const thumbnailList = this.$refs.thumbnailList
-      if (thumbnailList && thumbnailList.children[index]) {
-        thumbnailList.children[index].scrollIntoView({
-          block: 'center',
-          behavior: 'smooth'
-        })
-      }
+      if (!thumbnailList) return
+      const target = index * this.thumbnailSlotHeight - (thumbnailList.clientHeight - this.thumbnailSlotHeight) / 2
+      const maxScroll = Math.max(0, thumbnailList.scrollHeight - thumbnailList.clientHeight)
+      thumbnailList.scrollTo({
+        top: Math.min(Math.max(0, target), maxScroll),
+        behavior: 'smooth'
+      })
     }
   },
 
+  mounted() {
+    window.addEventListener('resize', this.updateThumbnailViewport)
+  },
+
   beforeUnmount() {
+    window.removeEventListener('resize', this.updateThumbnailViewport)
     // 清理事件监听器
     document.removeEventListener('keydown', this.handleKeydown)
     this.cleanup()
@@ -904,6 +1050,8 @@ export default {
 
 .comic-viewer-content {
   background: var(--bg-secondary);
+  /* 阅读器里连点翻页不是在选字。页码输入框单独恢复可选。 */
+  user-select: none;
   border-radius: 12px;
   width: 95vw;
   height: 95vh;
@@ -1020,8 +1168,10 @@ export default {
 }
 
 .page-jump-input {
-  width: 42px;
-  padding: 2px 4px;
+  width: 6ch;
+  min-width: 6ch;
+  user-select: text;
+  padding: 2px 8px;
   border: 1px solid transparent;
   border-radius: 4px;
   background: transparent;
@@ -1030,6 +1180,14 @@ export default {
   font-size: 0.9rem;
   font-variant-numeric: tabular-nums;
   transition: border-color 0.2s, background-color 0.2s;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.page-jump-input::-webkit-outer-spin-button,
+.page-jump-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .page-jump-input:hover {
@@ -1062,6 +1220,13 @@ export default {
   color: var(--text-secondary);
   font-size: 0.9rem;
   min-width: 50px;
+  text-align: center;
+}
+
+.rotation-level {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  min-width: 36px;
   text-align: center;
 }
 
@@ -1125,10 +1290,7 @@ export default {
 .thumbnail-list {
   flex: 1;
   overflow-y: auto;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  position: relative;
 }
 
 .thumbnail-list::-webkit-scrollbar {
@@ -1149,7 +1311,19 @@ export default {
   background: var(--text-tertiary);
 }
 
+.thumbnail-track {
+  position: relative;
+  width: 100%;
+}
+
 .thumbnail-item {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 0;
+  /* 152 是条目本身，再加 10 的间距，等于脚本里的 thumbnailSlotHeight。 */
+  height: 152px;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1157,7 +1331,7 @@ export default {
   border: 2px solid transparent;
   border-radius: 6px;
   padding: 5px;
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
 .thumbnail-item:hover {
@@ -1180,8 +1354,7 @@ export default {
 
 .thumbnail-image {
   width: 100%;
-  height: auto;
-  max-height: 150px;
+  height: 112px;
   object-fit: contain;
   border-radius: 4px;
   background: var(--bg-primary);
@@ -1196,6 +1369,8 @@ export default {
   padding: 20px;
   overflow: hidden;
   position: relative;
+  /* 画布跟当前主题走，不再固定成白底。 */
+  background: var(--bg-primary);
 }
 
 /* 图片两侧悬浮翻页区 */
@@ -1272,6 +1447,8 @@ export default {
   width: 100%;
   height: 100%;
   position: relative;
+  /* 让 100cqh / 100cqw 指向这块阅读区，旋转后才能按对调的宽高适配 */
+  container-type: size;
   /* GPU硬件加速优化 */
   will-change: transform;
   transform: translateZ(0);
@@ -1316,6 +1493,8 @@ export default {
 
 .image-filename {
   text-align: center;
+  /* 连点翻页时，按下和松开之间文字会换成下一张的名字，浏览器会把这段当成拖选结果。 */
+  user-select: none;
   padding: 8px 16px;
   color: var(--text-secondary);
   border-radius: 6px;

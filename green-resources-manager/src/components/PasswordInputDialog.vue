@@ -218,7 +218,7 @@ export default {
 
 .btn-confirm {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
 }
 
 .btn-confirm:hover:not(:disabled) {

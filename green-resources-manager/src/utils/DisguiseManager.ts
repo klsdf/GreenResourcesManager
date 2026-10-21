@@ -10,6 +10,8 @@ class DisguiseManager {
   private disguiseTexts: string[] = []
   private globalTagCache = new Map<string, string>() // 全局标签伪装缓存，确保同一标签在不同地方显示相同的伪装文字
   private appRootPath: string | null = null // 缓存应用根目录路径
+  /** 主进程实际读到的 disguise 文件夹，用来拼出每张伪装图的完整路径。 */
+  private disguiseDirectory: string | null = null
 
   constructor() {
     // 初始化时使用默认伪装文字，后续在 initialize() 中可能会从文件读取
@@ -97,6 +99,7 @@ class DisguiseManager {
         console.log('读取disguise文件夹结果:', result)
         
         if (result.success) {
+          this.disguiseDirectory = result.directory || null
           // 加载伪装图片
           if (result.images) {
             this.disguiseImages = result.images
@@ -172,21 +175,41 @@ class DisguiseManager {
 
      // 每次都随机选择一张伪装图片（不使用缓存，确保每次都是随机的）
      const randomIndex = Math.floor(Math.random() * this.disguiseImages.length)
+     /** 选中的伪装图片文件名，可能含中文。 */
      const selectedImage = this.disguiseImages[randomIndex]
-     
-     // 构建完整的图片路径
-     let disguiseImagePath: string
-     if (window.electronAPI) {
-       // Electron环境：使用file://协议指向应用根目录的disguise文件夹
-       const appRootPath = await this.getAppRootPath()
-       disguiseImagePath = `file://${appRootPath}/disguise/${selectedImage}`
-     } else {
-       // 浏览器环境：使用相对路径
-       disguiseImagePath = `./disguise/${selectedImage}`
+     /** 这张伪装图在磁盘上的完整路径。 */
+     const disguiseFilePath = await this.buildDisguiseFilePath(selectedImage)
+
+     if (window.electronAPI?.readFileAsDataUrl && disguiseFilePath) {
+       // 读成 data URL，避免 file:// 在中文路径上打不开，封面又退回原图。
+       const dataUrl = await window.electronAPI.readFileAsDataUrl(disguiseFilePath)
+       if (dataUrl) {
+         console.log(`✅ 为图片 ${originalPath} 随机选择伪装图片: ${disguiseFilePath}`)
+         return dataUrl
+       }
      }
-     
-     console.log(`✅ 为图片 ${originalPath} 随机选择伪装图片: ${disguiseImagePath} (索引: ${randomIndex}, 总数量: ${this.disguiseImages.length})`)
-     return disguiseImagePath
+
+     console.log(`✅ 为图片 ${originalPath} 使用相对路径伪装图片: ./disguise/${selectedImage}`)
+     return `./disguise/${selectedImage}`
+  }
+
+  /**
+   * 拼出某张伪装图的绝对路径。
+   * 目录用主进程返回的 disguise 文件夹；还没有时再用应用根目录。
+   * @param fileName 伪装图片文件名
+   * @returns 绝对路径；浏览器环境返回空字符串
+   */
+  async buildDisguiseFilePath(fileName: string): Promise<string> {
+    if (!window.electronAPI) {
+      return ''
+    }
+    /** disguise 文件夹。主进程已经按“里面有图片”选过。 */
+    const directory = this.disguiseDirectory || `${await this.getAppRootPath()}/disguise`
+    const separator = directory.includes('\\') ? '\\' : '/'
+    if (directory.endsWith('\\') || directory.endsWith('/')) {
+      return directory + fileName
+    }
+    return directory + separator + fileName
   }
 
   /**

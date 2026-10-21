@@ -88,12 +88,12 @@ class SaveManager {
         lastView: 'games', // 记录最后访问的页面
         // 各页面的排序方式设置
         sortSettings: {
-          games: 'name',
-          images: 'name', 
-          videos: 'name',
-          novels: 'name',
-          websites: 'name',
-          audio: 'name'
+          games: 'name-asc',
+          images: 'name-asc',
+          videos: 'name-asc',
+          novels: 'name-asc',
+          websites: 'name-asc',
+          audio: 'name-asc'
         },
         // 各页面的布局缩放设置
         layoutSettings: {
@@ -1842,19 +1842,20 @@ class SaveManager {
   /**
    * 获取页面排序方式
    * @param {string} pageType - 页面类型 ('games', 'images', 'videos', 'novels', 'websites', 'audio')
-   * @returns {Promise<string>} 排序方式
+   * @returns {Promise<string|null>} 排序方式。这一页还没存过时返回 null，调用方继续用自己的默认排序。
    */
   async getSortSetting(pageType) {
     try {
       const settings = await this.loadSettings()
-      if (settings && settings.sortSettings && settings.sortSettings[pageType]) {
-        console.log(`✅ 加载${pageType}页面排序方式:`, settings.sortSettings[pageType])
-        return settings.sortSettings[pageType]
+      const saved = settings?.sortSettings?.[pageType]
+      if (typeof saved === 'string' && saved) {
+        console.log(`✅ 加载${pageType}页面排序方式:`, saved)
+        return saved
       }
-      return 'name' // 默认按名称排序
+      return null
     } catch (error) {
       console.error(`获取${pageType}页面排序方式失败:`, error)
-      return 'name'
+      return null
     }
   }
 

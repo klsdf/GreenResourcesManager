@@ -172,6 +172,10 @@ class TabManager {
       this.mainWindow.setBrowserView(activeTab.view)
       this.updateTabBounds(tabId)
       this.activeTabId = tabId
+      // 把键盘焦点交给标签页，视频播放器的空格和方向键才能马上生效
+      if (!activeTab.view.webContents.isDestroyed()) {
+        activeTab.view.webContents.focus()
+      }
 
       // 通知渲染进程活动标签页已改变
       if (this.mainWindow && !this.mainWindow.isDestroyed()) {

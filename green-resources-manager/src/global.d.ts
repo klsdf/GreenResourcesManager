@@ -116,8 +116,12 @@ declare global {
       getFolderSize: (filePath: string) => Promise<{ success: boolean; size?: number; error?: string }>
       openFileFolder: (filePath: string) => Promise<{ success: boolean; folderPath?: string; error?: string }>
       openFolder: (filePath: string) => Promise<{ success: boolean; error?: string }>
+      /** 伪装图片所在文件夹。目录不存在时会先创建。 */
+      getDisguiseDirectory: () => Promise<{ success: boolean; directory?: string; error?: string }>
       renameFolder: (oldPath: string, newPath: string) => Promise<{ success: boolean; error?: string }>
       openExternal: (urlOrPath: string) => Promise<{ success: boolean; error?: string }>
+      /** 用指定程序打开本地文件。programPath 是 exe，filePath 是要交给它的文件 */
+      openFileWithProgram: (programPath: string, filePath: string) => Promise<{ success: boolean; error?: string }>
       getFileIcon: (filePath: string, size?: number) => Promise<{ success: boolean; icon?: string; error?: string }>
       
       // JSON 文件操作
@@ -145,6 +149,8 @@ declare global {
       
       // 文本文件操作
       readTextFile: (filePath: string) => Promise<{ success: boolean; content?: string; fileSize?: number; wordCount?: number; encoding?: string; error?: string }>
+      /** 统计 txt、md、epub 的字数，不返回正文 */
+      countNovelWords: (filePath: string) => Promise<{ success: boolean; wordCount?: number; error?: string }>
       
       // 游戏启动
       launchGame: (executablePath: string, gameName?: string) => Promise<{ success: boolean; pid?: number; windowTitles?: string[]; error?: string }>
@@ -176,6 +182,8 @@ declare global {
       
       // 视频播放
       openVideoWindow: (filePath: string, options?: any) => Promise<{ success: boolean; error?: string }>
+      /** 在主窗口新标签页中打开视频播放器 */
+      tabOpenVideoPlayer: (filePath: string, title?: string) => Promise<{ success: boolean; tabId?: string; error?: string }>
       
       // 开机自启
       setAutoStart: (enabled: boolean) => Promise<{ success: boolean; enabled?: boolean; error?: string }>

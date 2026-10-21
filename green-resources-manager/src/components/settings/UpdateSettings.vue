@@ -454,7 +454,7 @@ input:checked + .toggle-slider:before {
 
 .btn-primary {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
 }
 
 .btn-primary:hover:not(:disabled) {

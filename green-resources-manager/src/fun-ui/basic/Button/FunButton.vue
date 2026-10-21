@@ -76,7 +76,7 @@ const handleClick = (event: MouseEvent) => {
   // Primary 类型（主要按钮）
   &--primary {
     background: var(--accent-color, #66c0f4);
-    color: white;
+    color: var(--text-on-accent, #fff);
     
     &:hover:not(:disabled) {
       background: var(--accent-hover, #4da8d4);

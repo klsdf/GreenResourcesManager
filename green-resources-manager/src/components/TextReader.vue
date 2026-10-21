@@ -290,7 +290,7 @@ export default {
 
 .btn-nav {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   border: none;
   padding: 8px 16px;
   border-radius: 6px;
@@ -355,7 +355,7 @@ export default {
 
 .btn-retry {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   border: none;
   padding: 8px 16px;
   border-radius: 6px;

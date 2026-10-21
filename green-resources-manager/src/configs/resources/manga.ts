@@ -111,7 +111,9 @@ export class Manga extends BaseResources {
 			addedDate: this.addedDate.value || '',
 			rating: this.rating.value || 0,
 			comment: this.comment.value || '',
-			isFavorite: this.isFavorite.value || false
+			isFavorite: this.isFavorite.value || false,
+			finished: this.finished.value === true,
+			finishedAt: this.finished.value === true ? (this.finishedAt.value || '') : ''
 		}
 	}
 
@@ -125,6 +127,8 @@ export class Manga extends BaseResources {
 	static contextMenuItems = [
 		{ key: 'detail', icon: '👁️', label: '查看详情' },
 		{ key: 'open', icon: '📖', label: '打开漫画' },
+		{ key: 'openComicDefault', icon: '📂', label: '用默认程序打开', onlyComicArchive: true },
+		{ key: 'openComicSpecified', icon: '🔧', label: '用指定程序打开', onlyComicArchive: true },
 		{ key: 'folder', icon: '📁', label: '打开文件夹' },
 		{ key: 'edit', icon: '✏️', label: '编辑信息' },
 		{ key: 'remove', icon: '🗑️', label: '删除漫画' }
@@ -234,6 +238,21 @@ export class Manga extends BaseResources {
 				icon: '📖',
 				label: '开始阅读',
 				class: 'btn-play'
+			},
+			{
+				key: 'openComicDefault',
+				icon: '📂',
+				label: '用默认程序打开',
+				class: 'btn-open-folder',
+				// 只对 cbr/cbz 显示。文件夹漫画继续走内置阅读器。
+				showCondition: { onlyComicArchive: true }
+			},
+			{
+				key: 'openComicSpecified',
+				icon: '🔧',
+				label: '用指定程序打开',
+				class: 'btn-open-folder',
+				showCondition: { onlyComicArchive: true }
 			},
 			{
 				key: 'folder',

@@ -611,7 +611,7 @@ export default {
 .test-button {
   padding: 8px 16px;
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   border: none;
   border-radius: 6px;
   font-size: 0.9rem;

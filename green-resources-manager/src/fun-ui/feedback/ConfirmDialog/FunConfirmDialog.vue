@@ -292,7 +292,7 @@ defineExpose({
   // 取消按钮（主要按钮，在右边，默认高亮）
   &--cancel {
     background: var(--accent-color);
-    color: white;
+    color: var(--text-on-accent, #1a1a1a);
     
     &:hover:not(:disabled) {
       background: var(--accent-hover);

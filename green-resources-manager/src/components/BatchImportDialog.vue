@@ -14,16 +14,6 @@
       <div class="batch-import__body">
         <div v-if="files.length === 0" class="batch-import__empty"> {{ $lt('没有找到匹配的文件') }} </div>
         <div v-else>
-          <div class="batch-import__header-row">
-            <label class="batch-import__select-all">
-              <input 
-                type="checkbox" 
-                v-model="isAllSelected"
-                class="batch-import__checkbox"
-              />
-              <span class="batch-import__select-all-text">{{ $lt('全选') }}</span>
-            </label>
-          </div>
           <div class="batch-import__file-list">
             <label 
               v-for="(file, index) in files" 
@@ -42,6 +32,17 @@
         </div>
       </div>
       <div class="batch-import__footer">
+        <!-- 全选固定在弹窗左下角，不跟文件列表一起滚动。 -->
+        <label v-if="files.length > 0" class="batch-import__select-all">
+          <input
+            type="checkbox"
+            v-model="isAllSelected"
+            class="batch-import__checkbox"
+          />
+          <span class="batch-import__select-all-text">{{ $lt('全选') }}</span>
+        </label>
+        <span v-else class="batch-import__footer-spacer"></span>
+        <div class="batch-import__footer-actions">
         <fun-button 
           class="batch-import__button batch-import__button--cancel" 
           @click="handleCancel"
@@ -50,6 +51,7 @@
           class="batch-import__button batch-import__button--confirm" 
           @click="handleConfirm"
         > {{ $lt('确认') }} </fun-button>
+        </div>
       </div>
     </div>
   </div>
@@ -228,17 +230,15 @@ defineExpose({
   padding: var(--spacing-2xl);
 }
 
-.batch-import__header-row {
-  margin-bottom: var(--spacing-md);
-}
-
 .batch-import__select-all {
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
+  margin-right: auto;
   padding: var(--spacing-sm) var(--spacing-md);
   border-radius: var(--radius-md);
   cursor: pointer;
+  user-select: none;
   transition: background-color var(--transition-fast);
   
   &:hover {
@@ -287,11 +287,21 @@ defineExpose({
 
 .batch-import__footer {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: var(--spacing-md);
   padding: var(--spacing-lg) var(--spacing-2xl);
   border-top: 1px solid var(--border-color);
   flex-shrink: 0;
+}
+
+.batch-import__footer-spacer {
+  margin-right: auto;
+}
+
+.batch-import__footer-actions {
+  display: flex;
+  gap: var(--spacing-md);
 }
 
 .batch-import__button {
@@ -312,7 +322,7 @@ defineExpose({
   // 确认按钮
   &--confirm {
     background: var(--accent-color);
-    color: white;
+    color: var(--text-on-accent, #1a1a1a);
     
     &:hover:not(:disabled) {
       background: var(--accent-hover);

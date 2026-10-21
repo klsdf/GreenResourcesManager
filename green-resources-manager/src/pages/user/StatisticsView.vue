@@ -1217,7 +1217,7 @@ export default {
   gap: 6px;
   padding: 8px 12px;
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   border: none;
   border-radius: 6px;
   font-size: 0.85rem;
@@ -1477,7 +1477,7 @@ export default {
 
 .calendar-nav-btn:hover {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   border-color: var(--accent-color);
 }
 
@@ -1531,7 +1531,7 @@ export default {
 
 .calendar-day.today {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   border-color: var(--accent-color);
 }
 

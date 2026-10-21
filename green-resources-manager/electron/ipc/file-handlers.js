@@ -25,6 +25,7 @@
  * - `list-files`: 列出目录文件。
  * - `get-file-stats`: 获取文件统计信息。
  * - `read-text-file`: 读取文本文件。
+ * - `count-novel-words`: 统计小说字数。
  * - `open-file-folder`: 打开文件所在文件夹。
  * - `check-file-exists`: 检查文件是否存在。
  * - `get-folder-size`: 获取文件夹大小。
@@ -136,6 +137,10 @@ function registerIpcHandlers(ipcMain, fileUtils, pathUtils) {
 
   ipcMain.handle('read-text-file', async (event, filePath) => {
     return await fileUtils.readTextFile(filePath)
+  })
+
+  ipcMain.handle('count-novel-words', async (event, filePath) => {
+    return await fileUtils.countNovelWords(filePath)
   })
 
   // 打开文件所在文件夹

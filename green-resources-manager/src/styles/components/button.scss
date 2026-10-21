@@ -22,7 +22,7 @@
 // 主要按钮
 .btn-primary {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #fff);
 
   &:hover:not(:disabled) {
     background: var(--accent-hover);
@@ -56,7 +56,7 @@
 // 确认按钮
 .btn-confirm {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #fff);
 
   &:hover:not(:disabled) {
     background: var(--accent-hover);
@@ -141,7 +141,7 @@
 // 播放/开始按钮 - 用于播放视频、开始阅读、开始游戏等
 .btn-play {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #fff);
   border: none;
   padding: 12px 24px;
   border-radius: 8px;

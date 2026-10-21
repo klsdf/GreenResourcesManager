@@ -273,7 +273,7 @@ export default {
 .btn-confirm {
   padding: 10px 20px;
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   border: none;
   border-radius: 8px;
   font-size: 14px;

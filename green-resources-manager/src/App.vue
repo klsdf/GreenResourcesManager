@@ -185,8 +185,19 @@
       <template v-if="activeTabIsHome">
         <!-- 标题和简介 -->
         <header class="content-header">
-          <h2>{{ getCurrentViewTitle() }}</h2>
-          <p>{{ getCurrentViewDescription() }}</p>
+          <div class="content-header__text">
+            <h2>{{ getCurrentViewTitle() }}</h2>
+            <p>{{ getCurrentViewDescription() }}</p>
+          </div>
+          <button
+            v-if="currentPageConfig"
+            type="button"
+            class="page-config-button"
+            :title="$lt('管理当前页面的名称、接受的资源和筛选器')"
+            @click="openCurrentPageConfig"
+          >
+            {{ $lt('页面配置') }}
+          </button>
         </header>
 
         <div class="content-body" :class="{ 'with-filter': showFilterSidebar }">
@@ -214,6 +225,7 @@
           <!-- 正常路由视图 -->
           <router-view 
             v-else
+            :key="routerViewKey"
             ref="routerView"
             @filter-data-updated="updateFilterData"
             @navigate="navigateTo"
@@ -226,6 +238,14 @@
       <!-- 全局音频播放器 -->
       <GlobalAudioPlayer @audio-started="onAudioStarted" @playlist-ended="onPlaylistEnded" />
     </main>
+
+    <!-- 当前资源页的配置。和设置里的页面编辑是同一个窗口，只是从这一页直接打开。 -->
+    <PageConfigEditor
+      :visible="showPageConfigEditor"
+      :page-id="configuringPageId"
+      @close="showPageConfigEditor = false"
+      @save="handleCurrentPageConfigSaved"
+    />
 
     <!-- 全局通知组件 -->
     <fun-notification ref="toastNotification" />
@@ -273,8 +293,10 @@ import alertService from './utils/AlertService.ts'
 import confirmService from './utils/ConfirmService.ts'
 
 import saveManager from './utils/SaveManager.ts'
+import { setDisguiseModeEnabled } from './utils/disguiseMode'
 // ✨ 使用新的配置管理器（基于配置文件，无需存档）
 import pageConfigManager from './utils/PageConfigManager.ts'
+import PageConfigEditor from './components/PageConfigEditor.vue'
 import pluginManager from './utils/PluginManager.ts'
 import pluginNavigationManager from './utils/PluginNavigationManager.ts'
 import { unlockAchievement } from './pages/user/AchievementView.vue'
@@ -288,7 +310,8 @@ export default {
     TabBar,
     FunLoading,
     FunModal,
-    ChangelogEntryCard
+    ChangelogEntryCard,
+    PageConfigEditor
   },
   data() {
     return {
@@ -301,6 +324,12 @@ export default {
       isLogoClicked: false, // logo 是否被点击过
       // 筛选器相关数据
       showFilterSidebar: false,
+      /** 当前页面的配置编辑器是否打开。 */
+      showPageConfigEditor: false,
+      /** 正在编辑的页面 id。打开时记下来，避免编辑过程中路由变化把编辑器指到别的页。 */
+      configuringPageId: '',
+      /** 保存页面配置后加一，用来重新载入当前资源页。 */
+      pageConfigRevision: 0,
       isFilterSidebarLoading: false,
       currentFilterData: {
         filters: []
@@ -448,6 +477,13 @@ export default {
     mainContentStyle(): Record<string, string> {
       if (!this.activeTabIsHome) return {}
       return { marginLeft: this.sidebarWidth + 'px' }
+    },
+    /**
+     * 路由视图的重建标记。
+     * 页面配置保存后 revision 会变，当前这一页会按新配置重新打开。
+     */
+    routerViewKey(): string {
+      return `${String(this.$route.name || '')}-${this.pageConfigRevision}`
     },
     currentPageConfig() {
       // 从路由 meta 中获取页面配置
@@ -1110,6 +1146,30 @@ export default {
         console.error('停止应用使用时长跟踪失败:', error)
       }
     },
+    /**
+     * 打开当前资源页的配置。
+     * 设置里的页面管理不好找，所以每个资源页的标题右侧都能直接改这一页。
+     */
+    openCurrentPageConfig() {
+      const pageId = this.currentPageConfig?.id || (this.$route.name as string)
+      if (!pageId) return
+      this.configuringPageId = pageId
+      this.showPageConfigEditor = true
+    },
+    /**
+     * 当前页的配置已经写入文件。
+     * 先刷新侧边栏和标题，再让这一页按新的筛选和字段重新加载。
+     */
+    async handleCurrentPageConfigSaved() {
+      await this.reloadCustomPages()
+      const page = this.pages.find((item: { id: string }) => item.id === this.$route.name)
+      if (page && this.$route.meta) {
+        this.$route.meta.title = page.name
+        this.$route.meta.icon = page.icon
+        this.$route.meta.description = page.description || `${page.name}管理页面`
+      }
+      this.pageConfigRevision += 1
+    },
     getCurrentViewTitle() {
       const route = this.$route
       if (route.meta?.title) {
@@ -1560,6 +1620,13 @@ export default {
       const theme = settings?.theme || 'auto'
       console.log('从 SaveManager 加载主题设置:', theme)
       this.applyTheme(theme)
+
+      // 伪装开关存在 SQLite 里。卡片挂载时只看内存，所以这里同步一次并通知已经渲染的卡片。
+      const disguiseEnabled = settings?.disguiseMode === true
+      setDisguiseModeEnabled(disguiseEnabled)
+      window.dispatchEvent(new CustomEvent('disguise-mode-changed', {
+        detail: { enabled: disguiseEnabled }
+      }))
       
       // 加载个性化设置
       if (settings?.customAppTitle) {

@@ -109,17 +109,13 @@ export async function processCoverForResource(
     
     if (isDataUrl(coverPath)) {
       // 处理 dataURL
-      console.log('[CoverManager] 保存 dataURL 封面到文件夹:', { resourceType, resourceId })
       result = await window.electronAPI.saveCoverFromDataUrl(coverPath, saveDataDir, typeDir, resourceId)
     } else {
       // 处理文件路径
-      console.log('[CoverManager] 复制封面到文件夹:', { coverPath, resourceType, resourceId })
       result = await window.electronAPI.saveCoverToFolder(coverPath, saveDataDir, typeDir, resourceId)
     }
     
     if (result?.success && result?.coverPath) {
-      console.log('[CoverManager] 封面处理成功:', result.coverPath)
-      
       // 更新资源对象中的封面字段
       const newResource = { ...resource }
       

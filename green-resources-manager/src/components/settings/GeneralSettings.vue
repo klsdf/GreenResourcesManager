@@ -51,6 +51,19 @@
         :model-value="settings.disguiseMode"
         @update:model-value="onDisguiseModeChange"
       />
+
+      <div class="setting-item">
+        <label class="setting-label">
+          <span class="setting-title">{{ $t('settings.disguiseMode.openFolderTitle') }}</span>
+          <span class="setting-desc">{{ $t('settings.disguiseMode.openFolderDesc') }}</span>
+        </label>
+        <div class="setting-control">
+          <button class="btn-open-save-data-folder" @click="openDisguiseFolder">
+            <span class="btn-icon">📁</span>
+            {{ $t('settings.disguiseMode.openFolderButton') }}
+          </button>
+        </div>
+      </div>
       
       <SettingToggle
         :title="$t('settings.safetyKey.title')"
@@ -198,6 +211,7 @@
 <script lang="ts">
 import { useI18n } from 'vue-i18n'
 import saveManager from '../../utils/SaveManager'
+import { setDisguiseModeEnabled } from '../../utils/disguiseMode'
 import notify from '../../utils/NotificationService'
 import alertService from '../../utils/AlertService'
 import confirmService from '../../utils/ConfirmService'
@@ -369,6 +383,8 @@ export default {
     
     async onDisguiseModeChange(newValue: boolean) {
       this.updateSetting('disguiseMode', newValue)
+      // 先写入内存，卡片收到事件时才能读到新开关，不必再等旧的本地缓存。
+      setDisguiseModeEnabled(newValue)
       console.log('伪装模式设置已更新:', newValue)
       
       try {
@@ -393,6 +409,33 @@ export default {
         this.t('settings.general.disguiseModeUpdated'), 
         newValue ? this.t('settings.general.disguiseModeEnabled') : this.t('settings.general.disguiseModeDisabled')
       )
+    },
+
+    /**
+     * 在文件管理器中打开伪装图片文件夹。
+     * 目录不存在时由主进程先建好，方便直接把图片和 disguise.txt 放进去。
+     */
+    async openDisguiseFolder() {
+      try {
+        if (!window.electronAPI?.getDisguiseDirectory || !window.electronAPI?.openFolder) {
+          notify.info(this.t('settings.general.folderPath'), this.t('settings.general.browserEnvironmentNote'))
+          return
+        }
+        /** 主进程按“里面有图片”选中的 disguise 文件夹。 */
+        const result = await window.electronAPI.getDisguiseDirectory()
+        if (!result?.success || !result.directory) {
+          notify.error(this.t('settings.general.folderOpenFailed'), result?.error || this.t('settings.disguiseMode.openFolderFailed'))
+          return
+        }
+        const opened = await window.electronAPI.openFolder(result.directory)
+        if (opened.success) {
+          notify.success(this.t('settings.general.folderOpened'), this.t('settings.disguiseMode.openedDetail', { path: result.directory }))
+        } else {
+          notify.error(this.t('settings.general.folderOpenFailed'), this.t('settings.general.folderOpenFailedDetail', { error: opened.error }))
+        }
+      } catch (error: any) {
+        notify.error(this.t('settings.general.folderOpenFailed'), this.t('settings.general.folderOpenFailedDetail', { error: error.message }))
+      }
     },
     
     async onSafetyKeyChange(newValue: boolean) {
@@ -935,7 +978,7 @@ export default {
 .btn-browse {
   padding: 8px 16px;
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   border: none;
   border-radius: 6px;
   cursor: pointer;

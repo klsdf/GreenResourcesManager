@@ -160,7 +160,7 @@ export function useResourceCRUD<T>(config: ResourceCRUDConfig<T>) {
   /**
    * 统一的资源更新函数（用于DetailPanel）
    */
-  const updateResource = async (id: string, updates: { rating?: number; comment?: string; isFavorite?: boolean }) => {
+  const updateResource = async (id: string, updates: { rating?: number; comment?: string; isFavorite?: boolean; finished?: boolean; finishedAt?: string }) => {
     await onUpdate(id, updates as Partial<T>)
   }
 

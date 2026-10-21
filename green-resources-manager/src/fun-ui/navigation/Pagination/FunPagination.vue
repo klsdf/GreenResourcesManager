@@ -130,7 +130,7 @@ function handleJumpToPage() {
 
 .fun-pagination__button {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   font-weight: 500;
   
   &:hover:not(:disabled) {
@@ -177,7 +177,7 @@ function handleJumpToPage() {
   
   &:hover {
     background: var(--accent-color);
-    color: white;
+    color: var(--text-on-accent, #1a1a1a);
     border-color: var(--accent-color);
   }
 }

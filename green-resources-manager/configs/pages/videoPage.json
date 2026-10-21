@@ -127,6 +127,14 @@
         "field": "series"
       },
       "isArray": false
+    },
+    {
+      "key": "releaseDate",
+      "title": "发行日期筛选",
+      "filterType": "dateField",
+      "params": {
+        "field": "releaseDate"
+      }
     }
   ]
 }

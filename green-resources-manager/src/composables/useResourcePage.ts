@@ -10,6 +10,7 @@
  */
 import { ref, computed, type Ref } from 'vue'
 import saveManager from '../utils/SaveManager'
+import { pageConfigLoader } from '../configs/pages/PageConfigLoader.ts'
 
 export interface ResourcePageConfig {
   pageType: string
@@ -162,14 +163,40 @@ export function useResourcePage<T>(
   }
 
   /**
-   * 加载排序设置
+   * 把存档里的排序对上当前页面的选项。
+   * 旧存档和默认设置只记了字段名（例如 name），现在的选项 id 是 name-asc、name-desc。
+   * 直接写回 name 时，下拉看起来像按名称，列表却匹配不到任何选项，等于没排序。
+   * 对不上就保持页面自己的默认值。
+   * @param settingPageType 页面 id，和保存时用的是同一个
+   * @param savedSortBy 存档里的排序
+   * @returns 能用的排序 id；对不上时为 null
    */
-  const loadSortSetting = async () => {
+  const resolveSavedSortId = (settingPageType: string, savedSortBy: string): string | null => {
+    /** 这一页现在可选的排序。没有配置时无法核对，不套用存档。 */
+    const options = pageConfigLoader.getPageConfig(settingPageType)?.sortOptions || []
+    if (options.length === 0) return null
+    const exact = options.find(option => option.id === savedSortBy)
+    if (exact) return exact.id
+    /** 旧值 name 对应现在的 name-asc；没有升序项时用这个字段的第一项。 */
+    const legacyAsc = options.find(option => option.id === `${savedSortBy}-asc` || (option.field === savedSortBy && option.order === 'asc'))
+    if (legacyAsc) return legacyAsc.id
+    const sameField = options.find(option => option.field === savedSortBy)
+    return sameField?.id || null
+  }
+
+  /**
+   * 进入页面时恢复上次的排序。
+   * @param targetPageType 当前页面 id。不传则用创建页面时记下的 id。
+   */
+  const loadSortSetting = async (targetPageType?: string) => {
+    /** 和工具栏保存时用同一个页面 id，避免读到别的页面的排序。 */
+    const settingPageType = targetPageType || pageType
     try {
-      const savedSortBy = await saveManager.getSortSetting(pageType)
-      if (savedSortBy && savedSortBy !== sortBy.value) {
-        sortBy.value = savedSortBy
-        console.log(`✅ 已加载${itemType}页面排序方式:`, savedSortBy)
+      const savedSortBy = await saveManager.getSortSetting(settingPageType)
+      const resolvedSortBy = savedSortBy ? resolveSavedSortId(settingPageType, savedSortBy) : null
+      if (resolvedSortBy && resolvedSortBy !== sortBy.value) {
+        sortBy.value = resolvedSortBy
+        console.log(`✅ 已加载${itemType}页面排序方式:`, resolvedSortBy)
       }
     } catch (error) {
       console.warn('加载排序方式失败:', error)

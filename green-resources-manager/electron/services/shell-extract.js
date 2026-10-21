@@ -6,8 +6,8 @@
  * 菜单命令启动本程序并带上 `--grm-extract "文件路径"`。
  * 程序只允许一个实例，所以第二次启动不会再开一份，只把路径交回已经在跑的这份。
  *
- * 右键这条路优先用 unrar.exe / 7z.exe，不用 WinRAR 的窗口程序。
- * 否则压缩包一加密，WinRAR 就会自己弹出密码框，右键就没法静默试完密码本。
+ * RAR 优先用 unrar.exe，避免加密包弹出密码框。
+ * zip、7z 不能交给 UnRAR：它读不了这些格式，退出码 10 会被误当成密码错误。
  */
 
 const { spawn, execFile } = require('child_process')
@@ -244,7 +244,7 @@ async function extractOne(archivePath, generation) {
     return
   }
 
-  const tool = findExtractTool()
+  const tool = findExtractTool(archivePath)
   if (!tool) {
     const message = '没有找到 WinRAR 或 7-Zip，请先安装其中一个'
     publish({ fileName, status: 'error', message }, generation)
@@ -336,7 +336,7 @@ async function extractOne(archivePath, generation) {
 
   const message = password ? `已用密码本解压到 ${outputDir}` : `已解压到 ${outputDir}`
   publish({ fileName, status: 'success', message, outputDir }, generation)
-  notify('解压完成', message)
+  // notify('解压完成', message)
 }
 
 /**
@@ -359,16 +359,36 @@ function buildOutputDirectory(archivePath) {
 }
 
 /**
- * 找一个不会弹出密码框的解压程序。
- * 顺序是 unrar.exe、7z.exe，最后才是 WinRAR.exe。
+ * 按压缩包类型选工具。
+ * UnRAR 只能解 RAR。拿它解 zip 会直接失败，退出码还和密码错误一样，
+ * 所以 zip、7z 先找 7-Zip，没有再用 WinRAR 主程序。
+ * @param {string} archivePath 压缩包路径
  * @returns {{ command: string, kind: 'unrar' | 'winrar' | '7z' } | null}
  */
-function findExtractTool() {
-  const unrar = findUnrar()
-  if (unrar) return { command: unrar, kind: path.basename(unrar).toLowerCase() === 'unrar.exe' ? 'unrar' : 'winrar' }
+function findExtractTool(archivePath) {
+  const extension = path.extname(archivePath || '').toLowerCase()
+  const rarOnly = extension === '.rar' || extension === '.cbr'
+
+  if (rarOnly) {
+    const unrar = findUnrar()
+    if (unrar && path.basename(unrar).toLowerCase() === 'unrar.exe') {
+      return { command: unrar, kind: 'unrar' }
+    }
+  }
 
   const sevenZip = findSevenZip()
   if (sevenZip) return { command: sevenZip, kind: '7z' }
+
+  const winrar = findWinRarExecutable()
+  if (winrar) return { command: winrar, kind: 'winrar' }
+
+  if (rarOnly) {
+    const fallback = findUnrar()
+    if (fallback) {
+      const kind = path.basename(fallback).toLowerCase() === 'unrar.exe' ? 'unrar' : 'winrar'
+      return { command: fallback, kind }
+    }
+  }
 
   return null
 }
@@ -480,7 +500,7 @@ function buildTestArgs(tool, archivePath, password) {
     return args
   }
   const args = ['t', password ? `-p${password}` : '-p-', archivePath]
-  if (tool.kind === 'winrar') args.splice(1, 0, '-ibck')
+  if (tool.kind === 'winrar') args.splice(1, 0, '-ibck', '-inul')
   return args
 }
 
@@ -499,7 +519,7 @@ function buildExtractArgs(tool, archivePath, outputDir, password) {
     return args
   }
   const args = ['x', '-o+', password ? `-p${password}` : '-p-', archivePath, `${outputDir}\\`]
-  if (tool.kind === 'winrar') args.splice(1, 0, '-ibck')
+  if (tool.kind === 'winrar') args.splice(1, 0, '-ibck', '-inul')
   return args
 }
 
@@ -541,19 +561,26 @@ function runTool(tool, args) {
 
 /**
  * 这次失败是不是「密码不对或需要密码」。
- * 别的错误（文件坏了、工具本身报错）不应该把密码本试完。
+ * 退出码 11 是 RAR 密码错误。
+ * WinRAR 解加密 zip 时，密码不对是退出码 10，而且静默运行时没有文字提示。
+ * UnRAR 读不了 zip 也是 10，那种情况输出里会写「不是 RAR」，不能拿去试密码本。
  * @param {{ kind: string }} tool 解压工具
  * @param {{ code: number | null, output: string }} result 运行结果
  * @returns {boolean}
  */
 function isPasswordFailure(tool, result) {
   const output = (result.output || '').toLowerCase()
-  const mentionsPassword = ['password', 'encrypted', '密码', 'crc failed', 'checksum'].some((keyword) => output.includes(keyword))
+  /** UnRAR 遇到 zip 会说「不是 RAR 压缩文件」，退出码同样是 10，这不是密码问题。 */
+  const unsupportedArchive = output.includes('不是 rar') || output.includes('not rar') || output.includes('not a rar')
+  if (unsupportedArchive) return false
+
+  const mentionsPassword = ['password', 'encrypted', '密码', 'wrong password'].some((keyword) => output.includes(keyword))
   if (tool.kind === '7z') {
-    if (result.code !== 2) return false
-    return mentionsPassword || output.includes('wrong password') || output.includes('encrypted')
+    return result.code === 2 && mentionsPassword
   }
-  if (result.code === 11 || result.code === 10) return true
+  /** 11 是 RAR 的密码错误。WinRAR 解加密 zip 时，没给密码或密码不对都是 10，而且 -inul 不留文字。 */
+  if (result.code === 11) return true
+  if (tool.kind === 'winrar' && result.code === 10) return true
   return mentionsPassword
 }
 
@@ -689,12 +716,16 @@ async function getMenuStatus() {
   }
   try {
     const command = await readMenuCommand()
+    const selectionModel = await readMenuSelectionModel()
     const expected = buildLaunchCommand()
+    const commandMatches = command === expected
+    /** Single 时资源管理器多选会把菜单藏起来，必须是 Document 才算当前版本。 */
+    const allowsMultiple = selectionModel === 'Document'
     return {
       success: true,
       supported: true,
-      enabled: command === expected,
-      stale: Boolean(command) && command !== expected
+      enabled: commandMatches,
+      stale: Boolean(command) && (!commandMatches || !allowsMultiple)
     }
   } catch (error) {
     return { success: false, supported: true, enabled: false, stale: false, error: error.message }
@@ -725,6 +756,8 @@ async function setMenuEnabled(enabled) {
  * 写入当前用户的右键菜单。
  * 用 HKCU 而不是 HKLM，这样不需要管理员。
  * Windows 11 的新右键菜单不接收这种传统项，所以会出现在「显示更多选项」里。
+ * MultiSelectModel 用 Document：多选时每个压缩包各启动一次，再由已经打开的程序排队。
+ * 每个包仍然解压到自己旁边的同名文件夹。
  */
 async function installMenu() {
   const command = buildLaunchCommand()
@@ -739,7 +772,7 @@ foreach ($ext in $extensions) {
   New-Item -Path $base -Force | Out-Null
   Set-Item -Path $base -Value $label
   New-ItemProperty -Path $base -Name 'Icon' -Value $icon -PropertyType String -Force | Out-Null
-  New-ItemProperty -Path $base -Name 'MultiSelectModel' -Value 'Single' -PropertyType String -Force | Out-Null
+  New-ItemProperty -Path $base -Name 'MultiSelectModel' -Value 'Document' -PropertyType String -Force | Out-Null
   $cmdKey = Join-Path $base 'command'
   New-Item -Path $cmdKey -Force | Out-Null
   Set-Item -Path $cmdKey -Value $command
@@ -762,6 +795,24 @@ foreach ($ext in $extensions) {
 }
 `
   await runPowerShell(script)
+}
+
+/**
+ * 读出多选时这项菜单怎么生效。
+ * Single 表示多选时不显示；Document 表示每个选中的文件各执行一次。
+ * @returns {Promise<string>}
+ */
+function readMenuSelectionModel() {
+  const script = `
+$base = 'HKCU:\\Software\\Classes\\SystemFileAssociations\\.zip\\shell\\${MENU_KEY}'
+if (Test-Path $base) {
+  $value = (Get-Item -Path $base).GetValue('MultiSelectModel')
+  if ($null -eq $value) { Write-Output '' } else { Write-Output $value }
+} else {
+  Write-Output ''
+}
+`
+  return runPowerShell(script).then((output) => output.trim())
 }
 
 /**

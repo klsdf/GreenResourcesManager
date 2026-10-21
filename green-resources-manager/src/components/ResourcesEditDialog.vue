@@ -54,6 +54,14 @@
             type="number"
             :placeholder="getFieldPlaceholder(key, field)"
           />
+
+          <!-- 日期字段。发行日期用系统日期选择，存成 YYYY-MM-DD，和侧栏筛选项一致 -->
+          <fun-input
+            v-else-if="field instanceof FormField_Date"
+            :id="key"
+            v-model="formData[key]"
+            type="date"
+          />
           
           <!-- 选择字段（引擎类型，自带检测引擎按钮） -->
           <template v-else-if="field instanceof FormField_SelectEngine">
@@ -286,6 +294,7 @@ import { computed, nextTick } from 'vue'
 import { lf, lt } from '../locales/lt'
 import TagSelectionPanel from './TagSelectionPanel.vue'
 import saveManager from '../utils/SaveManager.ts'
+import coverManager from '../utils/CoverManager.ts'
 import notify from '../utils/NotificationService.ts'
 import alertService from '../utils/AlertService.ts'
 import {detectGameEngine} from '../utils/GameEngineDetector.ts'
@@ -303,7 +312,8 @@ import {
   FormField_SelectVideoThumbnail,
   FormField_Tags,
   FormField_Text,
-  FormField_Textarea
+  FormField_Textarea,
+  FormField_Date
 } from '@resources/base/FormField.ts'
 import {ResourceField} from '@resources/base/ResourceField.ts'
 import {BaseResources} from '@resources/base/ResourcesDataBase.ts'
@@ -475,6 +485,7 @@ export default {
       formFields,
       FormField_Text,
       FormField_Textarea,
+      FormField_Date,
       FormField_Number,
       FormField_Select,
       FormField_Tags,
@@ -540,7 +551,14 @@ export default {
     return {
       formData: initFormData(),
       initFormData,
-      tagInputRefs: {} as Record<string, any> // 存储标签输入框的 refs
+      tagInputRefs: {} as Record<string, any>, // 存储标签输入框的 refs
+      /**
+       * 已经读成 data URL 的封面预览。
+       * 键是表单里的原始路径。相对路径不能直接当图片地址，读完再写进来，预览才会刷新。
+       */
+      coverPreviewUrls: {} as Record<string, string>,
+      /** 正在读取的封面路径，避免每次渲染都再读一遍文件。 */
+      coverPreviewLoading: {} as Record<string, boolean>
     }
   },
   computed: {
@@ -1119,23 +1137,69 @@ export default {
       const fileExt = this.getFileExtension(filePath).toLowerCase()
       return videoExtensions.includes(fileExt) || videoExtensions.includes(`.${fileExt}`)
     },
+    /**
+     * 封面还没读出来时用的小占位图。
+     * 用 data URL，这样不会去请求一个不存在的文件，也就不会误触发加载失败。
+     * @returns {string}
+     */
+    coverPlaceholderSrc(): string {
+      return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI4MCIgdmlld0JveD0iMCAwIDIwMCAyODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjgwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xMDAgMTIwSDgwVjE2MEgxMjBWMTIwWiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNODAgMTIwTDEwMCAxMDBMMTIwIDEyMEwxMDAgMTQwTDgwIDEyMFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+'
+    },
+    /**
+     * 编辑框里的封面预览地址。
+     * 电影封面常常是 videos/covers 这种相对路径。直接拼 file:// 会指到网页目录，图片加载失败就变成房子占位图。
+     * 先把路径拼到存档目录，读成 data URL，再交给 img。
+     * @param filePath 表单里的封面路径
+     * @returns {string}
+     */
     getImageUrl(filePath: string): string {
       if (!filePath || (typeof filePath === 'string' && filePath.trim() === '')) {
-        return '/default-game.png'
+        return this.coverPlaceholderSrc()
       }
-      if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+      if (filePath.startsWith('http://') || filePath.startsWith('https://') || filePath.startsWith('data:') || filePath.startsWith('blob:') || filePath.startsWith('archive:')) {
         return filePath
       }
-      if (filePath.startsWith('data:') || filePath.startsWith('file:')) {
-        return filePath
+      const cached = this.coverPreviewUrls[filePath]
+      if (cached) return cached
+      this.loadCoverPreview(filePath)
+      return this.coverPlaceholderSrc()
+    },
+    /**
+     * 把封面文件读进预览缓存。
+     * 相对路径先交给封面管理器拼到存档目录。拼完仍读不到时，再试原始路径。
+     * @param filePath 表单里的封面路径
+     */
+    loadCoverPreview(filePath: string) {
+      if (!filePath || this.coverPreviewUrls[filePath] || this.coverPreviewLoading[filePath]) return
+      this.coverPreviewLoading[filePath] = true
+      this.resolveCoverPreview(filePath)
+    },
+    /**
+     * 异步读取封面。读成功后写入缓存，预览图会跟着换成真正的封面。
+     * @param filePath 表单里的封面路径
+     */
+    async resolveCoverPreview(filePath: string) {
+      try {
+        let fullPath = filePath
+        const isRelative = !filePath.includes(':') && !filePath.startsWith('file://')
+        if (isRelative) {
+          fullPath = await coverManager.getCoverUrl(filePath)
+        }
+        let dataUrl = ''
+        if (window.electronAPI?.readFileAsDataUrl) {
+          dataUrl = await window.electronAPI.readFileAsDataUrl(fullPath) || ''
+          if (!dataUrl && fullPath !== filePath) {
+            dataUrl = await window.electronAPI.readFileAsDataUrl(filePath) || ''
+          }
+        }
+        if (dataUrl) {
+          this.coverPreviewUrls[filePath] = dataUrl
+        }
+      } catch (error) {
+        console.warn('[ResourcesEditDialog] 读取封面预览失败:', filePath, error)
+      } finally {
+        this.coverPreviewLoading[filePath] = false
       }
-      // 中文文件名不编码的话，file:// 地址加载失败，预览会掉成占位图，看起来像封面没识别出来
-      const normalizedPath = String(filePath).replace(/\\/g, '/')
-      const encodedPath = normalizedPath.split('/').map(segment => {
-        if (/^[A-Za-z]:$/.test(segment)) return segment
-        return encodeURIComponent(segment)
-      }).join('/')
-      return `file:///${encodedPath}`
     },
     extractGameNameFromPath(filePath: string) {
       const fileName = filePath.split(/[\\/]/).pop() || ''
@@ -1246,13 +1310,11 @@ export default {
               const filePath = await window.electronAPI.selectScreenshotImage(gameScreenshotPath)
               if (filePath) {
                 this.formData[key] = filePath
-                notify.native('设置成功', '已选择截图作为封面')
               }
             } else if (window.electronAPI.selectImageFile) {
               const filePath = await window.electronAPI.selectImageFile(gameScreenshotPath)
               if (filePath) {
                 this.formData[key] = filePath
-                notify.native('设置成功', '已选择截图作为封面')
               }
             }
           } else {
@@ -1313,13 +1375,11 @@ export default {
               const filePath = await window.electronAPI.selectScreenshotImage(gameScreenshotPath)
               if (filePath) {
                 this.formData[key] = filePath
-                notify.native('设置成功', '已选择截图作为封面')
               }
             } else if (window.electronAPI.selectImageFile) {
               const filePath = await window.electronAPI.selectImageFile(gameScreenshotPath)
               if (filePath) {
                 this.formData[key] = filePath
-                notify.native('设置成功', '已选择截图作为封面')
               }
             }
           } else {
@@ -1384,7 +1444,6 @@ export default {
         const resp = await window.electronAPI.listImageFiles(folderPath)
         if (resp?.success && resp.files?.length > 0) {
           this.formData[key] = resp.files[0]
-          notify.toast('success', '设置成功', '已使用第一张图片作为封面')
         } else {
           notify.toast('warning', '设置失败', '该游戏截图文件夹中没有找到图片')
         }
@@ -1657,11 +1716,19 @@ export default {
         throw error
       }
     },
+    /**
+     * 预览图加载失败时换成占位图。
+     * 已经显示的是读出来的封面时不再改地址，避免失败事件把真正的缩略图盖掉。
+     * @param event 图片错误事件
+     */
     handleImageError(event: Event) {
-      const target = event.target as HTMLImageElement
-      if (target) {
-        target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI4MCIgdmlld0JveD0iMCAwIDIwMCAyODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjgwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xMDAgMTIwSDgwVjE2MEgxMjBWMTIwWiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNODAgMTIwTDEwMCAxMDBMMTIwIDEyMEwxMDAgMTQwTDgwIDEyMFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+'
+      const target = event.target as HTMLImageElement | null
+      if (!target?.isConnected) return
+      const shown = target.src || ''
+      if (shown.startsWith('data:image/jpeg') || shown.startsWith('data:image/png') || shown.startsWith('data:image/webp') || shown.startsWith('data:image/gif')) {
+        return
       }
+      target.src = this.coverPlaceholderSrc()
     },
     getImageFileName(imagePath: string) {
       if (!imagePath) return ''
@@ -1804,7 +1871,7 @@ export default {
 .btn-browse {
   padding: var(--spacing-md, 12px) var(--spacing-xl, 20px);
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   border: none;
   border-radius: var(--radius-md, 6px);
   font-size: 1rem;
@@ -1888,7 +1955,7 @@ export default {
 
 .btn-cover-action {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   border: none;
   padding: 10px 16px;
   border-radius: 6px;
@@ -1952,7 +2019,7 @@ export default {
 
 .btn-confirm {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   border: none;
   padding: 10px 20px;
   border-radius: 6px;

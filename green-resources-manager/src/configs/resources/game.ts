@@ -170,7 +170,9 @@ export class Game extends BaseResources {
 			addedDate: this.addedDate.value || '',
 			rating: this.rating.value || 0,
 			comment: this.comment.value || '',
-			isFavorite: this.isFavorite.value || false
+			isFavorite: this.isFavorite.value || false,
+			finished: this.finished.value === true,
+			finishedAt: this.finished.value === true ? (this.finishedAt.value || '') : ''
 		}
 	}
 
@@ -358,6 +360,13 @@ export class Game extends BaseResources {
 				key: 'folder',
 				icon: '📁',
 				label: '打开文件夹',
+				class: 'btn-open-folder'
+			},
+			{
+				// 截图不在游戏自己的目录里，详情里需要能直接打开存放位置
+				key: 'screenshot-folder',
+				icon: '📸',
+				label: '打开截图文件夹',
 				class: 'btn-open-folder'
 			},
 			{

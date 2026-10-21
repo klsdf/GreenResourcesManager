@@ -26,6 +26,7 @@
  * - listFiles()           列出目录中的文件
  * - getFileStats()        获取文件统计信息
  * - readTextFile()        读取文本文件内容
+ * - countNovelWords()     统计小说字数（不把正文传回页面）
  * 
  * ============================================================================
  */
@@ -560,6 +561,130 @@ async function readTextFile(filePath) {
 }
 
 /**
+ * 判断缓冲区是不是合法的 UTF-8。
+ * 中文小说经常是 GBK。用 UTF-8 硬读会得到乱码，字数也不准。
+ * @param {Buffer} buffer - 文件内容
+ * @returns {boolean} 能按 UTF-8 严格解码时为 true
+ */
+function isValidUtf8(buffer) {
+  try {
+    new TextDecoder('utf-8', { fatal: true }).decode(buffer)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 把小说文本解码成字符串。
+ * 先认 BOM，再认合法 UTF-8，剩下的按 GB18030。这样 GBK 小说也能数出字数。
+ * @param {Buffer} buffer - 文件内容
+ * @returns {string} 解码后的文本
+ */
+function decodeNovelText(buffer) {
+  if (buffer.length >= 3 && buffer[0] === 0xEF && buffer[1] === 0xBB && buffer[2] === 0xBF) {
+    return buffer.subarray(3).toString('utf8')
+  }
+  if (buffer.length >= 2 && buffer[0] === 0xFF && buffer[1] === 0xFE) {
+    return buffer.subarray(2).toString('utf16le')
+  }
+  if (buffer.length >= 2 && buffer[0] === 0xFE && buffer[1] === 0xFF) {
+    const swapped = Buffer.from(buffer.subarray(2))
+    for (let i = 0; i + 1 < swapped.length; i += 2) {
+      const byte = swapped[i]
+      swapped[i] = swapped[i + 1]
+      swapped[i + 1] = byte
+    }
+    return swapped.toString('utf16le')
+  }
+  if (isValidUtf8(buffer)) {
+    return buffer.toString('utf8')
+  }
+  return new TextDecoder('gb18030').decode(buffer)
+}
+
+/**
+ * 统计正文里的字数。去掉空白后按字符计，中文一字算一字。
+ * @param {string} text - 正文
+ * @returns {number} 字数
+ */
+function countTextWords(text) {
+  if (!text) return 0
+  return text.replace(/\s+/g, '').length
+}
+
+/**
+ * 从 HTML 里抽出可见文字，避免把标签也算进字数。
+ * @param {string} html - 章节 HTML
+ * @returns {string} 纯文本
+ */
+function stripHtmlToText(html) {
+  return String(html)
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&#(\d+);/g, (_, code) => {
+      const value = Number(code)
+      return Number.isFinite(value) ? String.fromCharCode(value) : ''
+    })
+}
+
+/**
+ * 统计 epub 里各章节的字数。目录和封面页不计入，免得把书名重复算一遍。
+ * @param {string} filePath - epub 路径
+ * @returns {number} 字数
+ */
+function countEpubWords(filePath) {
+  const AdmZip = require('adm-zip')
+  const zip = new AdmZip(filePath)
+  let total = 0
+  for (const entry of zip.getEntries()) {
+    if (entry.isDirectory) continue
+    const name = entry.entryName.replace(/\\/g, '/').toLowerCase()
+    if (!/\.(xhtml|html|htm)$/.test(name)) continue
+    if (/(^|\/)(nav|toc|cover)[^/]*\.(xhtml|html|htm)$/.test(name)) continue
+    const html = decodeNovelText(entry.getData())
+    total += countTextWords(stripHtmlToText(html))
+  }
+  return total
+}
+
+/**
+ * 统计小说文件的字数，只返回数字，不把正文传回页面。
+ * 支持 txt、md 和 epub。pdf 先不算，避免把二进制当成文字。
+ * @param {string} filePath - 小说文件路径
+ * @returns {Promise<{ success: boolean, wordCount?: number, error?: string }>}
+ */
+async function countNovelWords(filePath) {
+  try {
+    if (!filePath) {
+      return { success: false, error: '文件路径不能为空' }
+    }
+    if (!fs.existsSync(filePath)) {
+      return { success: false, error: '文件不存在' }
+    }
+    const ext = path.extname(filePath).toLowerCase()
+    if (ext === '.epub') {
+      const wordCount = countEpubWords(filePath)
+      return { success: wordCount > 0, wordCount }
+    }
+    if (ext === '.txt' || ext === '.md' || ext === '.text') {
+      const buffer = fs.readFileSync(filePath)
+      const wordCount = countTextWords(decodeNovelText(buffer))
+      return { success: wordCount > 0, wordCount }
+    }
+    return { success: false, error: '这个格式暂时不能统计字数' }
+  } catch (error) {
+    console.error('统计小说字数失败:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+/**
  * 递归搜索目录，找到匹配扩展名的文件
  * 搜索规则：
  * - 根目录：遍历所有内容
@@ -776,6 +901,7 @@ module.exports = {
   listFiles,
   getFileStats,
   readTextFile,
+  countNovelWords,
   searchMatchingFiles,
   saveCoverToFolder,
   saveCoverFromDataUrl

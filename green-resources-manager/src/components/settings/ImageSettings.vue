@@ -76,6 +76,15 @@
         @update:model-value="updateSetting('image.detailPageSize', $event)"
       />
       
+      <SettingFilePicker
+        :title="$lt('漫画压缩包指定程序')"
+        :description="$lt('右键 .cbr 或 .cbz 漫画时，「用指定程序打开」会用这里选的程序。还没选过时，会先让你挑一个。')"
+        :model-value="(settings.image && settings.image.comicArchiveProgramPath) || ''"
+        :placeholder="$lt('选择用来打开漫画压缩包的程序')"
+        picker-type="executable"
+        @update:model-value="updateSetting('image.comicArchiveProgramPath', $event)"
+      />
+
       <div class="setting-item">
         <label class="setting-label">
           <span class="setting-title">{{ $lt('测试图片设置') }}</span>
@@ -96,13 +105,15 @@ import alertService from '../../utils/AlertService.ts'
 import SettingToggle from './SettingToggle.vue'
 import SettingSelect from './SettingSelect.vue'
 import SettingSlider from './SettingSlider.vue'
+import SettingFilePicker from './SettingFilePicker.vue'
 
 export default {
   name: 'ImageSettings',
   components: {
     SettingToggle,
     SettingSelect,
-    SettingSlider
+    SettingSlider,
+    SettingFilePicker
   },
   props: {
     settings: {

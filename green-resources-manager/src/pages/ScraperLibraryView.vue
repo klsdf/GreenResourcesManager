@@ -663,7 +663,7 @@ onMounted(() => {
 }
 .modal-content .btn-confirm {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   border: none;
 }
 .modal-content .btn-confirm:hover {
@@ -705,7 +705,7 @@ onMounted(() => {
   font-size: 14px;
   cursor: pointer;
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   border: none;
 }
 :deep(.fun-modal__footer .btn-confirm:hover) {

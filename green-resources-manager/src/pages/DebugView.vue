@@ -513,7 +513,7 @@ export default defineComponent({
 
 .btn-primary {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
 }
 
 .btn-primary:hover {
@@ -649,7 +649,7 @@ export default defineComponent({
 .btn-browse {
   padding: var(--spacing-md) var(--spacing-xl);
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   border: none;
   border-radius: var(--radius-md);
   font-size: 1rem;

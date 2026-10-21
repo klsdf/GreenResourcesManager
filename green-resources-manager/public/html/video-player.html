@@ -194,26 +194,48 @@
                         'cursor: pointer;' +
                         'margin-right: 10px;' +
                     '">使用外部播放器打开</button>' +
-                    '<button onclick="window.close()" style="' +
+                    '<button onclick="closePlayer()" style="' +
                         'background: #666;' +
                         'color: white;' +
                         'border: none;' +
                         'padding: 10px 20px;' +
                         'border-radius: 5px;' +
                         'cursor: pointer;' +
-                    '">关闭窗口</button>' +
+                    '">关闭</button>' +
                 '</div>' +
             '</div>';
             document.body.innerHTML = errorHtml;
         }
         
-        // 使用外部播放器打开视频
+        /**
+         * 关闭当前播放器。
+         * 视频在标签页里打开时，关掉这个标签并回到上一个标签；独立窗口里则关闭窗口。
+         */
+        async function closePlayer() {
+            try {
+                if (window.electronAPI && window.electronAPI.tabGetAll && window.electronAPI.tabClose) {
+                    const result = await window.electronAPI.tabGetAll();
+                    /** 当前正在看的标签。主页标签不能关。 */
+                    const activeTabId = result && result.activeTabId;
+                    if (activeTabId && activeTabId !== 'home-tab') {
+                        await window.electronAPI.tabClose(activeTabId);
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.error('关闭视频标签页失败:', error);
+            }
+            window.close();
+        }
+
+        /**
+         * 交给系统默认播放器打开当前视频，然后关掉应用内的播放页。
+         */
         function openWithExternalPlayer() {
             try {
-                // 通过 Electron API 打开外部播放器
                 if (window.electronAPI && window.electronAPI.openExternal) {
                     window.electronAPI.openExternal(videoPath);
-                    window.close();
+                    closePlayer();
                 } else {
                     alert('无法打开外部播放器，请手动打开文件: ' + videoPath);
                 }

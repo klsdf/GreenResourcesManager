@@ -3,7 +3,7 @@
   "name": "日期管理",
   "version": "1.0.0",
   "description": "日期管理插件，提供简单的日程表功能，可以在左侧筛选栏添加日期管理导航。",
-  "author": "闫辰祥",
+  "author": "HatMan",
   "entry": "index.js",
   "tags": ["日期", "日程", "日历", "管理"],
   "icon": "📅"

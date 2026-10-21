@@ -23,6 +23,8 @@
   --accent-color: #667eea;
   --accent-hover: #5a67d8;
   --accent-color-20: rgba(102, 126, 234, 0.2);
+  /* 写在强调色按钮上的字。浅色强调色要改成深字，否则会和按钮融在一起。 */
+  --text-on-accent: #ffffff;
   
   /* 语义色 */
   --success-color: #48bb78;
@@ -93,6 +95,7 @@
   --shadow-medium: rgba(0, 0, 0, 0.4);
   --accent-color: #66c0f4;
   --accent-hover: #4fb3d9;
+  --text-on-accent: #1b2838;
   --success-color: #5cb85c;
   --warning-color: #f0ad4e;
   --danger-color: #d9534f;
@@ -187,6 +190,7 @@
   --shadow-dark: rgba(93, 64, 55, 0.2);
   --accent-color: #F2AB39;
   --accent-hover: #D4912B;
+  --text-on-accent: #2e140c;
   --accent-color-20: rgba(242, 171, 57, 0.2);
 }
 
@@ -207,6 +211,7 @@
   --shadow-dark: rgba(164, 181, 213, 0.35);
   --accent-color: #EABCDD;
   --accent-hover: #D8A9CC;
+  --text-on-accent: #5D5063;
   --accent-color-20: rgba(234, 188, 221, 0.2);
 }
 
@@ -429,6 +434,7 @@
   --sidebar-text: #e8eaed;
   --accent-color: #7b93ff;
   --accent-hover: #9aacff;
+  --text-on-accent: #1a1d24;
   --accent-color-20: rgba(123, 147, 255, 0.2);
   --success-color: #3dcc8a;
   --warning-color: #e0a054;
@@ -455,6 +461,7 @@
   --sidebar-text: #ececec;
   --accent-color: #f0f0f0;
   --accent-hover: #ffffff;
+  --text-on-accent: #161616;
   --accent-color-20: rgba(240, 240, 240, 0.2);
   --success-color: #a3a3a3;
   --warning-color: #d4d4d4;

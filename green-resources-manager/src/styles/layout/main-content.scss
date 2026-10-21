@@ -16,23 +16,61 @@
 
 .content-header {
   background: var(--bg-secondary);
-  padding: 30px 40px;
+  padding: 16px 40px;
   border-bottom: 1px solid var(--border-color);
   box-shadow: 0 2px 4px var(--shadow-light);
   transition: background-color var(--transition-slow) ease, border-color var(--transition-slow) ease, box-shadow var(--transition-slow) ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
 
   h2 {
     color: var(--text-primary);
-    font-size: 2rem;
+    font-size: 1.6rem;
     font-weight: 700;
-    margin-bottom: 8px;
+    margin: 0;
+    flex-shrink: 0;
+    white-space: nowrap;
     transition: color var(--transition-slow) ease;
   }
 
   p {
     color: var(--text-secondary);
-    font-size: 1.1rem;
+    font-size: 0.95rem;
+    margin: 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     transition: color var(--transition-slow) ease;
+  }
+}
+
+.content-header__text {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.page-config-button {
+  flex-shrink: 0;
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+
+  &:hover {
+    border-color: var(--accent-color);
+    background: var(--bg-secondary);
   }
 }
 

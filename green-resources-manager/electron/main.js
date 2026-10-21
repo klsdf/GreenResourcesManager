@@ -1,4 +1,69 @@
+/**
+ * 输出管道断开时，往里面写日志会抛出 EPIPE。
+ * Electron 启动之后会换成自己的 stdout，只包启动前那一条没用。
+ * 这里同时包住当前的输出流和 console 方法，日志写失败就丢掉，不要弹出主进程错误框。
+ * @param {import('stream').Writable | null | undefined} stream 标准输出或标准错误
+ */
+function ignoreBrokenPipe(stream) {
+  if (!stream || typeof stream.write !== 'function' || typeof stream.on !== 'function') return
+  /** 当前这层 write 已经包过就跳过；Electron 把 write 换掉之后要重新包。 */
+  if (stream.write.name === 'writeWithoutBrokenPipe') return
+  stream.on('error', (error) => {
+    if (error && error.code === 'EPIPE') return
+  })
+  const originalWrite = stream.write
+  stream.write = function writeWithoutBrokenPipe(chunk, encoding, callback) {
+    try {
+      return originalWrite.call(this, chunk, encoding, callback)
+    } catch (error) {
+      if (error && error.code === 'EPIPE') return true
+      throw error
+    }
+  }
+}
+
+/**
+ * 包住 console 的几种输出。调用时再去包当前的 stdout，避免包到已经被换掉的旧流。
+ */
+function patchConsole() {
+  ignoreBrokenPipe(process.stdout)
+  ignoreBrokenPipe(process.stderr)
+  for (const method of ['log', 'info', 'warn', 'error', 'debug']) {
+    const current = console[method]
+    if (typeof current !== 'function' || current.name === 'patchedConsoleMethod') continue
+    console[method] = function patchedConsoleMethod(...args) {
+      try {
+        return current.apply(console, args)
+      } catch (error) {
+        if (error && error.code === 'EPIPE') return
+        throw error
+      }
+    }
+  }
+}
+
+patchConsole()
+
 const { app, BrowserWindow, dialog, ipcMain, shell, screen, nativeImage, protocol } = require('electron')
+
+patchConsole()
+
+/**
+ * Electron 用这个对话框展示主进程里没接住的异常。
+ * 管道断开不属于程序错误，不再弹出来。
+ * @param {string} title 标题
+ * @param {string} content 正文
+ */
+const originalShowErrorBox = dialog.showErrorBox.bind(dialog)
+dialog.showErrorBox = (title, content) => {
+  const text = `${title || ''}\n${content || ''}`
+  if (text.includes('EPIPE') || text.includes('broken pipe')) return
+  originalShowErrorBox(title, content)
+}
+
+process.on('uncaughtException', (error) => {
+  if (error && (error.code === 'EPIPE' || String(error.message || '').includes('broken pipe'))) return
+})
 const { autoUpdater } = require('electron-updater')
 const path = require('path')
 const { spawn } = require('child_process')
@@ -150,6 +215,7 @@ if (!gotTheLock) {
   
   // 当 Electron 完成初始化并准备创建浏览器窗口时调用此方法
   app.whenReady().then(() => {
+    patchConsole()
     shellExtract.registerIpcHandlers(ipcMain, {
       showMainWindow: () => {
         const existing = mainWindowModule.getMainWindow()

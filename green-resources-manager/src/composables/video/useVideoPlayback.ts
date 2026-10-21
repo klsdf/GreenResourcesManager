@@ -50,7 +50,8 @@ export function useVideoPlayback(options: VideoPlaybackOptions = {}) {
   }
 
   /**
-   * 在本应用新窗口中播放视频
+   * 在本应用新标签页中播放视频。
+   * 和漫画、小说一样留在主窗口里，避免再弹出独立播放窗口。
    */
   const playVideoInternal = async (video: Video | { name: string; filePath: string }): Promise<void> => {
     try {
@@ -72,39 +73,28 @@ export function useVideoPlayback(options: VideoPlaybackOptions = {}) {
         return
       }
       
-      if (window.electronAPI && window.electronAPI.openVideoWindow) {
-        console.log('✅ Electron API 可用，调用 openVideoWindow')
-        
-        const result = await window.electronAPI.openVideoWindow(video.filePath, {
-          title: video.name,
-          width: 1200,
-          height: 800,
-          resizable: true,
-          minimizable: true,
-          maximizable: true
-        })
-        
-        console.log('openVideoWindow 返回结果:', result)
-        
+      if (window.electronAPI && window.electronAPI.tabOpenVideoPlayer) {
+        console.log('✅ Electron API 可用，在新标签页打开视频')
+
+        const result = await window.electronAPI.tabOpenVideoPlayer(video.filePath, video.name)
+
+        console.log('tabOpenVideoPlayer 返回结果:', result)
+
         if (result.success) {
-          console.log('✅ 视频窗口已成功打开')
-          // 播放成功时不显示通知，只在控制台记录
+          console.log('✅ 视频标签页已打开')
         } else {
-          console.error('❌ 打开视频窗口失败:', result.error)
-          
-          // 检查是否是路径编码问题
+          console.error('❌ 打开视频标签页失败:', result.error)
+
           if (result.error && (result.error.includes('ERR_FILE_NOT_FOUND') || result.error.includes('路径'))) {
-            console.log('🔄 检测到路径问题')
             notify.toast('error', '播放失败', `视频文件路径问题: ${result.error}`)
           } else {
-            notify.toast('error', '播放失败', `打开视频窗口失败: ${result.error}`)
+            notify.toast('error', '播放失败', `打开视频标签页失败: ${result.error}`)
           }
         }
       } else {
-        // 降级处理：使用外部播放器
-        console.warn('❌ Electron API 不可用，降级到外部播放器')
+        console.warn('❌ Electron API 不可用，无法使用内部播放器')
         console.warn('electronAPI 可用性:', !!window.electronAPI)
-        console.warn('openVideoWindow 可用性:', !!window.electronAPI?.openVideoWindow)
+        console.warn('tabOpenVideoPlayer 可用性:', !!window.electronAPI?.tabOpenVideoPlayer)
         notify.toast('error', '播放失败', '内部播放器不可用')
       }
     } catch (error: any) {
@@ -169,7 +159,6 @@ export function useVideoPlayback(options: VideoPlaybackOptions = {}) {
       
       if (settings.videoPlayMode === 'internal') {
         console.log('使用内部播放器播放视频')
-        // 在本应用新窗口中播放
         await playVideoInternal(video)
       } else {
         console.log('使用外部播放器播放视频')

@@ -244,7 +244,8 @@ export default {
           preloadCount: 3,
           hardwareAcceleration: true,
           renderQuality: 'high',
-          detailPageSize: 50
+          detailPageSize: 50,
+          comicArchiveProgramPath: ''
         },
         video: {
           listPageSize: 20
@@ -264,6 +265,8 @@ export default {
       },
       // 自动保存相关
       autoSaveTimer: null,
+      /** 漫画页选好指定程序后，用来把路径写回当前设置。卸掉页面时要拿同一个函数取消监听。 */
+      comicArchiveProgramListener: null as ((event: Event) => void) | null,
       isAutoSaving: false,
       lastSaveTime: null,
       // 初始化标志，避免在初始化时触发watcher
@@ -325,6 +328,19 @@ export default {
       return this.t(`settings.descriptions.${this.currentCategory}`)
     },
     
+    /**
+     * 漫画页当场选了指定程序时，把路径写进当前设置。
+     * 设置页如果正开着，自动保存会按内存里的图片设置整份重写，不接住这次选择就会把路径冲掉。
+     * @param event 路径放在 detail 里
+     */
+    handleComicArchiveProgramSelected(event: Event) {
+      const programPath = (event as CustomEvent<string>).detail || ''
+      if (!this.settings.image) {
+        this.settings.image = {}
+      }
+      this.settings.image.comicArchiveProgramPath = programPath
+    },
+
     // 处理设置更新事件（来自子组件）
     handleSettingUpdate({ key, value }: { key: string; value: any }) {
       console.log('[SettingsView] handleSettingUpdate 被调用', {
@@ -430,7 +446,8 @@ export default {
           preloadCount: this.settings.image?.preloadCount || 3,
           hardwareAcceleration: this.settings.image?.hardwareAcceleration !== undefined ? this.settings.image.hardwareAcceleration : true,
           renderQuality: this.settings.image?.renderQuality || 'high',
-          detailPageSize: parseInt(this.settings.image?.detailPageSize) || 50
+          detailPageSize: parseInt(this.settings.image?.detailPageSize) || 50,
+          comicArchiveProgramPath: this.settings.image?.comicArchiveProgramPath || ''
         }
         
         // 构建video对象
@@ -587,7 +604,8 @@ export default {
               preloadCount: 3,
               hardwareAcceleration: true,
               renderQuality: 'high',
-              detailPageSize: 50
+              detailPageSize: 50,
+              comicArchiveProgramPath: ''
             },
             video: {
               listPageSize: 20
@@ -950,6 +968,10 @@ export default {
     }
   },
   async mounted() {
+    this.comicArchiveProgramListener = (event: Event) => {
+      this.handleComicArchiveProgramSelected(event)
+    }
+    window.addEventListener('comic-archive-program-selected', this.comicArchiveProgramListener)
     try {
       // 先初始化存档设置的默认值，确保UI可以立即显示
       if (!this.settings.saveDataLocation) {
@@ -992,7 +1014,8 @@ export default {
                 preloadCount: this.settings.image.preloadCount || 3,
                 hardwareAcceleration: this.settings.image.hardwareAcceleration !== undefined ? this.settings.image.hardwareAcceleration : true,
                 renderQuality: this.settings.image.renderQuality || 'high',
-                detailPageSize: parseInt(this.settings.image.detailPageSize) || 50
+                detailPageSize: parseInt(this.settings.image.detailPageSize) || 50,
+                comicArchiveProgramPath: this.settings.image.comicArchiveProgramPath || ''
               }
             } else {
               // 如果没有image对象，创建默认的
@@ -1005,7 +1028,8 @@ export default {
                 preloadCount: 3,
                 hardwareAcceleration: true,
                 renderQuality: 'high',
-                detailPageSize: 50
+                detailPageSize: 50,
+                comicArchiveProgramPath: ''
               }
             }
             
@@ -1198,6 +1222,10 @@ export default {
   },
   
   beforeUnmount() {
+    if (this.comicArchiveProgramListener) {
+      window.removeEventListener('comic-archive-program-selected', this.comicArchiveProgramListener)
+      this.comicArchiveProgramListener = null
+    }
     // 清理定时器
     if (this.autoSaveTimer) {
       clearTimeout(this.autoSaveTimer)
@@ -1429,7 +1457,7 @@ export default {
 
 .btn-test-notification {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   border: none;
   padding: 8px 16px;
   border-radius: 6px;
@@ -1636,7 +1664,7 @@ export default {
 .path-button {
   padding: 8px 16px;
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -1651,7 +1679,7 @@ export default {
 .btn-browse {
   padding: 8px 16px;
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -1829,7 +1857,7 @@ input:checked + .toggle-slider:before {
 
 .btn-primary {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
 }
 
 .btn-primary:hover:not(:disabled) {

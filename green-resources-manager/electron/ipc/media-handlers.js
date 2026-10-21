@@ -128,13 +128,52 @@ function registerIpcHandlers(ipcMain, shell, pathUtils) {
     }
   })
 
+  /**
+   * 找到存放伪装图片的 disguise 文件夹。
+   * 开发时它在项目根目录；打包后会放在程序旁边。优先用已经放了图片的那一个，
+   * 避免当前工作目录是空文件夹时，把项目里准备好的图片漏掉。
+   * @returns {string} disguise 文件夹路径
+   */
+  function resolveDisguiseDirectory() {
+    const { app } = require('electron')
+    /** 可能放着 disguise 文件夹的位置，按常见启动方式排列。 */
+    const candidates = [
+      path.join(process.cwd(), 'disguise'),
+      path.join(app.getAppPath(), 'disguise'),
+      path.join(path.dirname(app.getPath('exe')), 'disguise')
+    ]
+    /** 当作伪装封面的图片后缀。 */
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg']
+    const withImages = candidates.find((dir) => {
+      if (!fs.existsSync(dir)) return false
+      return fs.readdirSync(dir).some((file) => imageExtensions.includes(path.extname(file).toLowerCase()))
+    })
+    if (withImages) return withImages
+    const existing = candidates.find((dir) => fs.existsSync(dir))
+    return existing || candidates[0]
+  }
+
+  /**
+   * 返回伪装图片文件夹，不存在就先创建。
+   * 设置页用它打开资源管理器，和读取封面用的是同一个目录。
+   */
+  ipcMain.handle('get-disguise-directory', async () => {
+    try {
+      const disguiseDir = resolveDisguiseDirectory()
+      if (!fs.existsSync(disguiseDir)) {
+        fs.mkdirSync(disguiseDir, { recursive: true })
+      }
+      return { success: true, directory: disguiseDir }
+    } catch (error) {
+      console.error('获取伪装图片文件夹失败:', error)
+      return { success: false, error: error.message }
+    }
+  })
+
   // 专门用于读取伪装图片的 API
   ipcMain.handle('read-disguise-images', async () => {
     try {
-
-
-      // 使用根目录下的 disguise 文件夹
-      const disguiseDir = path.join(process.cwd(), 'disguise')
+      const disguiseDir = resolveDisguiseDirectory()
 
       // 检查目录是否存在，如果不存在则创建
       if (!fs.existsSync(disguiseDir)) {

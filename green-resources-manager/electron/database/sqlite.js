@@ -792,8 +792,7 @@ async function savePageResources(pageId, resources) {
       // 1. 保存所有资源到对应的资源表（如果有资源的话）
       if (resources.length > 0) {
         for (const resource of resources) {
-          console.log(`[SQLite] 处理资源，resource:`, resource)
-          
+    
           if (!resource.id) {
             console.warn(`[SQLite] 资源缺少 id 字段，跳过保存:`, resource)
             continue
@@ -801,8 +800,6 @@ async function savePageResources(pageId, resources) {
 
           // 从资源数据中获取资源类型
           let resourceType = resource.resourceType || resource.resource_type
-
-          console.log(`[SQLite] 资源原始类型 - resourceType: ${resourceType}, resource.resourceType: ${resource.resourceType}, resource.resource_type: ${resource.resource_type}`)
 
           // 如果资源类型不存在，尝试从页面ID推断
           if (!resourceType) {
@@ -812,8 +809,6 @@ async function savePageResources(pageId, resources) {
 
           // 映射到数据库表名
           const tableName = mapResourceTypeToTableName(resourceType)
-          console.log(`[SQLite] 保存资源到表 ${tableName}, resourceType: ${resourceType}, id: ${resource.id}`)
-
           // 保存映射关系
           resourceTableMap.set(resource.id, tableName)
 
@@ -832,7 +827,6 @@ async function savePageResources(pageId, resources) {
           const insertStmt = db.prepare(`INSERT OR REPLACE INTO "${tableName}" (id, jsonData, timestamp, version) VALUES (?, ?, ?, ?)`)
           insertStmt.run(resource.id, JSON.stringify(resource), timestamp, version)
           insertedCount++
-          console.log(`[SQLite] 资源保存成功，insertedCount 现在为: ${insertedCount}`)
 
           // 标签索引：同一事务内增量同步
           if (logicalType) {
@@ -881,8 +875,6 @@ async function savePageResources(pageId, resources) {
           // 生成唯一ID
           const id = `${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}`
 
-          console.log(`[SQLite] 添加页面索引: ${quotedTableName}, resourceType: ${dbTableName}, resourceId: ${resourceId}`)
-
           // 插入页面索引
           const insertPageStmt = db.prepare(`
             INSERT INTO ${quotedTableName} (id, resourceType, resourceId) 
@@ -891,8 +883,6 @@ async function savePageResources(pageId, resources) {
           insertPageStmt.run(id, dbTableName, resourceId)
         }
       }
-
-      console.log(`[SQLite] 页面 ${pageId} 资源保存完成，共 ${resources.length} 条记录`)
     })
 
     transaction()
@@ -1365,12 +1355,13 @@ async function saveUserToSqlite(user) {
     )
 
     db.close()
-    console.log('[SQLite] 用户数据保存成功')
-    return { ok: true }
   } catch (error) {
     console.error('[SQLite] 保存用户数据失败:', error)
     return { ok: false, message: error.message }
   }
+
+  console.log('[SQLite] 用户数据保存成功')
+  return { ok: true }
 }
 
 /**

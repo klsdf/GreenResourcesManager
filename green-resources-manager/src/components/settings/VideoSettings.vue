@@ -33,7 +33,7 @@ export default {
     return {
       videoPlayModeOptions: [
         { value: 'external', label: '使用外部默认播放器' },
-        { value: 'internal', label: '在本应用新窗口中播放' }
+        { value: 'internal', label: '在本应用新标签页中播放' }
       ]
     }
   },

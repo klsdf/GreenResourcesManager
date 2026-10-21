@@ -116,7 +116,7 @@ export default {
         return originalName // 先返回原始名称，等异步加载完成后再更新
       }
       // 星级和「未评分」是筛选器自己生成的，不是用户标签，可以跟着界面语言变。
-      if (/^[1-5] 星$/.test(originalName) || originalName === '未评分') {
+      if (/^[1-5] 星$/.test(originalName) || originalName === '未评分' || originalName === '已看完' || originalName === '未看完' || originalName === '未访问') {
         return this.$lt(originalName)
       }
       return originalName
@@ -145,8 +145,10 @@ export default {
     /**
      * 更新伪装模式状态
      */
-    updateDisguiseModeState() {
-      const newState = isDisguiseModeEnabled()
+    updateDisguiseModeState(event) {
+      const newState = typeof event?.detail?.enabled === 'boolean'
+        ? event.detail.enabled
+        : isDisguiseModeEnabled()
       if (this.disguiseModeState !== newState) {
         console.log('[FilterSidebar] 伪装模式状态变化:', this.disguiseModeState, '->', newState)
         this.disguiseModeState = newState
@@ -224,7 +226,7 @@ export default {
 
 .btn-clear-filter {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   border: none;
   padding: 4px 8px;
   border-radius: 4px;

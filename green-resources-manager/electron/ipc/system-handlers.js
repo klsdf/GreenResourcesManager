@@ -20,12 +20,29 @@
  * - `get-disk-type-by-path`: 根据文件路径获取磁盘类型（Windows）。
  * - `show-notification`: 显示系统通知。
  * - `open-external`: 打开外部链接或文件。
+ * - `open-file-with-program`: 用指定程序打开一个本地文件。
  */
 
 const { spawn } = require('child_process')
 const { Notification } = require('electron')
 const path = require('path')
 const fs = require('fs')
+
+/**
+ * zip、7z 不能交给 UnRAR。它读不了这些格式，退出码 10 会被误判成密码错误。
+ * 这类压缩包改用同目录的 WinRAR.exe。
+ * @param {{ found: boolean, path?: string, isUnrar?: boolean }} tool 已经找到的解压程序
+ * @param {string} archivePath 压缩包路径
+ * @returns {{ found: boolean, path?: string, isUnrar?: boolean }}
+ */
+function useToolThatCanRead(tool, archivePath) {
+  if (!tool || !tool.found || !tool.path || !tool.isUnrar) return tool
+  const extension = path.extname(archivePath || '').toLowerCase()
+  if (extension === '.rar' || extension === '.cbr') return tool
+  const winrar = path.join(path.dirname(tool.path), 'WinRAR.exe')
+  if (fs.existsSync(winrar)) return { found: true, path: winrar, isUnrar: false }
+  return tool
+}
 
 /**
  * 注册与系统信息相关的 IPC 处理器。
@@ -503,6 +520,61 @@ $results | ConvertTo-Json -Depth 10
     }
   })
 
+  /**
+   * 用用户指定的程序打开本地文件。
+   * 漫画的 cbr/cbz 交给外部阅读器或压缩软件时走这里。
+   * 不用 shell，避免路径里的空格或特殊字符被命令行再解析一次。
+   */
+  ipcMain.handle('open-file-with-program', async (event, programPath, filePath) => {
+    try {
+      if (!programPath || !filePath) {
+        return { success: false, error: '程序路径或文件路径为空' }
+      }
+      const resolvedProgram = path.resolve(programPath)
+      const resolvedFile = path.resolve(filePath)
+      if (!fs.existsSync(resolvedProgram)) {
+        return { success: false, error: '指定的程序不存在' }
+      }
+      if (!fs.statSync(resolvedProgram).isFile()) {
+        return { success: false, error: '指定的路径不是程序文件' }
+      }
+      if (!fs.existsSync(resolvedFile)) {
+        return { success: false, error: '要打开的文件不存在' }
+      }
+
+      return await new Promise((resolve) => {
+        /** 指定程序的进程。拉起后就和本应用脱开，关掉管理器也不会把它一起关掉。 */
+        const child = spawn(resolvedProgram, [resolvedFile], {
+          detached: true,
+          stdio: 'ignore',
+          windowsHide: false,
+          // 工作目录放在程序自己旁边，避免它按相对路径找自己的依赖时找不到
+          cwd: path.dirname(resolvedProgram)
+        })
+        let settled = false
+        /**
+         * 只回应一次。spawn 成功和立刻失败都可能发生，不能回两次。
+         * @param {{ success: boolean, error?: string }} result 打开结果
+         */
+        const finish = (result) => {
+          if (settled) return
+          settled = true
+          resolve(result)
+        }
+        child.once('error', (error) => {
+          finish({ success: false, error: error.message || '无法启动指定程序' })
+        })
+        child.once('spawn', () => {
+          child.unref()
+          finish({ success: true })
+        })
+      })
+    } catch (error) {
+      console.error('用指定程序打开文件失败:', error)
+      return { success: false, error: error.message }
+    }
+  })
+
   // 检测 WinRAR 是否已安装
   ipcMain.handle('check-winrar-installed', async () => {
     try {
@@ -603,7 +675,7 @@ $results | ConvertTo-Json -Depth 10
       }
 
       // 检测 WinRAR（优先查找 unrar.exe，因为它是纯命令行工具，不会弹出 GUI）
-      const winrarResult = await new Promise((resolve) => {
+      let winrarResult = await new Promise((resolve) => {
         // 优先查找 unrar.exe（纯命令行工具，不会弹出 GUI）
         const unrarPaths = [
           'C:\\Program Files\\WinRAR\\unrar.exe',
@@ -655,6 +727,8 @@ $results | ConvertTo-Json -Depth 10
 
         resolve({ found: false })
       })
+
+      winrarResult = useToolThatCanRead(winrarResult, archivePath)
 
       // 检测 7-Zip
       const sevenZipResult = await new Promise((resolve) => {
@@ -717,27 +791,11 @@ $results | ConvertTo-Json -Depth 10
         let args = []
 
         if (isUnrar) {
-          // unrar.exe 命令格式: unrar x -o+ -p<password> "archive.rar" "output\"
-          // unrar.exe 是纯命令行工具，不会弹出 GUI，如果没有密码会返回错误
-          if (password) {
-            args = ['x', '-o+', `-p${password}`, archivePath, outputDir + '\\']
-          } else {
-            args = ['x', '-o+', archivePath, outputDir + '\\']
-          }
+          // 没给密码时用 -p-，让加密包直接失败，而不是停住等人输入
+          args = ['x', '-o+', password ? `-p${password}` : '-p-', archivePath, outputDir + '\\']
         } else if (isWinRAR) {
-          // WinRAR.exe 命令格式: WinRAR x -o+ -p<password> "archive.rar" "output\"
-          // WinRAR.exe 是 GUI 程序，如果没有提供密码且压缩包有密码，会自动弹出 GUI 密码输入框
-          // 注意：WinRAR.exe 在遇到密码保护的压缩包时，如果没有提供 -p 参数，会阻塞并弹出密码输入框
-          // 这会导致我们的 Promise 一直等待，直到用户输入密码或取消
-          if (password) {
-            args = ['x', '-o+', `-p${password}`, archivePath, outputDir + '\\']
-          } else {
-            // 没有密码时，如果压缩包有密码，WinRAR.exe 会弹出密码输入框
-            // 使用 -ibck 参数可以让 WinRAR 在后台运行，但这可能无法阻止密码输入框
-            // 尝试使用 -ibck 参数
-            args = ['x', '-o+', '-ibck', archivePath, outputDir + '\\']
-            console.log('⚠️ 警告: 使用 WinRAR.exe 且未提供密码，如果压缩包有密码，可能会弹出密码输入框')
-          }
+          // -inul 关掉错误框，加密包不会弹出密码窗口
+          args = ['x', '-o+', '-ibck', '-inul', password ? `-p${password}` : '-p-', archivePath, outputDir + '\\']
         } else if (is7Zip) {
           // 7z.exe 命令格式: 7z x "archive.zip" -o"output\" -p<password> -y
           if (password) {
@@ -831,16 +889,14 @@ $results | ConvertTo-Json -Depth 10
             const foundKeywords = passwordKeywords.filter(keyword => output.includes(keyword))
             console.log('找到的密码关键词:', foundKeywords)
             
-            // WinRAR 退出码说明：
-            // 0 = 成功
-            // 1 = 警告
-            // 2 = 致命错误
-            // 10 = 无文件
-            // 11 = 密码错误（通常）
-            // unrar.exe 退出码 10 通常也表示密码错误
-            const isWinRARPasswordError = (isWinRAR || isUnrar) && (code === 11 || code === 10)
+            // WinRAR 解加密 zip：密码不对是 10。UnRAR 读不了 zip 也是 10，那种会带「不是 RAR」。
+            const unsupportedArchive = output.includes('不是 rar') || output.includes('not rar') || output.includes('not a rar')
+            const isWinRARPasswordError = !unsupportedArchive && (
+              ((isWinRAR || isUnrar) && code === 11) ||
+              (isWinRAR && code === 10)
+            )
             const hasPasswordKeywords = foundKeywords.length > 0
-            const requiresPassword = hasPasswordKeywords || isWinRARPasswordError || (code === 10 && output.length > 0)
+            const requiresPassword = !unsupportedArchive && (hasPasswordKeywords || isWinRARPasswordError)
             
             console.log('退出码:', code)
             console.log('是否 WinRAR/unrar:', isWinRAR || isUnrar)
@@ -900,7 +956,7 @@ $results | ConvertTo-Json -Depth 10
       }
 
       // 检测 WinRAR
-      const winrarResult = await new Promise((resolve) => {
+      let winrarResult = await new Promise((resolve) => {
         console.log('=== 开始检测 WinRAR/unrar.exe ===')
         
         // 优先查找 unrar.exe（纯命令行工具，不会弹出 GUI）
@@ -987,6 +1043,8 @@ $results | ConvertTo-Json -Depth 10
         resolve({ found: false })
       })
 
+      winrarResult = useToolThatCanRead(winrarResult, archivePath)
+
       if (!winrarResult.found) {
         return { success: false, error: '未找到 WinRAR 或 unrar.exe' }
       }
@@ -1001,15 +1059,15 @@ $results | ConvertTo-Json -Depth 10
       let command = extractTool
       let args = []
 
+      const passwordSwitch = password ? `-p${password}` : '-p-'
       if (isUnrar) {
-        // unrar.exe 测试命令: unrar t -p<password> "archive.rar"
-        args = ['t', `-p${password}`, archivePath]
+        // 空密码用 -p-，表示这个包没有密码，而不是再去问用户
+        args = ['t', passwordSwitch, archivePath]
       } else if (isWinRAR) {
-        // WinRAR.exe 测试命令: WinRAR t -p<password> "archive.rar"
-        // 使用 -ibck 参数让 WinRAR 在后台运行，避免弹出 GUI
-        args = ['t', `-p${password}`, '-ibck', archivePath]
+        // -inul 关掉错误框，否则加密包会卡住等用户点掉
+        args = ['t', '-ibck', '-inul', passwordSwitch, archivePath]
       } else {
-        args = ['t', `-p${password}`, archivePath]
+        args = ['t', passwordSwitch, archivePath]
       }
 
       console.log('=== 测试密码 ===')
@@ -1017,7 +1075,7 @@ $results | ConvertTo-Json -Depth 10
       console.log('命令:', command)
       console.log('参数:', args)
       console.log('压缩包:', archivePath)
-      console.log('密码:', password.replace(/./g, '*'))
+      console.log('密码:', password ? password.replace(/./g, '*') : '（无密码）')
       console.log('==================')
 
       return new Promise((resolve) => {
@@ -1044,11 +1102,14 @@ $results | ConvertTo-Json -Depth 10
           console.log('stdout 长度:', stdout.length)
           console.log('stderr 长度:', stderr.length)
           
-          // 退出码 0 表示测试成功（密码正确）
-          // 退出码 11 通常表示密码错误
-          // 退出码 10 也可能表示密码错误
+          // 退出码 0 是密码对。11 是 RAR 密码错。WinRAR 解加密 zip 时密码错是 10。
+          const combined = (stdout + stderr).toLowerCase()
+          const unsupportedArchive = combined.includes('不是 rar') || combined.includes('not rar') || combined.includes('not a rar')
           const passwordCorrect = code === 0 || code === null
-          const passwordError = (isUnrar || isWinRAR) && (code === 11 || code === 10)
+          const passwordError = !unsupportedArchive && (
+            ((isUnrar || isWinRAR) && code === 11) ||
+            (isWinRAR && code === 10)
+          )
           
           console.log('密码是否正确:', passwordCorrect)
           console.log('==================')

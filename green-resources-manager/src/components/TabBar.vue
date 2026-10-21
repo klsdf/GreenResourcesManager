@@ -53,21 +53,19 @@ export default {
     // 监听标签页事件
     if (window.electronAPI.onTabLoaded) {
       window.electronAPI.onTabLoaded((data) => {
-        console.log('标签页已加载:', data)
         this.loadTabs()
       })
     }
 
     if (window.electronAPI.onTabClosed) {
       window.electronAPI.onTabClosed((data) => {
-        console.log('标签页已关闭:', data)
         this.loadTabs()
       })
     }
 
     if (window.electronAPI.onTabActivated) {
       window.electronAPI.onTabActivated(async (data) => {
-        console.log('标签页已激活:', data)
+  
         this.activeTabId = data.tabId
         // 重新加载标签页列表以确保数据是最新的
         await this.loadTabs()
@@ -76,7 +74,6 @@ export default {
 
     if (window.electronAPI.onTabTitleUpdated) {
       window.electronAPI.onTabTitleUpdated((data) => {
-        console.log('标签页标题已更新:', data)
         const tab = this.tabs.find(t => t.id === data.tabId)
         if (tab) {
           tab.title = data.title

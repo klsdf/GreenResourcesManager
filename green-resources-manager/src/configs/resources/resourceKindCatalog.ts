@@ -9,7 +9,7 @@ import { Website } from './website'
 import { Audio } from './audio'
 import { Other } from './other'
 import { ResourceField } from './base/ResourceField'
-import { FormField_Tags, FormField_Text } from './base/FormField'
+import { FormField_Date, FormField_Tags, FormField_Text } from './base/FormField'
 
 /**
  * 资源本身只有这几种。
@@ -169,6 +169,8 @@ export interface PageFieldOption {
   filterable: boolean
   /** 筛选时是不是多值 */
   isArray: boolean
+  /** 日期字段走日期筛选，侧栏按具体日期列出，而不是当普通文本 */
+  dateFilter?: boolean
 }
 
 /**
@@ -280,11 +282,13 @@ export function collectFieldCatalog(): PageFieldOption[] {
       if (!(field instanceof ResourceField) || !field.editType) continue
       const isTags = field.editType instanceof FormField_Tags
       const isText = field.editType instanceof FormField_Text
+      const isDate = field.editType instanceof FormField_Date
       seen.set(key, {
         key,
         label: field.editType.fieldName || key,
-        filterable: isTags || isText,
-        isArray: isTags
+        filterable: isTags || isText || isDate,
+        isArray: isTags,
+        dateFilter: isDate
       })
     }
   }
@@ -315,6 +319,17 @@ export function defaultFieldKeys(legacyPageTypes: string[]): string[] {
  * 给一个字段生成侧边栏筛选配置。
  */
 export function makeFieldFilter(field: PageFieldOption) {
+  if (field.dateFilter) {
+    return {
+      key: field.key,
+      title: `${field.label}筛选`,
+      filterType: 'dateField',
+      params: {
+        field: field.key
+      },
+      isArray: false
+    }
+  }
   return {
     key: field.key,
     title: `${field.label}筛选`,

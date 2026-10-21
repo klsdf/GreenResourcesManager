@@ -387,7 +387,7 @@ export default {
 
 .btn-add {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
 }
 
 .btn-add:hover {

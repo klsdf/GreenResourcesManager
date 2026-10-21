@@ -461,60 +461,75 @@ async function getDiskType(filePath) {
       return { success: false, error: '无法从路径提取盘符' }
     }
     
-    return new Promise((resolve) => {
-      const psCommand = `Get-PhysicalDisk | Get-Disk | Get-Partition | Where-Object { $_.DriveLetter -eq '${driveLetter[0]}' } | ForEach-Object { 
-  $disk = Get-Disk -Number $_.DiskNumber
-  $physicalDisk = Get-PhysicalDisk | Where-Object { $_.DeviceID -eq $disk.Number }
-  @{
-    MediaType = $physicalDisk.MediaType
-    FriendlyName = $physicalDisk.FriendlyName
-    DeviceID = $physicalDisk.DeviceID
-    Size = $physicalDisk.Size
-    BusType = $physicalDisk.BusType
-  } | ConvertTo-Json
-}`
-      
-      let output = ''
-      
-      const powershell = exec(`powershell -Command "${psCommand}"`, { encoding: 'utf8' })
-      
-      powershell.stdout.on('data', (data) => {
-        output += data
-      })
-      
-      powershell.on('close', (code) => {
-        const trimmedOutput = output.trim()
-        if (!trimmedOutput || trimmedOutput === '{}') {
-          // 如果命令失败或返回空对象，返回错误
-          resolve({ success: false, error: '无法获取磁盘类型，可能需要管理员权限或该盘符不存在' })
-          return
-        }
+    const letter = driveLetter[0]
+    if (!fs.existsSync(`${letter}:\\`)) {
+      return { success: false, error: `${letter}: 盘不存在` }
+    }
 
-        try {
-          const disk = JSON.parse(trimmedOutput)
-          // 检查是否成功获取到磁盘信息
-          if (!disk.MediaType && !disk.DeviceID) {
-            resolve({ success: false, error: '无法获取磁盘类型信息' })
+    // 写成脚本文件再执行。直接塞进 powershell -Command 时，$_ 和花括号会被命令行吃掉，查询一定失败。
+    const psScript = `
+$partition = Get-Partition -DriveLetter '${letter}' -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $partition) { Write-Output 'NO_PARTITION'; exit 0 }
+$disk = $partition | Get-Disk | Get-PhysicalDisk | Select-Object -First 1
+if (-not $disk) { Write-Output 'NO_PHYSICAL'; exit 0 }
+[PSCustomObject]@{
+  MediaType = [string]$disk.MediaType
+  FriendlyName = [string]$disk.FriendlyName
+  DeviceID = [string]$disk.DeviceId
+  Size = [int64]$disk.Size
+  BusType = [string]$disk.BusType
+} | ConvertTo-Json -Compress
+`
+    const tempScriptPath = path.join(os.tmpdir(), `grm-disk-${letter}-${Date.now()}.ps1`)
+
+    return new Promise((resolve) => {
+      fs.writeFileSync(tempScriptPath, psScript, 'utf8')
+      exec(
+        `powershell -NoProfile -ExecutionPolicy Bypass -File "${tempScriptPath}"`,
+        { encoding: 'utf8' },
+        (error, stdout, stderr) => {
+          try {
+            if (fs.existsSync(tempScriptPath)) fs.unlinkSync(tempScriptPath)
+          } catch (cleanupError) {
+            // 临时脚本删不掉不影响结果
+          }
+
+          const trimmedOutput = (stdout || '').trim()
+          if (error) {
+            resolve({ success: false, error: (stderr || error.message || '查询磁盘失败').trim() })
             return
           }
-          
-          const mediaType = disk.MediaType || 'Unknown'
-          
-          resolve({
-            success: true,
-            driveLetter: driveLetter,
-            mediaType: mediaType, // SSD, HDD, 或其他
-            friendlyName: disk.FriendlyName || '未知磁盘',
-            deviceId: disk.DeviceID,
-            size: disk.Size || 0,
-            sizeGB: disk.Size ? Math.round(disk.Size / (1024 * 1024 * 1024)) : 0,
-            busType: disk.BusType || 'Unknown'
-          })
-        } catch (parseError) {
-          console.error('解析磁盘类型失败:', parseError, '原始输出:', output)
-          resolve({ success: false, error: '解析磁盘类型失败: ' + parseError.message })
+          if (trimmedOutput === 'NO_PARTITION') {
+            resolve({ success: false, error: `${letter}: 没有对应的分区` })
+            return
+          }
+          if (!trimmedOutput || trimmedOutput === 'NO_PHYSICAL') {
+            resolve({ success: false, error: `${letter}: 不是本地物理磁盘，读不到 SSD/HDD 类型` })
+            return
+          }
+
+          try {
+            const disk = JSON.parse(trimmedOutput)
+            if (!disk.MediaType && !disk.DeviceID) {
+              resolve({ success: false, error: '无法获取磁盘类型信息' })
+              return
+            }
+            resolve({
+              success: true,
+              driveLetter: driveLetter,
+              mediaType: disk.MediaType || 'Unknown',
+              friendlyName: disk.FriendlyName || '未知磁盘',
+              deviceId: disk.DeviceID,
+              size: disk.Size || 0,
+              sizeGB: disk.Size ? Math.round(disk.Size / (1024 * 1024 * 1024)) : 0,
+              busType: disk.BusType || 'Unknown'
+            })
+          } catch (parseError) {
+            console.error('解析磁盘类型失败:', parseError, '原始输出:', stdout)
+            resolve({ success: false, error: '解析磁盘类型失败: ' + parseError.message })
+          }
         }
-      })
+      )
     })
   } catch (error) {
     console.error('获取磁盘类型异常:', error)

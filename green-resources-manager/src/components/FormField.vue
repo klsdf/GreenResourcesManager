@@ -255,7 +255,7 @@ select:disabled {
 .btn-browse {
   padding: 10px 16px;
   background-color: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   border: none;
   border-radius: 6px;
   cursor: pointer;

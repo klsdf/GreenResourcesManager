@@ -744,12 +744,12 @@ export default {
 
 .control-btn.active {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
 }
 
 .play-btn {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   padding: 10px;
 }
 
@@ -878,7 +878,7 @@ export default {
   top: -2px;
   right: -2px;
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   font-size: 0.7rem;
   padding: 2px 4px;
   border-radius: 8px;
@@ -1077,12 +1077,12 @@ export default {
 
 .playlist-item.current {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
 }
 
 .playlist-item.playing {
   background: var(--accent-hover);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
 }
 
 .item-thumbnail {

@@ -90,14 +90,12 @@ export function useImageCover(options: ImageCoverOptions) {
         const filePath = await (window.electronAPI as any).selectScreenshotImage(folderPathRef.value)
         if (filePath) {
           coverRef.value = filePath
-          notify.native('设置成功', '已从文件夹选择封面')
         }
       } else if (window.electronAPI && (window.electronAPI as any).selectImageFile) {
         // 降级到普通图片选择器
         const filePath = await (window.electronAPI as any).selectImageFile(folderPathRef.value)
         if (filePath) {
           coverRef.value = filePath
-          notify.native('设置成功', '已从文件夹选择封面')
         }
       } else {
         alert('当前环境不支持从文件夹选择图片功能')

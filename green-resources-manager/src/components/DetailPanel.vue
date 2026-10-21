@@ -16,7 +16,8 @@
         <div class="detail-left">
           <div class="detail-image">
             <img 
-              :src="resolveImage((item.coverPath?.value ?? item.coverPath) || (item.image?.value ?? item.image) || (item.cover?.value ?? item.cover) || (item.thumbnail?.value ?? item.thumbnail) || (item.favicon?.value ?? item.favicon))" 
+              :key="detailCoverKey"
+              :src="detailCoverSrc" 
               :alt="item.name?.value ?? item.name"
               @error="handleImageError"
             >
@@ -36,6 +37,17 @@
               @update:model-value="handleRatingChange"
               @update:comment="handleCommentChange"
             />
+            <button
+              type="button"
+              class="completion-mark"
+              :class="{ 'completion-mark--done': isFinished, 'completion-mark--pop': completionPopping }"
+              :title="isFinished ? $lt('再点一次可以取消') : $lt(completionPhrase)"
+              @click="handleFinishedToggle"
+            >
+              <span class="completion-mark__seal">{{ isFinished ? '✓' : '✦' }}</span>
+              <span>{{ $lt(isFinished ? completionDonePhrase : completionPhrase) }}</span>
+            </button>
+            <p v-if="isFinished && finishedAtText" class="completion-mark__time">{{ finishedAtText }}</p>
           </div>
         </div>
         <div class="detail-info">
@@ -120,6 +132,9 @@
 </template>
 
 <script>
+import coverManager from '../utils/CoverManager.ts'
+import { playCompletionCelebration } from '../utils/completionCelebration.ts'
+
 export default {
   name: 'DetailPanel',
   props: {
@@ -154,12 +169,59 @@ export default {
       default: null
     }
   },
-  emits: ['close', 'action', 'update-rating', 'update-comment', 'toggle-favorite'],
+  emits: ['close', 'action', 'update-rating', 'update-comment', 'toggle-favorite', 'update-finished'],
   data() {
     return {
+      /** 详情页左侧正在显示的封面。先放默认图，等相对路径解析完再换成真正的封面。 */
+      detailCoverSrc: './default-image.png',
+      /**
+       * 封面地址每换一次就加一。
+       * 用来丢掉上一张图留下的加载失败事件，避免它把已经读出来的封面又改回默认图。
+       */
+      detailCoverKey: 0,
+      /** 这次解析对应的原始封面路径。慢请求回来时用来判断封面有没有已经换成另一张。 */
+      detailCoverRequestPath: '',
+      /** 完成按钮正在弹一下。只在刚点亮时为真，用来配合烟花。 */
+      completionPopping: false
+    }
+  },
+  watch: {
+    coverSourcePath: {
+      immediate: true,
+      handler(path) {
+        this.loadDetailCover(path)
+      }
     }
   },
   computed: {
+    /**
+     * 这条资源是否已经标记完成。
+     */
+    isFinished() {
+      return this.getFieldValue(this.item?.finished) === true
+    },
+    /**
+     * 未完成时按钮上的句子，例如「标记为已看完」。
+     */
+    completionPhrase() {
+      return this.completionCopy().idle
+    },
+    /**
+     * 完成后按钮上的句子，例如「已看完」。
+     */
+    completionDonePhrase() {
+      return this.completionCopy().done
+    },
+    /**
+     * 完成日期。只显示日期，时间留在存档里。
+     */
+    finishedAtText() {
+      const raw = this.getFieldValue(this.item?.finishedAt)
+      if (!raw || typeof raw !== 'string') return ''
+      const date = new Date(raw)
+      if (Number.isNaN(date.getTime())) return ''
+      return date.toLocaleDateString()
+    },
     descriptionTitle() {
       // 从配置中读取，如果没有配置返回默认值
       const config = this.detailPanelConfig
@@ -169,6 +231,24 @@ export default {
       // 从配置中读取，如果没有配置返回默认值
       const config = this.detailPanelConfig
       return config?.tagsTitle || '标签'
+    },
+    /**
+     * 详情页左侧封面的原始路径。
+     * 电影的自动封面写在 thumbnail 里，路径是 videos/covers 这种相对路径，不能直接当图片地址。
+     * 电影优先看 thumbnail，避免别的空字段或旧字段抢在前面。
+     */
+    coverSourcePath() {
+      if (!this.item) return ''
+      const kind = String(this.getFieldValue(this.item.resourceType) || this.item.constructor?.name || '').toLowerCase()
+      const preferThumbnail = kind === 'movie' || kind === 'video' || kind === 'videofolder' || kind === 'anime'
+      const fields = preferThumbnail
+        ? ['thumbnail', 'thumbnailPath', 'coverPath', 'cover', 'image', 'favicon']
+        : ['coverPath', 'image', 'cover', 'thumbnail', 'thumbnailPath', 'favicon']
+      for (const field of fields) {
+        const value = this.getFieldValue(this.item[field])
+        if (typeof value === 'string' && value.trim() !== '') return value.trim()
+      }
+      return ''
     },
     // 获取资源的详情页配置
     detailPanelConfig() {
@@ -471,6 +551,64 @@ export default {
         this.$emit('update-rating', rating, this.item)
       }
     },
+    /**
+     * 按资源种类选择完成说法。
+     * 游戏是玩完，小说是读完，音频是听完，看起来的作品是看完，其余用完成。
+     * @returns {{ idle: string, done: string }} 未完成和已完成两句文案
+     */
+    completionCopy() {
+      const kind = String(this.getFieldValue(this.item?.resourceType) || this.type || '').toLowerCase()
+      if (kind === 'game') return { idle: '标记为已玩完', done: '已玩完' }
+      if (kind === 'novel') return { idle: '标记为已读完', done: '已读完' }
+      if (kind === 'audio' || kind === 'audiofolder') return { idle: '标记为已听完', done: '已听完' }
+      if (kind === 'software' || kind === 'other' || kind === 'file') return { idle: '标记为已完成', done: '已完成' }
+      return { idle: '标记为已看完', done: '已看完' }
+    },
+    /**
+     * 把一个字段写回当前详情项。
+     * 存档里的字段是带 value 的对象，直接改 value，界面才会马上换成新状态。
+     * @param fieldName 字段名
+     * @param value 新的值
+     */
+    assignItemField(fieldName, value) {
+      if (!this.item) return
+      const field = this.item[fieldName]
+      if (field && typeof field === 'object' && 'value' in field) {
+        field.value = value
+        return
+      }
+      this.item[fieldName] = value
+    },
+    /**
+     * 点亮或取消完成标记。
+     * 只有从没有标记变成已完成时才放烟花。取消是改错了，不需要再庆祝一次。
+     */
+    async handleFinishedToggle() {
+      const itemId = this.item?.id?.value ?? this.item?.id
+      if (!this.item || !itemId) return
+      const nextFinished = !this.isFinished
+      const finishedAt = nextFinished ? new Date().toISOString() : ''
+      if (this.onUpdateResource && typeof this.onUpdateResource === 'function') {
+        try {
+          await this.onUpdateResource(itemId, { finished: nextFinished, finishedAt })
+          this.assignItemField('finished', nextFinished)
+          this.assignItemField('finishedAt', finishedAt)
+        } catch (error) {
+          console.error('更新完成标记失败:', error)
+          return
+        }
+      } else {
+        this.assignItemField('finished', nextFinished)
+        this.assignItemField('finishedAt', finishedAt)
+        this.$emit('update-finished', nextFinished, this.item)
+      }
+      if (!nextFinished) return
+      this.completionPopping = true
+      playCompletionCelebration()
+      window.setTimeout(() => {
+        this.completionPopping = false
+      }, 700)
+    },
     async handleCommentChange(comment) {
       // 检查 item 是否存在，避免在面板关闭时触发更新
       const itemId = this.item?.id?.value ?? this.item?.id
@@ -501,6 +639,78 @@ export default {
       const fileName = filePath.toLowerCase()
       const archiveExtensions = ['.zip', '.rar', '.7z', '.tar', '.gz', '.tar.gz', '.bz2', '.tar.bz2', '.xz', '.tar.xz']
       return archiveExtensions.some(ext => fileName.endsWith(ext))
+    },
+    /**
+     * 这种资源加载失败时该显示的默认图。
+     * 电影用自己的默认视频图，不要一律落到通用占位图。
+     * @returns {string}
+     */
+    coverFallback() {
+      const fromConfig = this.detailPanelConfig?.defaultImage
+      if (typeof fromConfig === 'string' && fromConfig.trim()) return fromConfig
+      const fromClass = this.item?.constructor?.getDefaultIcon
+      if (typeof fromClass === 'function') {
+        const icon = fromClass.call(this.item.constructor)
+        if (typeof icon === 'string' && icon.trim()) return icon
+      }
+      return './default-image.png'
+    },
+    /**
+     * 把本地图片读成 data URL。读不到就返回空字符串，不拼 file://。
+     * 页面跑在 http 上时，file:// 会被拦下，加载失败后又会把封面改回默认图。
+     * @param {string} filePath 本地路径
+     * @returns {Promise<string>}
+     */
+    async readCoverAsDataUrl(filePath) {
+      if (!filePath || typeof filePath !== 'string') return ''
+      if (/^(https?:|data:|blob:|archive:)/i.test(filePath)) return filePath
+      if (!window.electronAPI?.readFileAsDataUrl) return ''
+      const dataUrl = await window.electronAPI.readFileAsDataUrl(filePath)
+      return typeof dataUrl === 'string' ? dataUrl : ''
+    },
+    /**
+     * 换详情页左侧正在显示的封面，并丢掉上一张图的元素。
+     * 旧图片的失败事件如果晚到，会改到已经卸载的元素上，不会把新封面盖掉。
+     * @param {string} src 新的图片地址
+     */
+    setDetailCoverSrc(src) {
+      if (this.detailCoverSrc === src) return
+      this.detailCoverSrc = src
+      this.detailCoverKey += 1
+    },
+    /**
+     * 把封面路径解析成详情页能显示的图片地址。
+     * 电影自动封面是 videos/covers 下的相对路径。先拼到存档目录，再读成 data URL，和卡片同一条路。
+     * 拼出来的路径读不到时，再试原始路径，避免存档目录重复拼接后丢图。
+     * @param imagePath 封面原始路径
+     */
+    async loadDetailCover(imagePath) {
+      const fallback = this.coverFallback()
+      const pathText = typeof imagePath === 'string' ? imagePath.trim() : ''
+      this.detailCoverRequestPath = pathText
+      if (!pathText) {
+        this.setDetailCoverSrc(fallback)
+        return
+      }
+      if (/^(https?:|data:|blob:|archive:)/i.test(pathText)) {
+        this.setDetailCoverSrc(pathText)
+        return
+      }
+      try {
+        const fullPath = await coverManager.getCoverUrl(pathText)
+        if (this.detailCoverRequestPath !== pathText) return
+        let dataUrl = await this.readCoverAsDataUrl(fullPath)
+        if (!dataUrl && fullPath !== pathText) {
+          dataUrl = await this.readCoverAsDataUrl(pathText)
+        }
+        if (this.detailCoverRequestPath !== pathText) return
+        this.setDetailCoverSrc(dataUrl || fallback)
+      } catch (error) {
+        console.error('详情页封面加载失败:', error)
+        if (this.detailCoverRequestPath === pathText) {
+          this.setDetailCoverSrc(fallback)
+        }
+      }
     },
     resolveImage(imagePath) {
       // 如果传入的是 ResourceField 对象，提取其 value
@@ -582,10 +792,20 @@ export default {
       // 其他情况直接返回
       return thumbnail
     },
+    /**
+     * 封面图片加载失败时换默认图。
+     * 已经显示的是读出来的封面时不再改地址。旧图的失败事件不该把新封面盖掉。
+     * @param {Event} event 图片错误事件
+     */
     handleImageError(event) {
-      // 从配置中读取默认图片，如果没有配置使用通用默认图片
-      const config = this.detailPanelConfig
-      event.target.src = config?.defaultImage || './default-image.png'
+      if (!event?.target?.isConnected) return
+      const intended = typeof this.detailCoverSrc === 'string' ? this.detailCoverSrc : ''
+      if (intended.startsWith('data:') || intended.startsWith('blob:') || intended.startsWith('http')) {
+        return
+      }
+      const fallback = this.coverFallback()
+      if (this.detailCoverSrc === fallback) return
+      this.setDetailCoverSrc(fallback)
     },
     formatDate(date) {
       if (!date) return '未知'
@@ -681,6 +901,15 @@ export default {
         if (actionConfig.showCondition) {
           const condition = actionConfig.showCondition
           
+          // cbr/cbz 才显示「用默认程序打开」「用指定程序打开」。文件夹没有系统关联可打开的单个压缩包。
+          if (condition.onlyComicArchive) {
+            const resourcePath = this.item?.resourcePath?.value ?? this.item?.resourcePath ?? ''
+            const pathText = typeof resourcePath === 'string' ? resourcePath.trim() : ''
+            if (!/\.(cbr|cbz)$/i.test(pathText)) {
+              return
+            }
+          }
+
           // 检查是否为压缩包
           if (condition.notArchive) {
             const resourcePath = this.item?.resourcePath?.value ?? this.item?.resourcePath ?? 
@@ -872,7 +1101,7 @@ export default {
   font-size: 0.75rem;
   font-weight: 500;
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #fff);
   border-radius: var(--radius-md);
   white-space: nowrap;
   flex-shrink: 0;
@@ -1059,7 +1288,7 @@ export default {
 
 .btn-open {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #fff);
   border: none;
   padding: 12px 24px;
   border-radius: 8px;
@@ -1098,7 +1327,7 @@ export default {
 
 .btn-visit {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #fff);
   border: none;
   padding: 12px 24px;
   border-radius: 8px;
@@ -1212,6 +1441,73 @@ export default {
   font-weight: 600;
   margin: 0 0 12px 0;
   transition: color 0.3s ease;
+}
+
+.completion-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 999px;
+  border: 1px dashed var(--accent-color);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.completion-mark:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+}
+
+.completion-mark__seal {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--accent-color) 22%, var(--bg-secondary));
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.completion-mark--done {
+  border-style: solid;
+  border-color: #e8b931;
+  background: linear-gradient(180deg, #fff6d8 0%, #ffe7a3 100%);
+  color: #6a4b08;
+  box-shadow: 0 8px 18px rgba(232, 185, 49, 0.28);
+}
+
+.completion-mark--done .completion-mark__seal {
+  background: #6a4b08;
+  color: #fff6d8;
+}
+
+.completion-mark--pop {
+  animation: completion-pop 0.65s ease;
+}
+
+@keyframes completion-pop {
+  0% { transform: scale(0.92); }
+  45% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+.completion-mark__time {
+  margin: 8px 0 0;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
 }
 
 .rating-content {

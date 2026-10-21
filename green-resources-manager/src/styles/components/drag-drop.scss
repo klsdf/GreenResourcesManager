@@ -15,7 +15,7 @@
       left: 50%;
       transform: translate(-50%, -50%);
       background: var(--accent-color);
-      color: white;
+      color: var(--text-on-accent, #1a1a1a);
       padding: var(--spacing-xl) var(--spacing-3xl);
       border-radius: var(--radius-xl);
       font-size: var(--font-size-lg);

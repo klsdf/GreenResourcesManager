@@ -198,7 +198,7 @@ export default {
 .save-btn {
   padding: 12px 16px;
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   border: none;
   border-radius: 8px;
   font-size: 0.9rem;

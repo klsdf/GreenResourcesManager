@@ -266,6 +266,55 @@ export function useResourceFilter<T = any>(
       filterConfigs = [ratingFilter, ...filterConfigs]
     }
   }
+
+  // 完成标记和访问记录也在所有资源上，每个页面都给「已看完 / 未看完 / 未访问」。
+  const hasCompletionFilter = filterConfigs.some(config => config.key === 'completion')
+
+  if (!hasCompletionFilter) {
+    const completionFunctions = getFilterFunctions('completion', {})
+    /** 未在页面配置里声明时使用的默认完成情况筛选。 */
+    const completionFilter: FilterConfig<T> = {
+      key: 'completion',
+      title: '完成情况',
+      filterType: 'completion',
+      params: {},
+      extractFn: completionFunctions.extractFn,
+      matchFn: completionFunctions.matchFn
+    }
+    const ratingIndex = filterConfigs.findIndex(config => config.key === 'rating')
+    if (ratingIndex >= 0) {
+      filterConfigs = [
+        ...filterConfigs.slice(0, ratingIndex + 1),
+        completionFilter,
+        ...filterConfigs.slice(ratingIndex + 1)
+      ]
+    } else {
+      filterConfigs = [completionFilter, ...filterConfigs]
+    }
+  }
+
+  /**
+   * 发行日期只属于视频。电影页写在配置里；按电影模板建的页面如果还是旧配置，这里补上。
+   * 番剧是文件夹，不走这个字段。
+   */
+  const acceptsVideo = (pageConfig.resourceTypes || []).includes('Video')
+    || (pageConfig.acceptedKinds || []).includes('video')
+  const hasReleaseDateFilter = filterConfigs.some(config =>
+    config.key === 'releaseDate' || (config as any).params?.field === 'releaseDate'
+  )
+  if (acceptsVideo && !hasReleaseDateFilter) {
+    const dateFunctions = getFilterFunctions('dateField', { field: 'releaseDate' })
+    /** 旧的视频页面配置里没有发行日期筛选时补上的默认项。 */
+    const releaseDateFilter: FilterConfig<T> = {
+      key: 'releaseDate',
+      title: '发行日期筛选',
+      filterType: 'dateField',
+      params: { field: 'releaseDate' },
+      extractFn: dateFunctions.extractFn,
+      matchFn: dateFunctions.matchFn
+    }
+    filterConfigs = [...filterConfigs, releaseDateFilter]
+  }
   
   // ========== 标签索引接入 ==========
   // 已登记的标签字段从主进程 SQLite 标签索引读取；系列名等普通文本仍遍历当前页资源

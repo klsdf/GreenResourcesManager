@@ -234,7 +234,7 @@ export default {
 
 .btn-confirm {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   border: none;
   padding: 10px 20px;
   border-radius: 6px;
@@ -276,7 +276,7 @@ export default {
   margin-top: 8px;
   padding: 8px 16px;
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   border: none;
   border-radius: 6px;
   cursor: pointer;

@@ -325,7 +325,7 @@ export default {
 
 .tag-item-selected {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   border-color: var(--accent-color);
 }
 

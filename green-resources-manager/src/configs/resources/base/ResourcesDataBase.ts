@@ -139,6 +139,23 @@ export abstract class BaseResources {
 	isFavorite: ResourceField<boolean> = new ResourceField<boolean>({
 		saveable: true
 	})
+
+	/**
+	 * 是否已经玩完、看完或读完。
+	 * 放在基类上，是因为每种资源的详情页都有同一块玩家评价，完成标记要跟着这条资源一起保存。
+	 */
+	finished: ResourceField<boolean> = new ResourceField<boolean>({
+		saveable: true,
+		defaultValue: false
+	})
+
+	/**
+	 * 标记完成的时间。取消标记后清空，避免日期还留在未完成的资源上。
+	 */
+	finishedAt: ResourceField<string> = new ResourceField<string>({
+		saveable: true,
+		defaultValue: ''
+	})
 	
 
 	/**

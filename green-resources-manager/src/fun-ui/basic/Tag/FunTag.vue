@@ -42,8 +42,10 @@ function handleClose(event: MouseEvent) {
 .fun-tag {
   display: inline-flex;
   align-items: center;
-  background: var(--accent-color);
-  color: white;
+  /* 不用整块强调色。深色主题的强调色偏浅，铺满后会和面板、白字糊在一起。 */
+  background: color-mix(in srgb, var(--accent-color) 22%, var(--bg-secondary));
+  color: var(--text-primary);
+  border: 1px solid var(--accent-color);
   padding: var(--spacing-xs) var(--spacing-md);
   border-radius: var(--radius-lg);
   font-size: var(--font-size-sm);
@@ -52,7 +54,7 @@ function handleClose(event: MouseEvent) {
   transition: background var(--transition-base);
   
   &:hover {
-    background: var(--accent-hover);
+    background: color-mix(in srgb, var(--accent-color) 38%, var(--bg-secondary));
   }
 }
 
@@ -64,7 +66,7 @@ function handleClose(event: MouseEvent) {
 .fun-tag__close {
   background: none;
   border: none;
-  color: white;
+  color: var(--text-primary);
   cursor: pointer;
   font-size: var(--font-size-base);
   line-height: 1;

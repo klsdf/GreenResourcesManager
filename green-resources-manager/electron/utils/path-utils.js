@@ -94,6 +94,11 @@ function readFileAsDataUrl(filePath) {
     const mime = ext === '.png' ? 'image/png' :
                  ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' :
                  ext === '.gif' ? 'image/gif' :
+                 ext === '.webp' ? 'image/webp' :
+                 ext === '.bmp' ? 'image/bmp' :
+                 ext === '.svg' ? 'image/svg+xml' :
+                 ext === '.avif' ? 'image/avif' :
+                 ext === '.ico' ? 'image/x-icon' :
                  ext === '.pdf' ? 'application/pdf' :
                  ext === '.mp3' ? 'audio/mpeg' :
                  ext === '.wav' ? 'audio/wav' :

@@ -124,8 +124,6 @@ class TabManager {
 
     // 设置为活动标签页
     this.setActiveTab(tabId)
-
-    console.log('✅ 创建新标签页:', tabId, targetUrl)
     return tabId
   }
 

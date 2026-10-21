@@ -44,9 +44,14 @@
       <div v-if="type === 'folder'" class="folder-indicator" :title="$lt('文件夹')">
         📁
       </div>
-      <!-- 收藏标识 -->
-      <div v-if="itemIsFavorite && !isMultiSelectMode" class="favorite-indicator" :title="$lt('已收藏')">
-        ⭐
+      <!-- 右上角：完成标记和收藏。完成标记跟压缩包那些状态标一样常驻，收藏在多选时让开。 -->
+      <div v-if="showTopRightMarks" class="top-right-indicators">
+        <div v-if="itemIsFinished" class="finished-indicator" :title="$lt(finishedMarkTitle)">
+          ✓
+        </div>
+        <div v-if="itemIsFavorite && !isMultiSelectMode" class="favorite-indicator" :title="$lt('已收藏')">
+          ⭐
+        </div>
       </div>
       <div class="media-overlay" v-if="showActionButton && !isMultiSelectMode">
         <div class="action-button" @click.stop="$emit('action', item)">
@@ -718,6 +723,31 @@ export default {
     itemIsFavorite() {
       return getFieldValue(this.item.isFavorite)
     },
+    /**
+     * 这条资源是否已经标记完成。
+     */
+    itemIsFinished() {
+      return getFieldValue(this.item?.finished) === true
+    },
+    /**
+     * 右上角是否要显示标记。
+     * 完成标记在多选时也留着；只有收藏、又正在多选时，这一角留空。
+     */
+    showTopRightMarks() {
+      return this.itemIsFinished || (this.itemIsFavorite && !this.isMultiSelectMode)
+    },
+    /**
+     * 完成标记悬停时的说法。
+     * 和详情页按钮用同一套动词：游戏是玩完，小说是读完，音频是听完。
+     */
+    finishedMarkTitle() {
+      const kind = String(this.type || '').toLowerCase()
+      if (kind === 'game') return '已玩完'
+      if (kind === 'novel') return '已读完'
+      if (kind === 'audio') return '已听完'
+      if (kind === 'software' || kind === 'other' || kind === 'file') return '已完成'
+      return '已看完'
+    },
     itemDeveloper() {
       return getFieldValue(this.item.developer)
     },
@@ -778,6 +808,18 @@ export default {
       const texts = getDisplayTexts(this.item)
       if (!dateString) return texts.neverAccessed
       return formatLastPlayed(dateString, texts)
+    },
+    /**
+     * 卡片上的阅读状态。
+     * 打开小说只会计下最后阅读时间，时长经常还是 0。时长为 0 不能写成未阅读，否则读过的书也会显示没读。
+     * @param {number} minutes - 累计阅读分钟数
+     * @returns {string}
+     */
+    formatReadStatus(minutes) {
+      if (minutes) return this.formatReadTime(minutes)
+      const lastRead = getNestedFieldValue(this.item, 'lastRead')
+      if (lastRead) return lt('已阅读')
+      return lt('未阅读')
     },
     formatReadTime(minutes) {
       if (!minutes) return lt('未阅读')
@@ -1206,8 +1248,10 @@ export default {
     /**
      * 更新伪装模式状态
      */
-    updateDisguiseModeState() {
-      const newState = isDisguiseModeEnabled()
+    updateDisguiseModeState(event) {
+      const newState = typeof event?.detail?.enabled === 'boolean'
+        ? event.detail.enabled
+        : isDisguiseModeEnabled()
       if (this.disguiseModeState !== newState) {
         //console.log('MediaCard: 伪装模式状态变化:', this.disguiseModeState, '->', newState)
         this.disguiseModeState = newState
@@ -1650,7 +1694,7 @@ $running-color-dark: #10b981;
 
 .action-button {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   width: 60px;
   height: 60px;
   border-radius: 50%;
@@ -1879,10 +1923,33 @@ $running-color-dark: #10b981;
   box-shadow: 0 2px 8px rgba(0, 0, 0, $shadow-opacity);
 }
 
-.favorite-indicator {
+.top-right-indicators {
   position: absolute;
   top: calc(8px * var(--card-scale, 1));
   right: calc(8px * var(--card-scale, 1));
+  display: flex;
+  gap: calc(6px * var(--card-scale, 1));
+  z-index: 10;
+  align-items: center;
+}
+
+.finished-indicator {
+  background: #15803d;
+  color: #f0fdf4;
+  border-radius: 50%;
+  width: calc(28px * var(--card-scale, 1));
+  height: calc(28px * var(--card-scale, 1));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(15px * var(--card-scale, 1));
+  font-weight: 700;
+  backdrop-filter: blur($backdrop-blur-small);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, $shadow-opacity);
+}
+
+.favorite-indicator {
   background: rgba(251, 191, 36, $indicator-bg-opacity);
   color: white;
   border-radius: 50%;

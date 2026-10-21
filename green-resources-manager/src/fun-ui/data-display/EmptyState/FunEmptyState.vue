@@ -88,7 +88,7 @@ function handleAction() {
 
 .fun-empty-state__button {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   font-weight: 600;
   
   &:hover:not(:disabled) {

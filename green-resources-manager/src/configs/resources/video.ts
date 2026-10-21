@@ -2,6 +2,7 @@ import {
 	FormField_Text, 
 	FormField_Textarea, 
 	FormField_Tags, 
+	FormField_Date,
 	FormField_SelectFile, 
 	FormField_SelectVideoThumbnail,
 	FormField as FormFieldType,
@@ -50,6 +51,16 @@ export class Video extends BaseResources {
 		saveable: true,
 		editType: new FormField_Tags('演员', false)
 	})
+
+	/**
+	 * 影片发行日期，存成 YYYY-MM-DD。
+	 * 侧边栏按这个字符串筛选，空着的归到「未填写」。
+	 */
+	releaseDate: ResourceField<string> = new ResourceField<string>({
+		saveable: true,
+		defaultValue: '',
+		editType: new FormField_Date('发行日期', false)
+	})
 	
 	resourcePath: ResourceField<string> = new ResourceField<string>({
 		saveable: true,
@@ -87,7 +98,7 @@ export class Video extends BaseResources {
 
 	/** 可被刮削的字段（导入刮削库时只保存这些） */
 	static getScrapableFieldKeys(): string[] {
-		return ['resourceType', 'name', 'description', 'series', 'tags', 'actors', 'resourcePath', 'thumbnail', 'duration']
+		return ['resourceType', 'name', 'description', 'series', 'tags', 'actors', 'releaseDate', 'resourcePath', 'thumbnail', 'duration']
 	}
 
 	/**
@@ -104,6 +115,7 @@ export class Video extends BaseResources {
 			series: this.series.value || '',
 			tags: Array.isArray(this.tags.value) ? [...this.tags.value] : [],
 			actors: Array.isArray(this.actors.value) ? [...this.actors.value] : [],
+			releaseDate: this.releaseDate.value || '',
 			resourcePath: this.resourcePath.value || '',
 			thumbnail: this.thumbnail.value || '',
 			duration: this.duration.value ?? 0,
@@ -111,7 +123,9 @@ export class Video extends BaseResources {
 			addedDate: this.addedDate.value || '',
 			rating: this.rating.value || 0,
 			comment: this.comment.value || '',
-			isFavorite: this.isFavorite.value || false
+			isFavorite: this.isFavorite.value || false,
+			finished: this.finished.value === true,
+			finishedAt: this.finished.value === true ? (this.finishedAt.value || '') : ''
 		}
 	}
 
@@ -191,6 +205,9 @@ export class Video extends BaseResources {
 
 	// 静态配置：详情页显示配置
 	static detailPanelConfig = {
+		/** 详情面板类型。不写的话会落到 game，封面失败时也用不上视频默认图。 */
+		type: 'video',
+		defaultImage: './default-video.png',
 		title: {
 			field: 'name',
 			formatter: undefined
@@ -206,6 +223,11 @@ export class Video extends BaseResources {
 				label: '演员',
 				formatter: undefined,
 				arrayJoin: '、'
+			},
+			{
+				field: 'releaseDate',
+				label: '发行日期',
+				formatter: 'formatDate'
 			},
 			{
 				field: 'resourcePath',

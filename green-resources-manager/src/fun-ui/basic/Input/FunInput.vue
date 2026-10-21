@@ -36,7 +36,7 @@ interface Props {
   /** 输入框的值（v-model） */
   modelValue: string
   /** 输入框类型 */
-  type?: 'text' | 'password' | 'email' | 'number' | 'tel' | 'url' | 'search'
+  type?: 'text' | 'password' | 'email' | 'number' | 'tel' | 'url' | 'search' | 'date'
   /** 占位符文本 */
   placeholder?: string
   /** 是否只读 */

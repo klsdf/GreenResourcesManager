@@ -83,6 +83,7 @@
       <template #extra>
         <AlbumPagesGrid
           v-if="shouldShowPreview"
+          :thumbnail-shape="previewThumbnailShape"
           :pages="detailPages"
           :currentPage="detailCurrentPage"
           :pageSize="detailPageSize"
@@ -354,12 +355,13 @@ import { Website } from '@resources/website.ts'
 import { Audio } from '@resources/audio.ts'
 import { Other } from '@resources/other.ts'
 import { pageConfigLoader, type PageConfig } from '../configs/pages/PageConfigLoader.ts'
-import { executeActionHandler, getActionHandler, type ActionHandlerContext } from '../utils/ResourceActionHandlers'
+import { executeActionHandler, getActionHandler, isComicArchivePath, type ActionHandlerContext } from '../utils/ResourceActionHandlers'
 import { useGameRunningStore } from '../stores/game-running'
 import { BaseResources } from '@resources/base/ResourcesDataBase.ts'
 import notify from '../utils/NotificationService.ts'
 import saveManager from '../utils/SaveManager.ts'
 import { calculateAndUpdateResourceSize, calculateResourceSizesBatch } from '../utils/ResourceSizeService.ts'
+import { detectGameEngine } from '../utils/GameEngineDetector.ts'
 import { getGameScreenshotFolderPath, useGameScreenshot } from '../composables/game/useGameScreenshot'
 import { useResourceFilter } from '../composables/useResourceFilter'
 import { useImagePages } from '../composables/image/useImagePages'
@@ -892,23 +894,24 @@ export default defineComponent({
               }
             }
             
-            // 获取文件大小（失败则抛出，不静默吞错）
-            if (isElectronEnvironment.value && window.electronAPI) {
-              if (window.electronAPI.getFileStats) {
-                const result = await window.electronAPI.getFileStats(filePath)
-                if (result.success && result.size) {
-                  resourceData.folderSize = result.size
-                }
-              } else if (window.electronAPI.getFolderSize) {
-                const result = await window.electronAPI.getFolderSize(filePath)
-                if (result.success) {
-                  resourceData.folderSize = result.size
-                }
-              }
-            }
-            
             // 使用匹配到的资源类创建实例
             const resource = MatchedResourceClass.fromJSON(resourceData)
+
+            // 拖进来就认出引擎并写进这条记录。不然得到编辑里再点一次识别。
+            await assignDetectedGameEngine(resource, filePath)
+
+            // 游戏拖进来的是 exe，大小要算它所在的整个文件夹。
+            // 以前这里直接记文件大小，而且不是 0，之后进页面也不会再重算。
+            if (isElectronEnvironment.value) {
+              const cardConfig = resource.constructor?.cardDisplayConfig
+              if (cardConfig?.badge?.field === 'folderSize') {
+                await calculateAndUpdateResourceSize(
+                  resource,
+                  isElectronEnvironment.value,
+                  pageTypeOfResource(resource) === 'Game'
+                )
+              }
+            }
             console.log(`[GenericResourceView] 创建资源对象 (类型: ${matchedKind.id}):`, resource)
 
             // 把封面复制进存档目录。这样以后原文件或原文件夹没了，卡片仍然能显示这张封面。
@@ -1245,7 +1248,15 @@ export default defineComponent({
         ]
       } else {
         const menuClass = contextMenuTarget.value?.constructor || ResourceClass
-        return [...(menuClass.contextMenuItems || []), { key: 'scraper', icon: '📥', label: '刮削' }]
+        const resourcePath = BaseResources.extractPrimitiveValue(
+          contextMenuTarget.value?.resourcePath?.value || contextMenuTarget.value?.resourcePath || ''
+        )
+        /** 文件夹漫画不显示外部打开。只有 cbr/cbz 才需要默认程序或指定程序。 */
+        const showComicArchiveActions = isComicArchivePath(resourcePath)
+        const menuItems = (menuClass.contextMenuItems || []).filter((item: { onlyComicArchive?: boolean }) => {
+          return !item.onlyComicArchive || showComicArchiveActions
+        })
+        return [...menuItems, { key: 'scraper', icon: '📥', label: '刮削' }]
       }
     })
 
@@ -1904,6 +1915,7 @@ export default defineComponent({
               '更新成功',
               `"${itemName}" 文件夹大小已更新\n旧大小: ${oldSizeMB} MB\n新大小: ${newSizeMB} MB`
             )
+            await saveData()
           } else {
             const errorMsg = `无法获取 "${itemName}" 的文件夹大小`
             console.log('[GenericResourceView] 文件夹大小计算失败:', errorMsg)
@@ -2402,6 +2414,12 @@ export default defineComponent({
         case 'launchWithLocale':
           handleResourceAction(item, { handlerName: 'launchWithLocale' })
           break
+        case 'openComicDefault':
+          handleResourceAction(item, { handlerName: 'openComicArchiveDefault' })
+          break
+        case 'openComicSpecified':
+          handleResourceAction(item, { handlerName: 'openComicArchiveSpecified' })
+          break
         case 'open':
         case 'play':
         case 'read':
@@ -2547,6 +2565,8 @@ export default defineComponent({
     }
 
     // 右键菜单与详情面板复用同一套逻辑：按 key 派发到 handleDetailActionImpl
+    contextMenuHandlers.openComicDefault = (item: any) => handleDetailActionImpl('openComicDefault', item)
+    contextMenuHandlers.openComicSpecified = (item: any) => handleDetailActionImpl('openComicSpecified', item)
     contextMenuHandlers.launch = (item: any) => handleDetailActionImpl('launch', item)
     contextMenuHandlers.launchWithLocale = (item: any) => handleDetailActionImpl('launchWithLocale', item)
     contextMenuHandlers.folder = (item: any) => handleDetailActionImpl('folder', item)
@@ -2687,6 +2707,53 @@ export default defineComponent({
       }
     }
 
+    /**
+     * 给还没有引擎的游戏做一次自动识别，并写回 engine。
+     * 已经填过的不覆盖，避免把用户手动选的引擎改掉。
+     * @param resource 刚创建或已经在列表里的资源
+     * @param filePath 游戏可执行文件路径
+     */
+    const assignDetectedGameEngine = async (resource: any, filePath: string) => {
+      if (!resource?.engine || typeof resource.engine !== 'object' || !('value' in resource.engine)) return
+      const current = BaseResources.extractPrimitiveValue(resource.engine.value)
+      if (typeof current === 'string' && current.trim()) return
+      if (!filePath || !isElectronEnvironment.value || !window.electronAPI?.listFiles) return
+      try {
+        const detected = await detectGameEngine(filePath)
+        if (detected) {
+          resource.engine.value = detected
+        }
+      } catch (error) {
+        console.warn('[GenericResourceView] 自动识别游戏引擎失败:', filePath, error)
+      }
+    }
+
+    /**
+     * 补上以前拖进来、但引擎还是空的游戏。
+     * 识别结果会随这次保存写进存档，不用再打开编辑去点识别。
+     */
+    const fillMissingGameEngines = async () => {
+      const pending = items.value.filter((item: any) => {
+        if (!item?.engine || typeof item.engine !== 'object' || !('value' in item.engine)) return false
+        const current = BaseResources.extractPrimitiveValue(item.engine.value)
+        if (typeof current === 'string' && current.trim()) return false
+        const resourcePath = BaseResources.extractPrimitiveValue(item.resourcePath?.value || item.resourcePath)
+        return typeof resourcePath === 'string' && resourcePath.trim() !== ''
+      })
+      if (pending.length === 0) return
+      let updatedCount = 0
+      for (const item of pending) {
+        const resourcePath = BaseResources.extractPrimitiveValue(item.resourcePath?.value || item.resourcePath)
+        const before = BaseResources.extractPrimitiveValue(item.engine.value)
+        await assignDetectedGameEngine(item, String(resourcePath))
+        const after = BaseResources.extractPrimitiveValue(item.engine.value)
+        if (after && after !== before) updatedCount++
+      }
+      if (updatedCount > 0) {
+        await saveData()
+      }
+    }
+
     // 自动计算资源大小（仅针对配置了 folderSize 且尚未有数据的资源；有值则不覆盖）
     const calculateResourceSizes = async () => {
       if (!isElectronEnvironment.value) {
@@ -2726,6 +2793,55 @@ export default defineComponent({
       if (otherResources.length > 0) {
         updatedCount += await calculateResourceSizesBatch(otherResources, isElectronEnvironment.value, false)
       }
+      if (updatedCount > 0) {
+        await saveData()
+      }
+    }
+
+    /**
+     * 给还没字数的小说统计字数，并写进存档。
+     * 只处理卡片徽章是字数的资源。已经有字数的不重算，避免每次进页面都把整本书再读一遍。
+     * txt 和 epub 在主进程里数，页面只拿回一个数字。
+     */
+    const calculateNovelWordCounts = async () => {
+      if (!isElectronEnvironment.value || !window.electronAPI?.countNovelWords) {
+        return
+      }
+
+      /** 还没有字数、并且文件格式能统计的小说 */
+      const novelsToCount = items.value.filter((item: any) => {
+        const cardConfig = item.constructor?.cardDisplayConfig
+        if (cardConfig?.badge?.field !== 'totalWords') return false
+        const totalWords = BaseResources.extractPrimitiveValue(item.totalWords?.value ?? item.totalWords)
+        if (totalWords) return false
+        const resourcePath = BaseResources.extractPrimitiveValue(item.resourcePath?.value || item.resourcePath)
+        if (!resourcePath || typeof resourcePath !== 'string') return false
+        return /\.(txt|md|text|epub)$/i.test(resourcePath)
+      })
+
+      if (novelsToCount.length === 0) {
+        return
+      }
+
+      let updatedCount = 0
+      for (let i = 0; i < novelsToCount.length; i++) {
+        const item = novelsToCount[i]
+        const resourcePath = BaseResources.extractPrimitiveValue(item.resourcePath?.value || item.resourcePath)
+        try {
+          const result = await window.electronAPI.countNovelWords(resourcePath)
+          const wordCount = Number(result?.wordCount) || 0
+          if (result?.success && wordCount > 0 && item.totalWords && typeof item.totalWords === 'object' && 'value' in item.totalWords) {
+            item.totalWords.value = wordCount
+            updatedCount++
+          }
+        } catch (error) {
+          console.warn('[GenericResourceView] 统计小说字数失败:', resourcePath, error)
+        }
+        if (i < novelsToCount.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 10))
+        }
+      }
+
       if (updatedCount > 0) {
         await saveData()
       }
@@ -3112,6 +3228,9 @@ export default defineComponent({
         totalPages: resourcePage.totalPages,
         currentPage: resourcePage.currentPage
       })
+
+      // 排序和分页一样按页面记在设置里。以前只在切换排序时写入，进来时没有读，所以每次都回到按名称升序。
+      await resourcePage.loadSortSetting(pageId)
       
       // 4. 注册事件监听器
       if (isElectronEnvironment.value && window.electronAPI && window.electronAPI.onGameProcessEnded) {
@@ -3205,10 +3324,13 @@ export default defineComponent({
         await checkFileExistence()
         // 自动计算资源大小
         await calculateResourceSizes()
+        await fillMissingGameEngines()
         // 漫画/图片页：首次进入时刷新所有未设置页数的资源的页数
         await calculateMangaPagesCounts()
         // 番剧页：首次进入时刷新所有未设置视频数量的资源的视频数
         await calculateAnimeVideoCounts()
+        // 小说页：字数还是 0 的书在这里补算，算完会记住
+        await calculateNovelWordCounts()
         // 视频页：首次进入时刷新所有未知时长的视频（已有时长的不刷新）
         if (items.value.some((item: any) => item?.constructor?.name === 'Video')) {
           refreshUnknownVideoDurations()
@@ -3255,8 +3377,10 @@ export default defineComponent({
           await persistCoversIntoSaveData()
           await checkFileExistence()
           await calculateResourceSizes()
+          await fillMissingGameEngines()
           await calculateMangaPagesCounts()
           await calculateAnimeVideoCounts()
+          await calculateNovelWordCounts()
           if (items.value.some((item: any) => item?.constructor?.name === 'Video')) {
             refreshUnknownVideoDurations()
             refreshMissingVideoThumbnails()
@@ -3295,6 +3419,15 @@ export default defineComponent({
       const config = ResourceClass?.detailPanelConfig
       const area = config?.previewArea
       return area === 'useSelfFolder' || area === 'useScreenshotFolder'
+    })
+
+    /**
+     * 截图文件夹里的图按横图排。资源自己文件夹里的漫画页仍按竖图排。
+     */
+    const previewThumbnailShape = computed(() => {
+      const selectedItem = resourcePage.selectedItem.value
+      const area = selectedItem?.constructor?.detailPanelConfig?.previewArea
+      return area === 'useScreenshotFolder' ? 'landscape' : 'portrait'
     })
 
     // 番剧详情页是否显示视频列表（用于替换视频页时展示集数，包含空列表时显示“未找到视频”）
@@ -3404,7 +3537,6 @@ export default defineComponent({
           if (updateThumbnail) {
             updateThumbnail(thumb)
           }
-          notify.toast('success', '设置成功', '已生成随机封面')
         } else {
           console.log('缩略图生成失败')
           notify.toast('warning', '提示', '生成缩略图失败')
@@ -3717,23 +3849,23 @@ export default defineComponent({
             fileExists: true
           }
 
-          // 获取文件大小
-          if (isElectronEnvironment.value && window.electronAPI) {
-            if (window.electronAPI.getFileStats) {
-              const result = await window.electronAPI.getFileStats(fullFilePath)
-              if (result.success && result.size) {
-                resourceData.folderSize = result.size
-              }
-            } else if (window.electronAPI.getFolderSize) {
-              const result = await window.electronAPI.getFolderSize(fullFilePath)
-              if (result.success) {
-                resourceData.folderSize = result.size
-              }
-            }
-          }
-
           // 使用匹配到的资源类创建实例
           const resource = MatchedResourceClass.fromJSON(resourceData)
+
+          // 批量导入和拖入一样，当时就识别引擎并保存。
+          await assignDetectedGameEngine(resource, fullFilePath)
+
+          // 和拖入一样：游戏记所在文件夹的大小，不能只记 exe 自己。
+          if (isElectronEnvironment.value) {
+            const cardConfig = resource.constructor?.cardDisplayConfig
+            if (cardConfig?.badge?.field === 'folderSize') {
+              await calculateAndUpdateResourceSize(
+                resource,
+                isElectronEnvironment.value,
+                pageTypeOfResource(resource) === 'Game'
+              )
+            }
+          }
           await attachFingerprint(resource, fullFilePath)
           
           // 检查是否已存在相同路径
@@ -3947,6 +4079,7 @@ export default defineComponent({
       // 详情面板类型映射（计算属性）
       detailPanelType,
       shouldShowPreview,
+      previewThumbnailShape,
       // 番剧详情页视频列表（用于替换视频页）
       isAnimeWithFolderVideos,
       playFolderVideo,
@@ -4508,7 +4641,7 @@ export default defineComponent({
 
 .btn-confirm {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   border: none;
   padding: var(--spacing-md) var(--spacing-xl);
   border-radius: var(--radius-md);

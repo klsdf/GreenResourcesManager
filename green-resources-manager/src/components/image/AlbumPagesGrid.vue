@@ -13,16 +13,18 @@
     
     <!-- 图片网格 - 使用 FunGrid 组件 -->
     <FunGrid
-      mode="auto-fill"
+      :mode="gridMode"
+      :columns="gridColumns"
       :minWidth="150"
       gap="var(--spacing-md, 16px)"
       padding="16px 0"
-      :singleColumnOnMobile="true"
+      :singleColumnOnMobile="thumbnailShape !== 'landscape'"
     >
       <div 
         v-for="(page, idx) in paginatedPages" 
         :key="page" 
-        class="page-item" 
+        class="page-item"
+        :class="{ 'page-item--landscape': thumbnailShape === 'landscape' }"
         @click="handlePageClick(idx)"
       >
         <img 
@@ -73,6 +75,14 @@ export default {
     handleImageError: {
       type: Function as PropType<(event: Event) => void>,
       required: true
+    },
+    /**
+     * 缩略图框的形状。
+     * 漫画页是竖图，继续用 2:3。游戏截图一般是 16:9，用竖框会被裁掉左右，看起来又窄又高。
+     */
+    thumbnailShape: {
+      type: String as PropType<'portrait' | 'landscape'>,
+      default: 'portrait'
     }
   },
   emits: ['page-click', 'page-change'],
@@ -96,11 +106,22 @@ export default {
       emit('page-change', page)
     }
 
+    /**
+     * 截图固定 5 列。列宽按容器均分，不够 5 张时也不会把单张拉满整行。
+     * 漫画页继续按最小宽度自动换行。
+     */
+    const gridMode = computed(() => (props.thumbnailShape === 'landscape' ? 'fixed' : 'auto-fill'))
+
+    /** 横图一行最多 5 张。竖图不使用固定列数。 */
+    const gridColumns = computed(() => (props.thumbnailShape === 'landscape' ? 5 : undefined))
+
     return {
       currentPageStartIndex,
       paginatedPages,
       handlePageClick,
-      handlePageChange
+      handlePageChange,
+      gridMode,
+      gridColumns
     }
   }
 }
@@ -126,6 +147,11 @@ export default {
   border-color: var(--primary-color, #007bff);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* 游戏截图按 16:9 横图显示，不再套用漫画页的 2:3 竖框 */
+.page-item--landscape {
+  aspect-ratio: 16 / 9;
 }
 
 .preview-thumbnail {

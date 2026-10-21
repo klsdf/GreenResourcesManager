@@ -346,8 +346,19 @@ export function useArchive(options: ArchiveOptions) {
           }
         }
         
+        /** 只有确认需要密码，才去翻密码本。没密码的包直接解压。 */
+        let archiveNeedsPassword = true
+        if (window.electronAPI && window.electronAPI.testArchivePassword) {
+          const plainTest = await window.electronAPI.testArchivePassword(item.path, '')
+          if (plainTest.success && plainTest.passwordCorrect) {
+            archiveNeedsPassword = false
+          } else if (!plainTest.success) {
+            archiveNeedsPassword = false
+          }
+        }
+
         // 如果有常用密码，先尝试常用密码（使用测试命令，避免弹出 GUI）
-        if (commonPasswords.length > 0) {
+        if (archiveNeedsPassword && commonPasswords.length > 0) {
           console.log('🔑 开始测试常用密码，共', commonPasswords.length, '个密码')
           // 提示用户检测到密码，正在使用密码本
           notify.toast('info', '检测到密码', `该压缩包需要密码，正在使用默认密码本尝试解密（共 ${commonPasswords.length} 个密码）...`)

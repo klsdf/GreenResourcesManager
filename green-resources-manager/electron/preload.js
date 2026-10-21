@@ -50,6 +50,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // 伪装图片功能
   readDisguiseImages: () => ipcRenderer.invoke('read-disguise-images'),
+  /** 伪装图片文件夹。不存在时主进程会先创建。 */
+  getDisguiseDirectory: () => ipcRenderer.invoke('get-disguise-directory'),
   getAppRootPath: () => ipcRenderer.invoke('get-app-root-path'),
   
   // 文件选择对话框
@@ -73,6 +75,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 将本地文件读为 data:URL（用于在 http 源下安全显示本地图片）
   readFileAsDataUrl: (filePath) => ipcRenderer.invoke('read-file-as-data-url', filePath),
   openExternal: (filePath) => ipcRenderer.invoke('open-external', filePath),
+  /** 用指定的可执行文件打开一个本地文件，例如用外部阅读器打开 cbr/cbz */
+  openFileWithProgram: (programPath, filePath) => ipcRenderer.invoke('open-file-with-program', programPath, filePath),
   
   // 游戏启动
   launchGame: (executablePath, gameName) => ipcRenderer.invoke('launch-game', executablePath, gameName),
@@ -215,6 +219,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // 读取文本文件内容
   readTextFile: (filePath) => ipcRenderer.invoke('read-text-file', filePath),
+  // 只统计小说字数，不把整本书内容传回页面
+  countNovelWords: (filePath) => ipcRenderer.invoke('count-novel-words', filePath),
   
   // 打开文件所在文件夹
   openFileFolder: (filePath) => ipcRenderer.invoke('open-file-folder', filePath),
@@ -298,9 +304,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   tabGetAll: () => ipcRenderer.invoke('tab-get-all'),
   tabNavigate: (tabId, url) => ipcRenderer.invoke('tab-navigate', { tabId, url }),
   // 在新标签页中打开漫画阅读器，传入 path（资源路径）与 title（资源名称）
-  tabOpenComicViewer: (path, title) => ipcRenderer.invoke('tab-open-comic-viewer', { path, title }),
+  tabOpenComicViewer: (path, title, theme) => ipcRenderer.invoke('tab-open-comic-viewer', { path, title, theme }),
   // 在新标签页中打开小说阅读器，传入 path（文件路径）、title（资源名称）与 fileType（txt/pdf/epub）
   tabOpenNovelViewer: (path, title, fileType) => ipcRenderer.invoke('tab-open-novel-viewer', { path, title, fileType }),
+  // 在新标签页中打开视频播放器，传入 path（视频文件路径）与 title（视频名称）
+  tabOpenVideoPlayer: (path, title) => ipcRenderer.invoke('tab-open-video-player', { path, title }),
   
   // 标签页事件监听
   onTabLoaded: (callback) => ipcRenderer.on('tab-loaded', (event, data) => callback(data)),

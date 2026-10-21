@@ -24,7 +24,7 @@ function registerTabHandlers(ipcMain, mainWindow, isDev) {
 
   // 在新标签页中打开漫画阅读器
   // 渲染进程传入 path（资源路径）和 title（资源名称），主进程根据环境构建 comic-viewer.html URL
-  ipcMain.handle('tab-open-comic-viewer', async (event, { path: resourcePath, title } = {}) => {
+  ipcMain.handle('tab-open-comic-viewer', async (event, { path: resourcePath, title, theme } = {}) => {
     try {
       if (!resourcePath) {
         return { success: false, error: '未提供漫画路径' }
@@ -33,7 +33,8 @@ function registerTabHandlers(ipcMain, mainWindow, isDev) {
       let viewerUrl
       const pathEncoded = encodeURIComponent(resourcePath)
       const titleEncoded = encodeURIComponent(title || '漫画阅读器')
-      const query = `?path=${pathEncoded}&title=${titleEncoded}`
+      const themeEncoded = encodeURIComponent(theme || '')
+      const query = `?path=${pathEncoded}&title=${titleEncoded}&theme=${themeEncoded}`
 
       if (isDev) {
         // 开发环境：通过 Vite 服务器加载
@@ -60,7 +61,6 @@ function registerTabHandlers(ipcMain, mainWindow, isDev) {
 
       const tabManager = getTabManager(mainWindow, isDev)
       const tabId = tabManager.createTab(viewerUrl, title || '漫画阅读器')
-      console.log('✅ 已在新标签页打开漫画:', title, viewerUrl)
       return { success: true, tabId }
     } catch (error) {
       console.error('在新标签页打开漫画失败:', error)
@@ -108,6 +108,55 @@ function registerTabHandlers(ipcMain, mainWindow, isDev) {
       return { success: true, tabId }
     } catch (error) {
       console.error('在新标签页打开小说失败:', error)
+      return { success: false, error: error.message }
+    }
+  })
+
+  // 在新标签页中打开视频播放器
+  // 渲染进程传入 path（视频文件路径）和 title（视频名称）
+  ipcMain.handle('tab-open-video-player', async (event, { path: filePath, title } = {}) => {
+    try {
+      if (!filePath) {
+        return { success: false, error: '未提供视频文件路径' }
+      }
+      if (!fs.existsSync(filePath)) {
+        return { success: false, error: '视频文件不存在' }
+      }
+
+      /** 视频播放器页面地址，开发环境走 Vite，生产环境走本地 html */
+      let viewerUrl
+      const pathEncoded = encodeURIComponent(filePath)
+      const titleEncoded = encodeURIComponent(title || '视频播放器')
+      const query = `?path=${pathEncoded}&title=${titleEncoded}`
+
+      if (isDev) {
+        viewerUrl = `http://localhost:5173/html/video-player.html${query}`
+      } else {
+        const appPath = app.getAppPath()
+        const possiblePaths = [
+          path.join(appPath, 'dist', 'html', 'video-player.html'),
+          path.join(appPath, 'dist', 'video-player.html'),
+          path.join(appPath, 'public', 'html', 'video-player.html'),
+          path.join(appPath, 'html', 'video-player.html'),
+          path.join(__dirname, '../../html/video-player.html'),
+          path.join(__dirname, '../../public/html/video-player.html')
+        ]
+        const htmlPath = possiblePaths.find((p) => fs.existsSync(p))
+        if (!htmlPath) {
+          const errorMsg = `找不到 video-player.html 文件。尝试的路径: ${possiblePaths.join(', ')}`
+          console.error('❌', errorMsg)
+          return { success: false, error: errorMsg }
+        }
+        const normalized = htmlPath.replace(/\\/g, '/')
+        viewerUrl = `file:///${normalized}${query}`
+      }
+
+      const tabManager = getTabManager(mainWindow, isDev)
+      const tabId = tabManager.createTab(viewerUrl, title || '视频播放器')
+      console.log('✅ 已在新标签页打开视频:', title, viewerUrl)
+      return { success: true, tabId }
+    } catch (error) {
+      console.error('在新标签页打开视频失败:', error)
       return { success: false, error: error.message }
     }
   })

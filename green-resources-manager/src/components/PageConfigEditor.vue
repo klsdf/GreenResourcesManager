@@ -32,35 +32,15 @@
           />
         </div>
         <h4 class="section-title">{{ $lt('接受的资源') }}</h4>
-        <p class="field-hint">{{ $lt('只按文件本身来分，比如可执行文件、图片、视频。和这个页面有没有发行商、标签无关。改这里不会改动已经保存的内容。同一种文件会归到列表里靠前的那一种。') }}</p>
-        <div class="type-list">
-          <div
-            v-for="(kindId, index) in editingPage.acceptedKinds"
-            :key="kindId"
-            class="type-row"
-          >
-            <div class="type-text">
-              <span class="type-label">{{ kindLabel(kindId) }}</span>
-              <span class="type-desc">{{ kindDescription(kindId) }}</span>
-            </div>
-            <div class="type-actions">
-              <button class="btn-icon" type="button" :title="$lt('上移')" :disabled="index === 0" @click="moveKind(index, -1)">▲</button>
-              <button class="btn-icon" type="button" :title="$lt('下移')" :disabled="index === editingPage.acceptedKinds.length - 1" @click="moveKind(index, 1)">▼</button>
-              <button class="btn-icon delete" type="button" :title="$lt('移除')" @click="removeKind(index)">✕</button>
-            </div>
-          </div>
+        <p class="field-hint">{{ $lt('只按文件本身来分，比如可执行文件、图片、视频。和这个页面有没有发行商、标签无关。改这里不会改动已经保存的内容。至少留一种。同一种文件会按下面从左到右的顺序归类。') }}</p>
+        <div class="check-grid">
+          <label v-for="kind in basicResourceKinds" :key="kind.id" class="check-item">
+            <input type="checkbox" :checked="editingPage.acceptedKinds.includes(kind.id)" @change="toggleAcceptedKind(kind.id, $event)" />
+            <span>{{ kind.label }}</span>
+          </label>
         </div>
-        <div v-if="kindsToAdd.length" class="kind-picker">
-          <div class="check-grid">
-            <label v-for="kind in kindsToAdd" :key="kind.id" class="check-item">
-              <input type="checkbox" :checked="pendingKinds.includes(kind.id)" @change="togglePendingKind(kind.id)" />
-              <span>{{ kind.label }}</span>
-            </label>
-          </div>
-          <div class="add-type-row">
-            <button class="btn-secondary" type="button" @click="selectAllPendingKinds">{{ $lt('全选') }}</button>
-            <button class="btn-secondary" type="button" :disabled="!pendingKinds.length" @click="addSelectedKinds">{{ $lt('添加') }}</button>
-          </div>
+        <div class="add-type-row">
+          <button class="btn-secondary" type="button" @click="selectAllAcceptedKinds">{{ $lt('全选') }}</button>
         </div>
 
         <h4 class="section-title">{{ $lt('页面字段') }}</h4>
@@ -250,7 +230,7 @@
 
 <script lang="ts">
 import { computed, defineComponent, ref, watch } from 'vue'
-import { BASIC_RESOURCE_KINDS, collectFieldCatalog, defaultAcceptedKindIds, defaultFieldKeys, findBasicKind, makeFieldFilter } from '../configs/resources/resourceKindCatalog'
+import { BASIC_RESOURCE_KINDS, collectFieldCatalog, defaultAcceptedKindIds, defaultFieldKeys, makeFieldFilter } from '../configs/resources/resourceKindCatalog'
 import alertService from '../utils/AlertService.ts'
 import { pageConfigLoader } from '../configs/pages/PageConfigLoader'
 
@@ -345,17 +325,12 @@ export default defineComponent({
 
     const originalConfig = ref<any>(null)
     const currentFileName = ref<string>('')
-    /** 勾选后准备一次性加进页面的资源类型 */
-    const pendingKinds = ref<string[]>([])
     /** 准备添加的筛选器 */
     const filterToAdd = ref('')
     /** 全部可勾选字段 */
     const fieldCatalog = collectFieldCatalog()
-    /** 还没放进这个页面的基本资源类型 */
-    const kindsToAdd = computed(() => {
-      const selected = new Set(editingPage.value.acceptedKinds)
-      return BASIC_RESOURCE_KINDS.filter(kind => !selected.has(kind.id))
-    })
+    /** 页面可以接受的全部基本资源类型，勾选框按这个顺序排 */
+    const basicResourceKinds = BASIC_RESOURCE_KINDS
     /** 还没放进这个页面的筛选器 */
     const filterPresetsToAdd = computed(() => {
       const used = new Set(editingPage.value.filterConfig.map((item: any) => item.key))
@@ -370,58 +345,41 @@ export default defineComponent({
       return [...presets, ...fieldPresets].filter(preset => !used.has(preset.id.startsWith('field:') ? preset.id.slice(6) : preset.id))
     })
 
-    /** 基本资源类型的显示名 */
-    const kindLabel = (kindId: string) => findBasicKind(kindId)?.label || kindId
-    /** 基本资源类型的说明 */
-    const kindDescription = (kindId: string) => findBasicKind(kindId)?.description || ''
-
     /**
-     * 调整接受顺序。
+     * 按勾选框的从左到右顺序重排已接受的类型。
      * 扩展名重叠时，靠前的类型会先匹配到文件。
      */
-    const moveKind = (index: number, offset: number) => {
-      const nextIndex = index + offset
-      const list = editingPage.value.acceptedKinds
-      if (nextIndex < 0 || nextIndex >= list.length) return
-      const [item] = list.splice(index, 1)
-      list.splice(nextIndex, 0, item)
-    }
-
-    /** 从页面接受列表里拿掉一种资源。至少留一种。 */
-    const removeKind = async (index: number) => {
-      if (editingPage.value.acceptedKinds.length <= 1) {
-        await alertService.warning('页面至少要接受一种资源', '提示')
-        return
-      }
-      editingPage.value.acceptedKinds.splice(index, 1)
+    const sortAcceptedKinds = () => {
+      const selected = new Set(editingPage.value.acceptedKinds)
+      editingPage.value.acceptedKinds = basicResourceKinds
+        .filter(kind => selected.has(kind.id))
+        .map(kind => kind.id)
     }
 
     /**
-     * 勾选或取消一种还没接受的资源。
-     * 类型数量不多，一次可以勾好几种再添加。
+     * 勾选或取消一种资源。
+     * 页面至少要接受一种，所以最后一项不能取消。
      */
-    const togglePendingKind = (kindId: string) => {
-      const index = pendingKinds.value.indexOf(kindId)
-      if (index >= 0) pendingKinds.value.splice(index, 1)
-      else pendingKinds.value.push(kindId)
-    }
-
-    /** 把还没接受的资源全部勾上。 */
-    const selectAllPendingKinds = () => {
-      pendingKinds.value = kindsToAdd.value.map(kind => kind.id)
-    }
-
-    /**
-     * 把勾选的资源加进页面。
-     * 按类型目录的顺序追加，扩展名重叠时仍是列表里靠前的先匹配。
-     */
-    const addSelectedKinds = () => {
-      const selected = new Set(pendingKinds.value)
-      for (const kind of kindsToAdd.value) {
-        if (!selected.has(kind.id) || editingPage.value.acceptedKinds.includes(kind.id)) continue
-        editingPage.value.acceptedKinds.push(kind.id)
+    const toggleAcceptedKind = async (kindId: string, event: Event) => {
+      const input = event.target as HTMLInputElement
+      const kinds = editingPage.value.acceptedKinds
+      const index = kinds.indexOf(kindId)
+      if (index >= 0) {
+        if (kinds.length <= 1) {
+          input.checked = true
+          await alertService.warning('页面至少要接受一种资源', '提示')
+          return
+        }
+        kinds.splice(index, 1)
+      } else {
+        kinds.push(kindId)
       }
-      pendingKinds.value = []
+      sortAcceptedKinds()
+    }
+
+    /** 接受全部基本资源类型。 */
+    const selectAllAcceptedKinds = () => {
+      editingPage.value.acceptedKinds = basicResourceKinds.map(kind => kind.id)
     }
 
     /** 勾选或取消一个页面字段。不改已经保存的资源。 */
@@ -611,18 +569,12 @@ export default defineComponent({
       handleSave,
       addSortOption,
       removeSortOption,
-      pendingKinds,
       filterToAdd,
       fieldCatalog,
-      kindsToAdd,
+      basicResourceKinds,
       filterPresetsToAdd,
-      kindLabel,
-      kindDescription,
-      moveKind,
-      removeKind,
-      togglePendingKind,
-      selectAllPendingKinds,
-      addSelectedKinds,
+      toggleAcceptedKind,
+      selectAllAcceptedKinds,
       togglePageField,
       removeFilter,
       addFilter
@@ -729,7 +681,7 @@ export default defineComponent({
 
 .btn-primary {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   border: none;
   padding: 10px 24px;
   border-radius: 6px;
@@ -765,10 +717,6 @@ export default defineComponent({
   font-size: 0.85rem;
   line-height: 1.5;
   margin: 0 0 12px;
-}
-
-.kind-picker .check-grid {
-  margin-bottom: 12px;
 }
 
 .check-grid {
@@ -863,7 +811,7 @@ export default defineComponent({
 
 .sort-option-index {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   width: 28px;
   height: 28px;
   border-radius: 50%;

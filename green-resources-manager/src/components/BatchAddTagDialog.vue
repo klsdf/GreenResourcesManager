@@ -180,7 +180,7 @@ export default defineComponent({
 
 .btn-confirm {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
 
   &:hover {
     opacity: 0.9;

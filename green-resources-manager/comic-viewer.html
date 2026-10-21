@@ -4,6 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>漫画阅读器</title>
+  <script>
+    // 阅读器不在主窗口里，这里先套上打开时带来的主题，避免先闪一屏白底。
+    (function () {
+      var params = new URLSearchParams(location.search)
+      var theme = params.get('theme') || localStorage.getItem('butter-manager-theme') || 'light'
+      if (theme === 'auto') {
+        theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+      }
+      document.documentElement.setAttribute('data-theme', theme)
+    })()
+  </script>
 </head>
 <body>
   <div id="app"></div>
