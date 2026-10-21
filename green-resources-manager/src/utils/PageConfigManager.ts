@@ -57,6 +57,7 @@ class PageConfigManager {
         resourceTypes: Array.isArray(config.resourceTypes) ? [...config.resourceTypes] : [resourceType],
         acceptedKinds: Array.isArray(config.acceptedKinds) ? [...config.acceptedKinds] : undefined,
         pageFields: Array.isArray(config.pageFields) ? [...config.pageFields] : undefined,
+        pageFieldDefs: Array.isArray(config.pageFieldDefs) ? JSON.parse(JSON.stringify(config.pageFieldDefs)) : undefined,
         description: config.description || '', // 从 JSON 配置读取 description
         isDefault: meta.isDefault !== false,
         isHidden: meta.isHidden || false,

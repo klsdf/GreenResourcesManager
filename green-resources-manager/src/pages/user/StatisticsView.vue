@@ -573,11 +573,17 @@ export default {
         if (!this.userProfile.joinDate) {
           this.userProfile.joinDate = new Date().toISOString()
         }
-        // 确保 checkInDays 数组存在
-        if (!this.userProfile.checkInDays) {
-          this.userProfile.checkInDays = []
+        const latest = await saveManager.loadUserProfile()
+        const latestDays = Array.isArray(latest?.checkInDays) ? latest.checkInDays : []
+        const localDays = Array.isArray(this.userProfile.checkInDays) ? this.userProfile.checkInDays : []
+        // 启动时已经记过的日期留在磁盘上。页面如果拿着旧名单整份覆盖，之前的登录日会丢，日历就只剩今天。
+        this.userProfile.checkInDays = Array.from(new Set([...latestDays, ...localDays]))
+        if (Array.isArray(latest?.loginHistory) && latest.loginHistory.length > 0) {
+          this.userProfile.loginHistory = latest.loginHistory
         }
-        // lastActive 由 loginHistory 队列维护，不在这里更新
+        if (typeof latest?.totalUsageTime === 'number') {
+          this.userProfile.totalUsageTime = Math.max(latest.totalUsageTime, this.userProfile.totalUsageTime || 0)
+        }
         
         // 自动记录登录日期：如果今天还没有记录，则自动记录
         await this.autoRecordLogin()

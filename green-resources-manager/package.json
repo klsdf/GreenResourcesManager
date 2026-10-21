@@ -1,6 +1,6 @@
 {
   "name": "green-resources-manager",
-  "version": "0.7.7",
+  "version": "0.7.8",
   "description": "一款全能、免费的文件管理器，可以管理你的游戏、漫画、视频、音频、小说、网站等资源。",
   "main": "electron/main.js",
   "homepage": "./",
@@ -8,6 +8,7 @@
     "dev": "vite",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "build": "vite build",
     "electron-dev": "concurrently \"cross-env CI=true npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
     "electron-build": "npm run build && electron-builder --win",
@@ -23,6 +24,7 @@
   "devDependencies": {
     "@types/node": "^24.8.0",
     "@vitejs/plugin-vue": "^4.5.0",
+    "@vitest/coverage-v8": "^4.0.18",
     "@vue/test-utils": "^2.4.6",
     "@vue/tsconfig": "^0.8.1",
     "concurrently": "^8.2.2",

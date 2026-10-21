@@ -21,7 +21,7 @@ const SUPPORTED_VIDEO_FORMATS = ['mp4', 'webm', 'ogg', 'avi', 'mov', 'mkv', 'flv
 const SUPPORTED_AUDIO_FORMATS = ['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'wma', 'aiff']
 
 // 支持的图片格式
-const SUPPORTED_IMAGE_FORMATS = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg', 'ico']
+const SUPPORTED_IMAGE_FORMATS = ['png', 'jpg', 'jpeg', 'jpe', 'jfif', 'gif', 'bmp', 'webp', 'svg', 'ico']
 
 // 支持的文本/小说格式
 const SUPPORTED_TEXT_FORMATS = ['txt', 'md', 'rtf', 'epub', 'mobi', 'azw', 'azw3', 'pdf']
@@ -44,6 +44,8 @@ const MIME_TYPES = {
   'png': 'image/png',
   'jpg': 'image/jpeg',
   'jpeg': 'image/jpeg',
+  'jpe': 'image/jpeg',
+  'jfif': 'image/jpeg',
   'gif': 'image/gif',
   'bmp': 'image/bmp',
   'webp': 'image/webp',

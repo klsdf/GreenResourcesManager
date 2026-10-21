@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://klsdf.github.io/GreenResourcesManager/sitemap-index.xml

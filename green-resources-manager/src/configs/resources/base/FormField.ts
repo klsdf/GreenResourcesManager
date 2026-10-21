@@ -141,7 +141,7 @@ export class FormField_SelectEngine extends FormField {
  */
 abstract class FormField_SelectCover extends FormField {
 	filters: FileSelectFilter[] = [
-		{ name: '图片文件', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'] }
+		{ name: '图片文件', extensions: ['jpg', 'jpeg', 'jpe', 'jfif', 'png', 'gif', 'webp', 'avif', 'bmp', 'svg'] }
 	]
 	constructor(fieldName: string, required?: boolean) {
 		super(fieldName, required)

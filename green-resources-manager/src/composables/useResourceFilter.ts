@@ -16,7 +16,8 @@ const DATE_FIELDS = ['addedDate', 'lastRead', 'lastPlayed', 'lastViewed']
 function buildSortConfig(config: SortOptionConfig): SortConfig<any> {
   return {
     fieldAccessor: (item: any) => {
-      const value = item[config.field]?.value
+      // 页面后来加的字段是普通值，不是 ResourceField。两种都要能排序。
+      const value = getFieldValue(item[config.field] ?? item?.retainedFields?.[config.field])
       if (DATE_FIELDS.includes(config.field)) {
         return value ? new Date(value).getTime() : null
       }
@@ -110,7 +111,7 @@ function resolveFilterConfigs<T = any>(filterConfigs: FilterConfig<T>[]): Filter
         return {
           ...config,
           fieldAccessor: (item: any) => {
-            const fieldValue = item[field]
+            const fieldValue = item[field] ?? item?.retainedFields?.[field]
             return getFieldValue(fieldValue)
           }
         }

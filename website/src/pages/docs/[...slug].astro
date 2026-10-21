@@ -1,0 +1,31 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro'
+import HelpPage from '../../components/HelpPage.vue'
+import { flatDocs, getDocBySlug } from '../../data/docs'
+
+export function getStaticPaths() {
+  return flatDocs.map((doc) => ({
+    params: { slug: doc.slug },
+    props: { doc }
+  }))
+}
+
+const { doc } = Astro.props
+const info = getDocBySlug(doc.slug)
+
+if (!info) {
+  throw new Error(`Unknown doc slug: ${doc.slug}`)
+}
+---
+
+<DocsLayout
+  title={`${doc.title} · 帮助手册`}
+  description={doc.description}
+  canonicalPath={`docs/${doc.slug}/`}
+  currentSlug={doc.slug}
+  categoryTitle={info.category?.title}
+  prev={info.prev}
+  next={info.next}
+>
+  <HelpPage section={doc.slug} client:load />
+</DocsLayout>

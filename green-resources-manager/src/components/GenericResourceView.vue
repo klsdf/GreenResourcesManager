@@ -73,6 +73,7 @@
     <DetailPanel
       :visible="showDetailDialog && !!selectedItem"
       :item="selectedItem"
+      :page-field-defs="pageFieldDefs"
       :type="detailPanelType"
       :is-running="selectedItem ? isResourceRunning(selectedItem) : false"
       :on-update-resource="updateResource"
@@ -113,6 +114,7 @@
       :type-choices="acceptedTypeChoices"
       :selected-type="addingPageType"
       :enabled-field-keys="pageFieldKeys"
+      :page-field-defs="pageFieldDefs"
       :is-electron-environment="isElectronEnvironment"
       :available-tags="allTags"
       :available-tags-by-field="availableTagsByField"
@@ -136,6 +138,7 @@
       mode="edit"
       :resource-class="editResourceClass"
       :enabled-field-keys="pageFieldKeys"
+      :page-field-defs="pageFieldDefs"
       :resource-data="editForm"
       :is-electron-environment="isElectronEnvironment"
       :available-tags="allTags"
@@ -151,6 +154,15 @@
       @confirm="handleEditConfirm"
       @randomize-thumbnail="handleRandomizeThumbnail"
       @video-file-selected="handleVideoFileSelected"
+    />
+
+    <!-- 修改游玩记录。和编辑信息分开，避免把时长、次数和名字介绍混在一张表里。 -->
+    <ArchiveStatDialog
+      :visible="showArchiveDialog"
+      :resource="archiveTarget"
+      :play-time-locked="archivePlayTimeLocked"
+      @close="closeArchiveDialog"
+      @confirm="handleArchiveConfirm"
     />
     
     <!-- 漫画/图片查看器（用于 Image/Manga 资源类型） -->
@@ -373,11 +385,13 @@ import { useVideoPlayback } from '../composables/video/useVideoPlayback'
 import { useVideoThumbnail } from '../composables/video/useVideoThumbnail'
 import FolderVideosGrid from './video/FolderVideosGrid.vue'
 import ResourcesEditDialog from './ResourcesEditDialog.vue'
+import ArchiveStatDialog from './ArchiveStatDialog.vue'
 import ScraperUpdateDialog from './ScraperUpdateDialog.vue'
 import type { FilterItem } from '../types/filter'
 import coverManager from '../utils/CoverManager.ts'
 import { fingerprintKindForResource, fingerprintPageCount, isSameFingerprintIdentity, readFingerprint, writeFingerprint } from '../utils/resourceFingerprint.ts'
-import { cardTypeForResource, classForKind, defaultAcceptedKindIds, extensionsForSearch, findBasicKind, getResourceClassBySavedType, matchAcceptedKind, savedTypeOfClass } from '../configs/resources/resourceKindCatalog'
+import { cardTypeForResource, classForKind, collectFieldCatalog, defaultAcceptedKindIds, extensionsForSearch, findBasicKind, getResourceClassBySavedType, matchAcceptedKind, savedTypeOfClass } from '../configs/resources/resourceKindCatalog'
+import { defsForPage } from '../configs/pages/pageFieldSchema'
 
 // 刮削数据专有字段，不写入主存档
 const SCRAPER_ONLY_KEYS = ['resourceFileName', 'resourceFolderName']
@@ -447,6 +461,7 @@ export default defineComponent({
     EbookReader,
     ContentView,
     ResourcesEditDialog,
+    ArchiveStatDialog,
     PathUpdateDialog,
     ScraperUpdateDialog,
     FolderVideosGrid,
@@ -563,6 +578,15 @@ export default defineComponent({
     const pageFieldKeys = computed((): string[] | null => {
       const fields = pageConfig.value?.pageFields
       return Array.isArray(fields) ? fields : null
+    })
+    /**
+     * 这一页的字段定义。
+     * 编辑框、详情里多出来的字段都看这份名单，不看资源类上写死的那一套。
+     */
+    const pageFieldDefs = computed(() => {
+      const fields = pageConfig.value?.pageFields
+      if (!Array.isArray(fields)) return []
+      return defsForPage(fields, pageConfig.value?.pageFieldDefs, collectFieldCatalog())
     })
 
     /** 添加窗口当前选中的基本资源类型 */
@@ -988,7 +1012,7 @@ export default defineComponent({
       if (!isElectronEnvironment.value || !window.electronAPI || !window.electronAPI.sqliteSavePageResources) {
         throw new Error('不在 Electron 环境或数据库 API 不可用，无法保存')
       }
-      const saveableData = items.value.map(item => (item as any).getSaveData())
+      const saveableData = items.value.map(item => BaseResources.composeSaveData(item, (item as any).getSaveData()))
       const result = await window.electronAPI.sqliteSavePageResources(pageId, saveableData)
       if (!result || !result.ok) {
         throw new Error((result && result.message) ? result.message : '保存页面数据到数据库失败')
@@ -1072,6 +1096,23 @@ export default defineComponent({
       const resourceId = resource.id?.value || resource.id
       if (!resourceId) return false
       return gameRunningStore.isGameRunning(resourceId)
+    }
+
+    /** 修改数据的表单是否打开 */
+    const showArchiveDialog = ref(false)
+    /** 正在改记录的那条资源。关掉详情后还要靠它把表单填上。 */
+    const archiveTarget = ref<any>(null)
+    /** 这条资源还在运行时，表单里的时长先锁住 */
+    const archivePlayTimeLocked = computed(() => {
+      return !!(archiveTarget.value && isResourceRunning(archiveTarget.value))
+    })
+
+    /**
+     * 关掉修改数据的表单。
+     */
+    const closeArchiveDialog = () => {
+      showArchiveDialog.value = false
+      archiveTarget.value = null
     }
 
     // 创建用于筛选的“运行中”函数（游戏/软件等可执行程序共用同一 store）
@@ -1523,7 +1564,7 @@ export default defineComponent({
           }
           
           // 单图：路径为单个图片文件时，直接作为一页（复用漫画阅读器）
-          const singleImageExt = /\.(jpg|jpeg|png|gif|bmp|webp|svg|ico|tiff|tif|heic|heif)$/i
+          const singleImageExt = /\.(jpg|jpeg|jpe|jfif|png|gif|bmp|webp|svg|ico|tiff|tif|heic|heif)$/i
           if (singleImageExt.test(resourcePath.trim())) {
             pages.value = [resourcePath]
             return
@@ -1592,13 +1633,15 @@ export default defineComponent({
             // 返回小说相关设置
             return {
               novelDefaultOpenMode: settings.novel?.defaultOpenMode || settings.novelDefaultOpenMode || 'internal',
-              novel: settings.novel || {}
+              novel: settings.novel || {},
+              websiteOpenMode: settings.websiteOpenMode === 'internal' ? 'internal' : 'external'
             }
           } catch (error) {
             console.warn('[GenericResourceView] 获取全局设置失败:', error)
             return {
               novelDefaultOpenMode: 'internal',
-              novel: {}
+              novel: {},
+              websiteOpenMode: 'external'
             }
           }
         },
@@ -2076,6 +2119,19 @@ export default defineComponent({
       pages: detailPages
     })
     
+    /**
+     * 按当前资源重算左侧筛选栏的数量，并交给外层侧栏。
+     * 详情里改星级或完成状态时，列表条数不变，打开页面时统计的数量不会自己更新。
+     * 勾选筛选用的是资源上的最新星级，所以列表是对的，侧栏数字却还停在改之前。
+     */
+    function refreshFilterSidebar() {
+      if (!filterComposable.extractAllFilters || !filterComposable.getFilterData) {
+        return
+      }
+      filterComposable.extractAllFilters()
+      emit('filter-data-updated', filterComposable.getFilterData())
+    }
+
     const resourcePage = createResourcePage({
       pageConfig: {
         pageType: pageConfig.value?.id || 'games',
@@ -2094,14 +2150,7 @@ export default defineComponent({
           console.log('[GenericResourceView] onAdd 开始 - newItem 初始 id:', newItem.id?.value)
           
           for (const key in data) {
-            if (key in newItem) {
-              const field = (newItem as any)[key]
-              if (field && typeof field === 'object' && 'value' in field) {
-                field.value = BaseResources.extractPrimitiveValue(data[key])
-              } else {
-                (newItem as any)[key] = data[key]
-              }
-            }
+            BaseResources.assignSavedValue(newItem, key, data[key])
           }
           
           console.log('[GenericResourceView] onAdd 处理后 - newItem.id.value:', newItem.id?.value)
@@ -2142,13 +2191,8 @@ export default defineComponent({
           if (item) {
             // 更新 ResourceField 的值（而不是直接覆盖对象）
             Object.keys(updates).forEach(key => {
-              if (item[key] && typeof item[key] === 'object' && 'value' in item[key]) {
-                // 是 ResourceField，更新 value
-                item[key].value = BaseResources.extractPrimitiveValue(updates[key])
-              } else {
-                // 不是 ResourceField，直接赋值（如 folderSize, playTime 等额外字段）
-                item[key] = updates[key]
-              }
+              // 类上有的字段改 value。这一页新加的字段留在记录上，不因为当前类不认识就丢掉。
+              BaseResources.assignSavedValue(item, key, updates[key])
             })
             
             // 处理封面：如果封面字段被更新了，保存到 cover 文件夹
@@ -2187,6 +2231,8 @@ export default defineComponent({
             
             // 保存数据
             await saveData()
+            // 星级、完成状态写在资源上，侧栏数量要按保存后的数据立刻重算。
+            refreshFilterSidebar()
           }
         },
         onDelete: async (id: string) => {
@@ -2406,6 +2452,28 @@ export default defineComponent({
     /**
      * 详情面板 / 右键菜单 共用操作：根据 actionKey 执行对应逻辑，便于复用。
      */
+    /**
+     * 把修改数据表单里的时长、次数和时间写回这条资源并保存。
+     * 走和编辑信息一样的写回，这样页面上多出来的字段也不会被丢掉。
+     * @param updates 表单整理好的字段
+     */
+    const handleArchiveConfirm = async (updates: Record<string, unknown>) => {
+      const target = archiveTarget.value
+      const id = BaseResources.extractPrimitiveValue(target?.id?.value ?? target?.id)
+      const item = items.value.find((entry: any) => (entry.id?.value || entry.id) === id)
+      if (!item) {
+        notify.toast('error', '保存失败', '找不到这条资源')
+        return
+      }
+      Object.keys(updates).forEach((key) => {
+        BaseResources.assignSavedValue(item, key, updates[key])
+      })
+      await saveData()
+      refreshFilterSidebar()
+      closeArchiveDialog()
+      notify.toast('success', '已保存', '记录已更新')
+    }
+
     const handleDetailActionImpl = (actionKey: string, item: any) => {
       switch (actionKey) {
         case 'launch':
@@ -2472,6 +2540,13 @@ export default defineComponent({
         case 'edit':
           if ((resourcePage as any).showEdit) {
             (resourcePage as any).showEdit(item)
+          }
+          break
+        case 'edit-archive':
+          archiveTarget.value = item
+          showArchiveDialog.value = true
+          if ((resourcePage as any).closeDetail) {
+            (resourcePage as any).closeDetail()
           }
           break
         case 'remove':
@@ -4154,6 +4229,7 @@ export default defineComponent({
       acceptedTypeChoices,
       addingPageType,
       pageFieldKeys,
+      pageFieldDefs,
       cardTypeForResource,
       // 明确声明方法，确保 TypeScript 能正确识别
       updateScale: resourcePage.updateScale,
@@ -4184,6 +4260,11 @@ export default defineComponent({
       editForm: resourcePage.editForm,
       closeEdit: resourcePage.closeEdit,
       handleEditConfirm: resourcePage.handleEditConfirm,
+      showArchiveDialog,
+      archiveTarget,
+      archivePlayTimeLocked,
+      closeArchiveDialog,
+      handleArchiveConfirm,
       // 供 App.vue 游戏时长/保存逻辑使用（与 GameView 兼容）：games 即 items，saveGames 即 saveData
       games: items,
       saveGames: saveData

@@ -44,6 +44,21 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'happy-dom',
-    include: ['src/**/*.{test,spec}.{js,ts,vue}']
+    include: [
+      'src/**/*.{test,spec}.{js,ts,vue}',
+      'electron/**/*.{test,spec}.{js,ts}'
+    ],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html'],
+      include: ['src/**/*.{js,ts,vue}', 'electron/**/*.js'],
+      exclude: [
+        'src/third-party/**',
+        'src/assets/**',
+        'src/**/*.spec.{js,ts}',
+        'electron/**/*.spec.js',
+        'src/global.d.ts'
+      ]
+    }
   }
 })

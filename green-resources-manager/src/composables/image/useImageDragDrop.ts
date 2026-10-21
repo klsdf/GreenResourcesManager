@@ -96,7 +96,7 @@ export function useImageDragDrop(options: ImageDragDropOptions) {
    * 检查文件是否为图片文件
    */
   function isImageFile(filePath: string): boolean {
-    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg']
+    const imageExtensions = ['.jpg', '.jpeg', '.jpe', '.jfif', '.png', '.gif', '.bmp', '.webp', '.svg']
     const lowerPath = filePath.toLowerCase()
     return imageExtensions.some(ext => lowerPath.endsWith(ext))
   }
@@ -125,7 +125,7 @@ export function useImageDragDrop(options: ImageDragDropOptions) {
         
         if (imageFiles.length === 0) {
           console.log('未检测到图片文件，显示错误通知')
-          notify.native('拖拽失败', '请拖拽图片文件到此处（支持 .jpg、.jpeg、.png、.gif、.bmp、.webp、.svg 格式）')
+          notify.native('拖拽失败', '请拖拽图片文件到此处（支持 .jpg、.jpeg、.jpe、.jfif、.png、.gif、.bmp、.webp、.svg 格式）')
           return
         }
         
@@ -254,7 +254,7 @@ export function useImageDragDrop(options: ImageDragDropOptions) {
         
         filePaths.forEach(filePath => {
           // 检查路径是否看起来像文件夹（没有文件扩展名）
-          const hasImageExtension = /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(filePath)
+          const hasImageExtension = /\.(jpg|jpeg|jpe|jfif|png|gif|bmp|webp|svg)$/i.test(filePath)
           
           if (!hasImageExtension) {
             // 没有图片扩展名，可能是文件夹路径
@@ -299,7 +299,7 @@ export function useImageDragDrop(options: ImageDragDropOptions) {
         if ((singleFile as any).path) {
           const filePath = (singleFile as any).path
           const fileName = singleFile.name || ''
-          const hasImageExtension = /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(fileName)
+          const hasImageExtension = /\.(jpg|jpeg|jpe|jfif|png|gif|bmp|webp|svg)$/i.test(fileName)
           const isArchive = isArchiveFile(filePath)
           
           if (isArchive) {
@@ -349,7 +349,7 @@ export function useImageDragDrop(options: ImageDragDropOptions) {
         const imageFiles = files.filter(file => {
           if ((file as any).path) {
             const fileName = file.name || ''
-            return /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(fileName)
+            return /\.(jpg|jpeg|jpe|jfif|png|gif|bmp|webp|svg)$/i.test(fileName)
           }
           return false
         })

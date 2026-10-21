@@ -74,6 +74,13 @@
             <p class="description-content">{{ item.description?.value ?? item.description }}</p>
           </div>
           
+          <!-- 这一页有、详情原布局没画出来的字段。空的不占位置 -->
+          <div class="detail-page-fields" v-if="pageOnlyFields.length">
+            <p v-for="line in pageOnlyFields" :key="line.key" class="page-field-line">
+              <span class="info-label">{{ $lt(line.label) }}：</span>{{ line.value }}
+            </p>
+          </div>
+
           <!-- 标签信息 -->
           <div class="detail-tags" v-if="(item.tags?.value ?? item.tags) && (item.tags?.value ?? item.tags).length > 0">
             <h4 class="tags-title">{{ tagsTitle }}</h4>
@@ -145,6 +152,11 @@ export default {
     item: {
       type: Object,
       default: null
+    },
+    /** 当前页的字段定义。详情只补上原布局没显示的那些 */
+    pageFieldDefs: {
+      type: Array,
+      default: () => []
     },
     type: {
       type: String,
@@ -271,6 +283,37 @@ export default {
       // 如果没有配置，使用默认的 name 字段
       return this.item.name?.value ?? this.item.name ?? ''
     },
+    /**
+     * 这一页配置了、但详情原有版式没有画出的字段。
+     * 名字、简介、标签和原来的客观信息不再重复。文件和封面已经在左侧，也不再写一遍路径。
+     */
+    pageOnlyFields() {
+      const defs = Array.isArray(this.pageFieldDefs) ? this.pageFieldDefs : []
+      if (!this.item || defs.length === 0) return []
+      const shown = new Set(['name', 'description', 'tags', 'coverPath', 'cover', 'thumbnail', 'thumbnailPath', 'resourcePath', 'rating', 'comment', 'notes', 'id', 'resourceType'])
+      const config = this.detailPanelConfig
+      if (config?.title?.field) shown.add(config.title.field)
+      for (const info of config?.objectiveInfo || []) {
+        if (info?.field) shown.add(info.field)
+        for (const fallback of info?.fallbackFields || []) shown.add(fallback)
+      }
+      for (const record of config?.dataRecords || []) {
+        if (record?.field) shown.add(record.field)
+      }
+      const lines = []
+      for (const def of defs) {
+        if (!def?.key || shown.has(def.key)) continue
+        if (def.editor === 'file' || def.editor === 'folder' || def.editor === 'cover') continue
+        let value = this.getFieldValueFromItem(this.item, def.key)
+        if ((value === undefined || value === null) && this.item.retainedFields) {
+          value = this.item.retainedFields[def.key]
+        }
+        if (Array.isArray(value)) value = value.filter(item => item != null && String(item).trim() !== '').join('、')
+        if (value === undefined || value === null || value === '' || value === false) continue
+        lines.push({ key: def.key, label: def.label || def.key, value: String(value) })
+      }
+      return lines
+    },
     // 资源类型标签
     resourceTypeLabel() {
       // 优先从 item.resourceType 获取，直接返回原始类型
@@ -384,7 +427,7 @@ export default {
       // 如果传递了 actions prop 且不为空，使用传递的 actions
       if (this.actions && Array.isArray(this.actions) && this.actions.length > 0) {
         console.log('📋 [DetailPanel] 使用传递的 actions:', this.actions)
-        return this.actions
+        return this.withArchiveAction(this.actions)
       }
       
       // 尝试从配置中获取按钮组
@@ -399,12 +442,12 @@ export default {
       if (config?.actions && Array.isArray(config.actions)) {
         const generatedActions = this.generateActionsFromConfig(config.actions)
         console.log('📋 [DetailPanel] 从配置生成的按钮:', generatedActions)
-        return generatedActions
+        return this.withArchiveAction(generatedActions)
       }
       
       // 如果没有配置，返回空数组（不再提供向后兼容的默认值）
       console.log('📋 [DetailPanel] 没有配置的 actions，返回空数组')
-      return []
+      return this.withArchiveAction([])
     },
     hasRating() {
       // 判断是否有评价数据（有星级或评论）
@@ -889,6 +932,27 @@ export default {
       return classMap[fieldName] || 'detail-info-item'
     },
     /**
+     * 在「编辑信息」旁边放上「修改数据」。
+     * 放在详情里统一加，这样每种资源不用各写一遍。介绍和游玩记录分开改。
+     * @param {Array} actions 原来的按钮
+     * @returns {Array} 加上修改数据之后的按钮
+     */
+    withArchiveAction(actions) {
+      if (!this.item) return actions
+      if (actions.some(action => action.key === 'edit-archive')) return actions
+      const archiveAction = {
+        key: 'edit-archive',
+        icon: '📝',
+        label: '修改数据',
+        class: 'btn-archive'
+      }
+      const next = actions.slice()
+      const editIndex = next.findIndex(action => action.key === 'edit')
+      if (editIndex >= 0) next.splice(editIndex + 1, 0, archiveAction)
+      else next.push(archiveAction)
+      return next
+    },
+    /**
      * 根据配置生成按钮组
      */
     generateActionsFromConfig(actionsConfig) {
@@ -1160,6 +1224,17 @@ export default {
   max-width: 100%; /* 确保不超过容器宽度 */
 }
 
+.detail-page-fields {
+  margin-bottom: 16px;
+}
+
+.page-field-line {
+  margin: 0 0 8px;
+  color: var(--text-primary);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
 .detail-description {
   margin-bottom: 20px;
   padding: 15px;
@@ -1379,6 +1454,24 @@ export default {
 }
 
 .btn-edit:hover {
+  background: var(--bg-secondary);
+}
+
+.btn-archive {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--accent-color);
+  padding: 12px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+}
+
+.btn-archive:hover {
   background: var(--bg-secondary);
 }
 

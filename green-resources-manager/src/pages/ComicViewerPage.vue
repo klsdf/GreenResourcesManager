@@ -78,7 +78,7 @@ export default {
       }
 
       // 单图：路径为单个图片文件时直接作为一页
-      const singleImageExt = /\.(jpg|jpeg|png|gif|bmp|webp|svg|ico|tiff|tif|heic|heif)$/i
+      const singleImageExt = /\.(jpg|jpeg|jpe|jfif|png|gif|bmp|webp|svg|ico|tiff|tif|heic|heif)$/i
       if (singleImageExt.test(trimmed)) {
         this.pages = [trimmed]
         return

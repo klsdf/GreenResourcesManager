@@ -24,8 +24,8 @@
     "description": "コミュニティの作品を共有・発見"
   },
   "users": {
-    "name": "ユーザー",
-    "description": "個人データとソフトウェアの各種データを記録"
+    "name": "統計と実績",
+    "description": "利用統計と解除済みの実績を表示"
   },
   "messages": {
     "name": "メッセージ",

@@ -162,7 +162,7 @@ function registerIpcHandlers(ipcMain, getMainWindow, dialog) {
       const dialogOptions = {
         title: '选择图片',
         filters: [
-          { name: '图片文件', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] },
+          { name: '图片文件', extensions: ['jpg', 'jpeg', 'jpe', 'jfif', 'png', 'gif', 'bmp', 'webp'] },
           { name: '所有文件', extensions: ['*'] }
         ],
         properties: ['openFile']
@@ -193,7 +193,7 @@ function registerIpcHandlers(ipcMain, getMainWindow, dialog) {
       const dialogOptions = {
         title: '选择截图作为封面',
         filters: [
-          { name: '图片文件', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] },
+          { name: '图片文件', extensions: ['jpg', 'jpeg', 'jpe', 'jfif', 'png', 'gif', 'bmp', 'webp'] },
           { name: '所有文件', extensions: ['*'] }
         ],
         properties: ['openFile']

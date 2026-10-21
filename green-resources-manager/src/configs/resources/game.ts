@@ -22,8 +22,7 @@ export class Game extends BaseResources {
 		'.exe',  // 可执行文件
 		'.swf',  // Flash 游戏
 		'.bat',  // 批处理启动文件
-		'.lnk',  // Windows 快捷方式
-		'.zip', '.rar', '.7z', '.tar', '.gz', '.tar.gz', '.bz2', '.tar.bz2', '.xz', '.tar.xz'  // 压缩包
+		'.lnk'   // Windows 快捷方式
 	]
 	
 	resourceType: ResourceField<string> = new ResourceField<string>({

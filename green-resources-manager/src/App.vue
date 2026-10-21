@@ -162,7 +162,7 @@
       <!-- 底部按钮 -->
       <div class="nav-footer">
         <div v-for="viewId in footerViews" :key="viewId" 
-          :class="['nav-item', `${viewId}-item`, { active: $route.name === viewId }]" 
+          :class="['nav-item', `${viewId}-item`, { active: isViewActive(viewId) }]" 
           @click="navigateTo(viewId)">
           <span class="nav-icon">{{ viewConfig[viewId]?.icon || '' }}</span>
           <span class="nav-text">{{ $t('views.' + viewId + '.name') }}</span>
@@ -417,9 +417,9 @@ export default {
           description: '分享和发现社区创作内容'
         },
         users: {
-          name: '用户',
-          icon: '👤',
-          description: '记录您的个人数据已经本软件的各种数据'
+          name: '统计与成就',
+          icon: '📊',
+          description: '查看使用统计与已解锁成就'
         },
         messages: {
           name: '信息中心',
@@ -701,6 +701,10 @@ export default {
       }
     },
     
+    isViewActive(viewId: string) {
+      return this.$route.name === viewId || this.$route.matched.some(record => record.name === viewId)
+    },
+
     navigateTo(viewId: string) {
       this.$router.push({ name: viewId }).catch(err => {
         // 忽略重复导航错误

@@ -1,0 +1,181 @@
+---
+import BaseLayout from './BaseLayout.astro'
+import '../styles/docs.css'
+import '../styles/help-global.scss'
+import { docCategories, type DocEntry } from '../data/docs'
+import { url } from '../lib/site'
+
+interface Props {
+  title: string
+  description: string
+  canonicalPath: string
+  currentSlug: string
+  categoryTitle?: string
+  prev?: DocEntry | null
+  next?: DocEntry | null
+}
+
+const { title, description, canonicalPath, currentSlug, categoryTitle, prev = null, next = null } = Astro.props
+const currentDoc = docCategories.flatMap((category) => category.docs).find((doc) => doc.slug === currentSlug)
+---
+
+<BaseLayout title={title} description={description} canonicalPath={canonicalPath}>
+  <div class="docs-page">
+    <div class="container docs-shell">
+      <aside class="docs-sidebar" id="docs-sidebar" aria-label="帮助文档导航">
+        <div class="docs-sidebar__head">
+          <a class="docs-sidebar__title" href={url('docs/')}>
+            <span>📚</span>
+            帮助手册
+          </a>
+          <button class="docs-sidebar__close" type="button" aria-label="关闭目录">✕</button>
+        </div>
+
+        <div class="docs-search">
+          <span class="docs-search__icon">🔎</span>
+          <label class="sr-only" for="docs-search">搜索帮助文档</label>
+          <input id="docs-search" type="search" placeholder="搜索文档，例如：tag、API…" autocomplete="off" />
+          <p class="docs-search__hint" id="docs-search-hint">没有找到对应的文档，换个关键词试试？</p>
+        </div>
+
+        <nav class="docs-nav">
+          {docCategories.map((category) => (
+            <details class="docs-nav-group" open={category.docs.some((doc) => doc.slug === currentSlug)} data-nav-group>
+              <summary>{category.icon} {category.title}</summary>
+              <div class="docs-nav-list">
+                {category.docs.map((doc) => (
+                  <a
+                    class:list={['docs-nav-link', { 'is-active': doc.slug === currentSlug }]}
+                    href={url(`docs/${doc.slug}/`)}
+                    data-doc-link
+                    data-title={`${doc.title} ${doc.navTitle} ${doc.keywords.join(' ')}`}
+                  >
+                    <span class="docs-nav-link__icon">{doc.icon}</span>
+                    <span>{doc.navTitle}</span>
+                  </a>
+                ))}
+              </div>
+            </details>
+          ))}
+        </nav>
+
+        <div class="docs-sidebar__foot">
+          文档还在慢慢长大。<br />
+          找不到答案？<a href={url('docs/support/')}>来问仓鼠娘 →</a>
+        </div>
+      </aside>
+
+      <div class="docs-overlay" id="docs-overlay"></div>
+
+      <div class="docs-main">
+        <div class="docs-topbar">
+          <nav class="docs-breadcrumb" aria-label="面包屑">
+            <a href={url('docs/')}>帮助手册</a>
+            <span class="docs-breadcrumb__sep">/</span>
+            {categoryTitle && <><span>{categoryTitle}</span><span class="docs-breadcrumb__sep">/</span></>}
+            <span>{currentDoc?.navTitle ?? '文档'}</span>
+          </nav>
+          <button class="docs-menu-toggle" type="button" aria-label="打开目录" aria-expanded="false" aria-controls="docs-sidebar">
+            ☰ 目录
+          </button>
+        </div>
+
+        <article class="docs-article help-view">
+          <slot />
+        </article>
+
+        <nav class="docs-pager" aria-label="上一篇和下一篇">
+          {prev ? (
+            <a class="docs-pager__link" href={url(`docs/${prev.slug}/`)}>
+              <span class="docs-pager__label">← 上一篇</span>
+              <span class="docs-pager__title">{prev.navTitle}</span>
+            </a>
+          ) : (
+            <span class="docs-pager__spacer" aria-hidden="true"></span>
+          )}
+          {next ? (
+            <a class="docs-pager__link docs-pager__link--next" href={url(`docs/${next.slug}/`)}>
+              <span class="docs-pager__label">下一篇 →</span>
+              <span class="docs-pager__title">{next.navTitle}</span>
+            </a>
+          ) : (
+            <span class="docs-pager__spacer" aria-hidden="true"></span>
+          )}
+        </nav>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const sidebar = document.querySelector<HTMLElement>('#docs-sidebar')
+    const overlay = document.querySelector<HTMLElement>('#docs-overlay')
+    const menuToggle = document.querySelector<HTMLButtonElement>('.docs-menu-toggle')
+    const closeButton = document.querySelector<HTMLButtonElement>('.docs-sidebar__close')
+    const searchInput = document.querySelector<HTMLInputElement>('#docs-search')
+    const searchHint = document.querySelector<HTMLElement>('#docs-search-hint')
+    const links = Array.from(document.querySelectorAll<HTMLElement>('[data-doc-link]'))
+    const groups = Array.from(document.querySelectorAll<HTMLElement>('[data-nav-group]'))
+
+    function openSidebar() {
+      sidebar?.classList.add('is-open')
+      overlay?.classList.add('is-open')
+      menuToggle?.setAttribute('aria-expanded', 'true')
+      document.body.classList.add('menu-open')
+    }
+
+    function closeSidebar() {
+      sidebar?.classList.remove('is-open')
+      overlay?.classList.remove('is-open')
+      menuToggle?.setAttribute('aria-expanded', 'false')
+      document.body.classList.remove('menu-open')
+    }
+
+    menuToggle?.addEventListener('click', openSidebar)
+    closeButton?.addEventListener('click', closeSidebar)
+    overlay?.addEventListener('click', closeSidebar)
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > 820) closeSidebar()
+    })
+
+    links.forEach((link) => link.addEventListener('click', closeSidebar))
+
+    function filterDocs() {
+      const query = (searchInput?.value ?? '').trim().toLowerCase()
+      let visibleCount = 0
+
+      links.forEach((link) => {
+        const haystack = (link.dataset.title ?? '').toLowerCase()
+        const match = !query || haystack.includes(query)
+        link.classList.toggle('is-hidden', !match)
+        if (match) visibleCount += 1
+      })
+
+      groups.forEach((group) => {
+        const hasVisible = Array.from(group.querySelectorAll<HTMLElement>('[data-doc-link]')).some(
+          (link) => !link.classList.contains('is-hidden')
+        )
+        group.classList.toggle('is-hidden', !hasVisible)
+        if (query && hasVisible) group.setAttribute('open', '')
+        if (!query) {
+          const active = group.querySelector('.docs-nav-link.is-active')
+          group.toggleAttribute('open', Boolean(active))
+        }
+      })
+
+      searchHint?.classList.toggle('is-visible', Boolean(query) && visibleCount === 0)
+      if (searchHint) searchHint.style.display = query && visibleCount === 0 ? 'block' : 'none'
+    }
+
+    searchInput?.addEventListener('input', filterDocs)
+    searchInput?.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        searchInput.value = ''
+        filterDocs()
+        searchInput.blur()
+      }
+    })
+
+    const activeLink = document.querySelector<HTMLElement>('.docs-nav-link.is-active')
+    activeLink?.scrollIntoView({ block: 'nearest' })
+  </script>
+</BaseLayout>

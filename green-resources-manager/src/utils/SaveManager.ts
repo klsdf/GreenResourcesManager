@@ -1,4 +1,17 @@
 /**
+ * 把日期写成统计页日历用的本地日期。
+ * 不用 toISOString，那个是 UTC，晚上打开会被记到前一天，格子对不上。
+ * @param {Date} date 要格式化的日期
+ * @returns {string} YYYY-MM-DD
+ */
+function formatLocalDate(date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+/**
  * SaveManager - 统一管理存档和读档功能
  * 支持本地 JSON 文件存储、文件导入导出、数据备份等功能
  */
@@ -85,6 +98,8 @@ class SaveManager {
         autoOpenScreenshotFolder: false,
         smartWindowDetection: true,
         videoPlayMode: 'external',
+        /** 网站打开方式。external 用系统浏览器，internal 在软件新标签页打开。 */
+        websiteOpenMode: 'external',
         lastView: 'games', // 记录最后访问的页面
         // 各页面的排序方式设置
         sortSettings: {
@@ -1963,8 +1978,10 @@ class SaveManager {
         console.error('当前环境无法访问 SQLite 保存功能（请使用 Electron 运行）')
         return false
       }
-      
-      const sqliteResult = await window.electronAPI.sqliteSaveUser(userProfile)
+
+      // 统计页传来的是 Vue 响应式对象。不先转成普通数据，进程通信会克隆失败，登录日历就写不进去。
+      const plainProfile = JSON.parse(JSON.stringify(userProfile))
+      const sqliteResult = await window.electronAPI.sqliteSaveUser(plainProfile)
       if (sqliteResult?.ok) {
         console.log('用户资料已保存到 SQLite')
         return true
@@ -2218,6 +2235,23 @@ class SaveManager {
   }
 
   /**
+   * 把某一天记进登录日历。
+   * 用本地日期，和统计页日历上的格子是同一天，避免晚上被算成前一天。
+   * @param {Object} userProfile 用户资料，会直接改里面的 checkInDays
+   * @param {Date} date 要记录的日期
+   */
+  recordCheckInDay(userProfile, date) {
+    if (!userProfile) return
+    if (!Array.isArray(userProfile.checkInDays)) {
+      userProfile.checkInDays = []
+    }
+    const day = formatLocalDate(date)
+    if (!userProfile.checkInDays.includes(day)) {
+      userProfile.checkInDays.push(day)
+    }
+  }
+
+  /**
    * 开始使用时长跟踪
    * @returns {Promise<boolean>} 开始跟踪是否成功
    */
@@ -2264,6 +2298,9 @@ class SaveManager {
       if (userProfile.loginHistory.length > 2) {
         userProfile.loginHistory = userProfile.loginHistory.slice(0, 2)
       }
+
+      // 登录日跟应用启动走，不跟统计页走。以前只有打开统计页才记一天，而且那次保存经常失败，日历就永远只有今天。
+      this.recordCheckInDay(userProfile, new Date())
       
       await this.saveUserProfile(userProfile)
       return true
@@ -2417,7 +2454,7 @@ class SaveManager {
     this.dataCache[cacheKey] = result // 更新缓存
     
     console.log(`[SaveManager] 页面 ${pageId} 数据加载完成，共 ${result.length} 条记录`)
-    return result
+    return JSON.parse(JSON.stringify(result))
   }
 
   /**

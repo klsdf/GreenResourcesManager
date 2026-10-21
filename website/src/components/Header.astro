@@ -1,0 +1,95 @@
+---
+import { base, links, url } from '../lib/site'
+
+const pathname = Astro.url.pathname
+const relative = pathname.startsWith(base) ? pathname.slice(base.length) : pathname.replace(/^\/+/, '')
+const isHome = relative === '' || relative === 'index.html'
+const isDocs = relative.startsWith('docs')
+const isDownload = relative.startsWith('download')
+
+const navItems = [
+  { label: '首页', href: url(''), active: isHome },
+  { label: '功能', href: `${url('')}#features`, active: false },
+  { label: '下载', href: url('download/'), active: isDownload },
+  { label: '帮助文档', href: url('docs/'), active: isDocs },
+  { label: 'GitHub', href: links.github, active: false, external: true }
+]
+---
+
+<header class="site-header">
+  <div class="container header-inner">
+    <a class="brand" href={url('')} aria-label="Green Resources Manager 首页">
+      <img class="brand__logo" src={url('images/logo.png')} alt="" width="46" height="46" />
+      <span class="brand__text">
+        <span class="brand__name">Green Resources Manager</span>
+        <span class="brand__sub">绿色资源管理器</span>
+      </span>
+    </a>
+
+    <nav class="main-nav" aria-label="主导航">
+      {navItems.map((item) => (
+        <a
+          class:list={['nav-link', { 'is-active': item.active }]}
+          href={item.href}
+          target={item.external ? '_blank' : undefined}
+          rel={item.external ? 'noreferrer' : undefined}
+        >
+          {item.label}
+        </a>
+      ))}
+    </nav>
+
+    <div class="header-actions">
+      <a class="btn btn--ghost btn--small" href={links.qqGroupA} target="_blank" rel="noreferrer">
+        💬 QQ 群
+      </a>
+      <a class="btn btn--primary btn--small" href={links.latestRelease} target="_blank" rel="noreferrer">
+        免费下载
+      </a>
+      <button class="menu-toggle" type="button" aria-label="打开菜单" aria-expanded="false" aria-controls="mobile-nav">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+
+  <nav class="mobile-nav container" id="mobile-nav" aria-label="移动端导航">
+    {navItems.map((item) => (
+      <a
+        class:list={['nav-link', { 'is-active': item.active }]}
+        href={item.href}
+        target={item.external ? '_blank' : undefined}
+        rel={item.external ? 'noreferrer' : undefined}
+      >
+        {item.label}
+      </a>
+    ))}
+    <a class="btn btn--primary" href={links.latestRelease} target="_blank" rel="noreferrer">免费下载 Windows 版</a>
+  </nav>
+</header>
+
+<script>
+  const toggle = document.querySelector<HTMLButtonElement>('.menu-toggle')
+  const mobileNav = document.querySelector<HTMLElement>('#mobile-nav')
+
+  if (toggle && mobileNav) {
+    const close = () => {
+      mobileNav.classList.remove('is-open')
+      toggle.setAttribute('aria-expanded', 'false')
+      toggle.setAttribute('aria-label', '打开菜单')
+      document.body.classList.remove('menu-open')
+    }
+
+    toggle.addEventListener('click', () => {
+      const open = !mobileNav.classList.contains('is-open')
+      mobileNav.classList.toggle('is-open', open)
+      toggle.setAttribute('aria-expanded', String(open))
+      toggle.setAttribute('aria-label', open ? '关闭菜单' : '打开菜单')
+      document.body.classList.toggle('menu-open', open)
+    })
+
+    mobileNav.querySelectorAll('a').forEach((link) => link.addEventListener('click', close))
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > 880) close()
+    })
+  }
+</script>

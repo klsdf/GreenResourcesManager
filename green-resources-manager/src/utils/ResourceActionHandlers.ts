@@ -7,6 +7,7 @@ import { BaseResources } from '@resources/base/ResourcesDataBase.ts'
 import { isArchiveFile } from '../composables/useArchive'
 import notify from './NotificationService.ts'
 import saveManager from './SaveManager.ts'
+import { normalizeWebUrl } from './webUrl.ts'
 
 /**
  * cbr 是 RAR 漫画包，cbz 是 ZIP 漫画包。
@@ -723,16 +724,50 @@ export const openWebsiteHandler: ActionHandler = async (resource, context) => {
       }
     }
 
-    // 打开网站
-    if (context.isElectronEnvironment && window.electronAPI && window.electronAPI.openExternal) {
-      const result = await window.electronAPI.openExternal(url)
-      if (result.success) {
-      } else {
+    /**
+     * 保住用户写上的 https。
+     * 裸域名补成 https，javascript: 这类地址不打开。
+     */
+    const safeUrl = normalizeWebUrl(url)
+    if (!safeUrl) {
+      notify.toast('error', '打开失败', `网站 "${resourceName}" 的地址不是网页链接`)
+      return
+    }
+
+    /**
+     * 打开方式来自设置页。
+     * 没读到设置时仍用系统浏览器，和升级前的行为一致。
+     */
+    let openMode: 'external' | 'internal' = 'external'
+    try {
+      const globalSettings = context.getGlobalSettings
+        ? await context.getGlobalSettings()
+        : await saveManager.loadSettings()
+      if (globalSettings?.websiteOpenMode === 'internal') {
+        openMode = 'internal'
+      }
+    } catch (error) {
+      console.warn('[ResourceActionHandlers] 读取网站打开方式失败，改用默认浏览器:', error)
+    }
+
+    // 软件新标签页不注入应用权限，只加载 http 或 https。
+    if (openMode === 'internal' && context.isElectronEnvironment && window.electronAPI?.tabCreate) {
+      const result = await window.electronAPI.tabCreate({
+        url: safeUrl,
+        title: resourceName || '网站',
+        external: true
+      })
+      if (!result.success) {
+        notify.toast('error', '访问失败', `无法打开网站: ${result.error || '未知错误'}`)
+        return
+      }
+    } else if (context.isElectronEnvironment && window.electronAPI?.openExternal) {
+      const result = await window.electronAPI.openExternal(safeUrl)
+      if (!result.success) {
         notify.toast('error', '访问失败', `无法打开网站: ${result.error || '未知错误'}`)
       }
     } else {
-      // 降级处理：在浏览器中打开
-      window.open(url, '_blank')
+      window.open(safeUrl, '_blank')
     }
     
     // 关闭详情页面

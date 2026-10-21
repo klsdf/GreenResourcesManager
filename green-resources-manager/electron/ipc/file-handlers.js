@@ -39,6 +39,7 @@ const crypto = require('crypto')
 const { app, shell } = require('electron')
 const AdmZip = require('adm-zip')
 const { SUPPORTED_IMAGE_FORMATS, MAX_BACKUP_FILES } = require('../utils/constants')
+const { isImageFile } = require('../utils/image-file')
 
 /**
  * 读取压缩包里某一张图的大小。
@@ -236,13 +237,11 @@ function registerIpcHandlers(ipcMain, fileUtils, pathUtils) {
         return { success: false, error: '未提供文件夹路径' }
       }
 
-      // 将格式数组转换为扩展名集合（添加点号）
-      const supportedExt = new Set(SUPPORTED_IMAGE_FORMATS.map(fmt => `.${fmt.toLowerCase()}`))
       const entries = fs.readdirSync(folderPath, { withFileTypes: true })
       const files = entries
         .filter(e => e.isFile())
         .map(e => path.join(folderPath, e.name))
-        .filter(full => supportedExt.has(path.extname(full).toLowerCase()))
+        .filter(full => isImageFile(full))
         .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
 
       return { success: true, files }
@@ -265,6 +264,7 @@ function registerIpcHandlers(ipcMain, fileUtils, pathUtils) {
       if (!fs.existsSync(archivePath)) {
         return { success: false, error: '压缩包不存在' }
       }
+      // 压缩包条目要解压后才能读文件头，这里按后缀筛选以免解压整个包
       const supportedExt = new Set(SUPPORTED_IMAGE_FORMATS.map(fmt => `.${fmt.toLowerCase()}`))
       const zip = new AdmZip(archivePath)
       const entries = zip.getEntries()

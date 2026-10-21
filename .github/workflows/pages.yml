@@ -1,15 +1,15 @@
-name: Deploy Help Site
+name: Deploy Website
 
 on:
   push:
     branches: [main]
     paths:
-      - 'green-resources-manager/src/**'
-      - 'green-resources-manager/help-index.html'
-      - 'green-resources-manager/vite.config.help.js'
-      - 'green-resources-manager/scripts/post-build-help.js'
-      - 'green-resources-manager/package.json'
-      - 'green-resources-manager/package-lock.json'
+      - 'website/**'
+      - 'green-resources-manager/src/components/help/**'
+      - 'green-resources-manager/src/components/DetailCard.vue'
+      - 'green-resources-manager/src/components/CodeBlock.vue'
+      - 'green-resources-manager/src/composables/useHelpUtils.ts'
+      - 'green-resources-manager/src/utils/constants.ts'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -28,7 +28,7 @@ jobs:
     timeout-minutes: 15
     defaults:
       run:
-        working-directory: green-resources-manager
+        working-directory: website
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
@@ -36,15 +36,15 @@ jobs:
       - name: 安装 Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
-          cache-dependency-path: green-resources-manager/package-lock.json
+          cache-dependency-path: website/package-lock.json
 
       - name: 安装依赖
         run: npm ci
 
-      - name: 构建帮助站
-        run: npm run build-help
+      - name: 构建官网
+        run: npm run build
 
       - name: 配置 Pages
         uses: actions/configure-pages@v5
@@ -52,7 +52,7 @@ jobs:
       - name: 上传站点产物
         uses: actions/upload-pages-artifact@v3
         with:
-          path: green-resources-manager/help-site
+          path: website/dist
 
   deploy:
     needs: build

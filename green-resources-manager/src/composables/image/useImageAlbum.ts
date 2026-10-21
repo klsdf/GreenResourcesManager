@@ -59,8 +59,8 @@ export function useImageAlbum(pageId: string = 'images') {
   const saveAlbums = async (): Promise<void> => {
     try {
       // 使用 getSaveData 提取需要保存的字段
-      const saveableAlbums = albums.value.map(album => 
-        album.getSaveData()
+      const saveableAlbums = albums.value.map(album =>
+        BaseResources.composeSaveData(album, album.getSaveData())
       )
       await saveManager.savePageData(pageId, saveableAlbums)
     } catch (error) {
@@ -109,7 +109,7 @@ export function useImageAlbum(pageId: string = 'images') {
     if (!path || typeof path !== 'string') {
       return false
     }
-    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg']
+    const imageExtensions = ['.jpg', '.jpeg', '.jpe', '.jfif', '.png', '.gif', '.bmp', '.webp', '.svg']
     const lowerPath = path.toLowerCase()
     return imageExtensions.some(ext => lowerPath.endsWith(ext))
   }

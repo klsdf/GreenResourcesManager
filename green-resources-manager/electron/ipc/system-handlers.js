@@ -27,6 +27,7 @@ const { spawn } = require('child_process')
 const { Notification } = require('electron')
 const path = require('path')
 const fs = require('fs')
+const { normalizeWebUrl, openInDefaultBrowser } = require('../utils/open-browser-url')
 
 /**
  * zip、7z 不能交给 UnRAR。它读不了这些格式，退出码 10 会被误判成密码错误。
@@ -486,12 +487,12 @@ $results | ConvertTo-Json -Depth 10
         return { success: false, error: '无效的URL或路径' }
       }
 
-      // 检查是否是URL（以http://或https://开头）
-      if (urlOrPath.startsWith('http://') || urlOrPath.startsWith('https://')) {
-        console.log('✅ 检测到URL，正在调用 shell.openExternal...')
-        await shell.openExternal(urlOrPath)
-        console.log('✅ URL打开成功')
-        return { success: true }
+      // 网页走默认浏览器的协议关联，并保住用户写的 https。
+      // Windows 的 shell.openExternal 会经过 url.dll，先发一次 http 明文请求，再靠网站跳回 https。
+      const webUrl = normalizeWebUrl(urlOrPath)
+      if (webUrl) {
+        console.log('✅ 检测到网址，按原协议打开:', webUrl)
+        return openInDefaultBrowser(webUrl)
       }
 
       // 对于本地文件路径，检查文件是否存在

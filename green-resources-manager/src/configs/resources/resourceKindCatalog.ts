@@ -9,7 +9,8 @@ import { Website } from './website'
 import { Audio } from './audio'
 import { Other } from './other'
 import { ResourceField } from './base/ResourceField'
-import { FormField_Date, FormField_Tags, FormField_Text } from './base/FormField'
+import { FormField, FormField_Date, FormField_Tags, FormField_Text } from './base/FormField'
+import { createFormField, editorKindOf, isSimpleEditor, type PageFieldDef, type PageFieldEditor } from '../pages/pageFieldSchema'
 
 /**
  * 资源本身只有这几种。
@@ -35,8 +36,8 @@ export const BASIC_RESOURCE_KINDS: BasicResourceKind[] = [
   {
     id: 'executable',
     label: '可执行文件',
-    description: 'exe、bat、快捷方式，以及打成压缩包的程序',
-    extensions: ['.exe', '.swf', '.bat', '.lnk', '.msi', '.zip', '.rar', '.7z'],
+    description: 'exe、bat、快捷方式、Flash 和安装包',
+    extensions: ['.exe', '.swf', '.bat', '.lnk', '.msi'],
     resourceClass: Game,
     legacyPageTypes: ['Game', 'Software']
   },
@@ -49,18 +50,26 @@ export const BASIC_RESOURCE_KINDS: BasicResourceKind[] = [
     legacyPageTypes: []
   },
   {
+    id: 'archive',
+    label: '压缩包',
+    description: 'zip、rar、7z、cbz、cbr 等。和可执行文件、图片文件夹分开，页面可以单独勾选',
+    extensions: ['.zip', '.rar', '.7z', '.tar', '.gz', '.tar.gz', '.bz2', '.tar.bz2', '.xz', '.tar.xz', '.cbz', '.cbr'],
+    resourceClass: Other,
+    legacyPageTypes: ['Game', 'Software', 'Image', 'Manga']
+  },
+  {
     id: 'image',
     label: '图片',
     description: '单张 png、jpg 等，用图片阅读器打开',
-    extensions: ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.ico', '.tiff', '.tif', '.heic', '.heif'],
+    extensions: ['.jpg', '.jpeg', '.jpe', '.jfif', '.png', '.gif', '.bmp', '.webp', '.avif', '.svg', '.ico', '.tiff', '.tif', '.heic', '.heif'],
     resourceClass: SingleImage,
     legacyPageTypes: ['SingleImage']
   },
   {
     id: 'imageFolder',
     label: '图片文件夹',
-    description: '一叠图片，或漫画压缩包，用漫画阅读器打开',
-    extensions: ['<folder>', '.zip', '.rar', '.7z', '.cbz', '.cbr', '.pdf'],
+    description: '一叠图片，用漫画阅读器打开',
+    extensions: ['<folder>', '.pdf'],
     resourceClass: Manga,
     legacyPageTypes: ['Image', 'Manga']
   },
@@ -171,6 +180,8 @@ export interface PageFieldOption {
   isArray: boolean
   /** 日期字段走日期筛选，侧栏按具体日期列出，而不是当普通文本 */
   dateFilter?: boolean
+  /** 编辑框种类。页面新增字段时沿用这个，而不是再猜一次 */
+  editor: PageFieldEditor
 }
 
 /**
@@ -204,6 +215,17 @@ export function classForKind(kindId: string, legacyPageTypes: string[] = []): an
       return Software
     }
     return Game
+  }
+  // 压缩包没有自己的存档结构。放进哪一页，就沿用那一页原来的打开方式。
+  if (kindId === 'archive') {
+    if (legacyPageTypes.includes('Image') || legacyPageTypes.includes('Manga')) return Manga
+    if (legacyPageTypes.includes('Video')) return Video
+    if (legacyPageTypes.includes('Anime')) return VideoFolder
+    if (legacyPageTypes.includes('Novel')) return Novel
+    if (legacyPageTypes.includes('Audio')) return Audio
+    if (legacyPageTypes.includes('Software') && !legacyPageTypes.includes('Game')) return Software
+    if (legacyPageTypes.includes('Game')) return Game
+    return Other
   }
   return findBasicKind(kindId)?.resourceClass
 }
@@ -288,7 +310,8 @@ export function collectFieldCatalog(): PageFieldOption[] {
         label: field.editType.fieldName || key,
         filterable: isTags || isText || isDate,
         isArray: isTags,
-        dateFilter: isDate
+        dateFilter: isDate,
+        editor: editorKindOf(field.editType)
       })
     }
   }
@@ -313,6 +336,42 @@ export function defaultFieldKeys(legacyPageTypes: string[]): string[] {
     }
   }
   return keys
+}
+
+/**
+ * 从任意资源类上借这个键原来的编辑框。
+ * 同一条压缩包可能出现在游戏页或音声页，当前资源类不一定声明了这个字段，但编辑框仍然该用原来的那种。
+ * @param key 字段键
+ */
+export function borrowEditType(key: string): FormField | null {
+  const classes = [Game, Software, Manga, SingleImage, Video, VideoFolder, Novel, Website, Audio, Other]
+  for (const ResourceClass of classes) {
+    const instance = new ResourceClass()
+    const field = (instance as any)[key]
+    if (field instanceof ResourceField && field.editType) return field.editType
+  }
+  return null
+}
+
+/**
+ * 决定编辑窗口里这个键用哪一个框。
+ * 当前类有就用当前类的，这样封面和路径还带着原来的选文件逻辑。没有时再借别的类，最后才按页面自己的定义造一个普通框。
+ * @param key 字段键
+ * @param resourceInstance 当前这条资源的实例
+ * @param def 页面上的字段定义。有显示名时盖掉资源类上的旧名字
+ */
+export function resolvePageEditType(key: string, resourceInstance: any, def?: PageFieldDef): FormField | null {
+  const own = resourceInstance?.[key]
+  const ownEdit = own instanceof ResourceField ? own.editType : null
+  // 页面把普通字段改成文本或标签时，以页面为准。类上原来的框不再挡住这次修改。
+  if (def && isSimpleEditor(def.editor)) {
+    const edit = createFormField(def)
+    if (ownEdit?.required) edit.required = true
+    return edit
+  }
+  const edit = ownEdit || borrowEditType(key) || (def ? createFormField(def) : null)
+  if (edit && def?.label) edit.fieldName = def.label
+  return edit
 }
 
 /**

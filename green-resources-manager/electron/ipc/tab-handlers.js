@@ -2,6 +2,7 @@ const { app } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const { getTabManager } = require('../window/tab-manager')
+const { normalizeWebUrl } = require('../utils/open-browser-url')
 
 /**
  * 注册标签页相关的 IPC 处理器
@@ -11,9 +12,18 @@ const { getTabManager } = require('../window/tab-manager')
  */
 function registerTabHandlers(ipcMain, mainWindow, isDev) {
   // 创建新标签页
-  ipcMain.handle('tab-create', async (event, { url, title } = {}) => {
+  ipcMain.handle('tab-create', async (event, { url, title, external } = {}) => {
     try {
       const tabManager = getTabManager(mainWindow, isDev)
+      if (external) {
+        // 软件内打开网站时保住 https，不允许标签页加载本地文件或其他协议。
+        const safeUrl = normalizeWebUrl(url)
+        if (!safeUrl) {
+          return { success: false, error: '只能在标签页打开 http 或 https 网址' }
+        }
+        const tabId = tabManager.createTab(safeUrl, title || '网站', { external: true })
+        return { success: true, tabId, url: safeUrl }
+      }
       const tabId = tabManager.createTab(url, title)
       return { success: true, tabId }
     } catch (error) {

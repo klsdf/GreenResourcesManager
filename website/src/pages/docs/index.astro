@@ -1,0 +1,71 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro'
+import '../../styles/docs.css'
+import { docCategories } from '../../data/docs'
+import { url } from '../../lib/site'
+
+const quickLinks = [
+  { icon: '🌱', title: '第一次使用', desc: '先认识一下这个仓鼠窝', href: url('docs/introduction/') },
+  { icon: '🛠️', title: '添加第一个资源', desc: '拖进来，或者点按钮', href: url('docs/resources/') },
+  { icon: '🏷️', title: '玩转 Tag 索引', desc: '左键包含，右键排除', href: url('docs/basics/') }
+]
+---
+
+<BaseLayout
+  title="帮助手册 · Green Resources Manager"
+  description="Green Resources Manager 帮助手册：快速上手、页面与资源管理、资源 API、创意工坊和问题反馈。"
+  canonicalPath="docs/"
+>
+  <div class="docs-landing">
+    <div class="container">
+      <section class="docs-hero">
+        <span class="eyebrow">📚 仓鼠娘的说明书</span>
+        <h1>哪里不会，<br />就翻哪里。</h1>
+        <p>
+          从第一次打开软件，到把游戏、漫画、小说和网站统统收进窝里，
+          再到用 API 和创意工坊扩展自己的玩法——这里都有。
+        </p>
+        <div class="docs-hero__actions">
+          <a class="btn btn--primary" href={url('docs/introduction/')}>从项目介绍开始 →</a>
+          <a class="btn btn--ghost" href={url('docs/faq/')}>直接看常见问题</a>
+        </div>
+        <div class="docs-hero__tip">💡 文档已按主题拆成独立页面，左侧目录可以随时翻。</div>
+      </section>
+
+      <div class="docs-quick">
+        {quickLinks.map((link) => (
+          <a class="docs-quick__item" href={link.href}>
+            <span>{link.icon}</span>
+            <span>
+              <strong>{link.title}</strong>
+              <small>{link.desc}</small>
+            </span>
+          </a>
+        ))}
+      </div>
+
+      <div class="docs-categories">
+        {docCategories.map((category) => (
+          <section class="docs-category-card">
+            <div class="docs-category-card__head">
+              <span class="docs-category-card__icon">{category.icon}</span>
+              <div>
+                <h2>{category.title}</h2>
+                <p>{category.description}</p>
+              </div>
+            </div>
+            <ul>
+              {category.docs.map((doc) => (
+                <li>
+                  <a href={url(`docs/${doc.slug}/`)}>
+                    <span>{doc.icon} {doc.navTitle}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+    </div>
+  </div>
+</BaseLayout>

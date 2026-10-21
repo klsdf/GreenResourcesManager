@@ -24,8 +24,8 @@
     "description": "分享和发现社区创作内容"
   },
   "users": {
-    "name": "用户",
-    "description": "记录您的个人数据已经本软件的各种数据"
+    "name": "统计与成就",
+    "description": "查看使用统计与已解锁成就"
   },
   "messages": {
     "name": "信息中心",

@@ -10,9 +10,9 @@
 
 [English](README_EN.md) | [中文](#)
 
-QQ客服群：853149421
+QQ群：853149421 / 1098139167
 
-📖 [**帮助手册**](./green-resources-manager/help-site/index.html)
+🌐 [**官方网站**](https://klsdf.github.io/GreenResourcesManager/) | 📖 [**帮助手册**](https://klsdf.github.io/GreenResourcesManager/docs/)
 
 ## 📑 目录
 
@@ -152,9 +152,10 @@ npm run electron-build
 
 如果有开发意愿，欢迎Fork本项目并提交Pull Request!
 
-也欢迎来加入客服群@群主！让我们一起开发！
+也欢迎来加入QQ群@群主！让我们一起开发！
 
-点击链接加入群聊【GreenResourceManager里群*李代数】：https://qm.qq.com/q/HgPf1nA4UK
+- QQ群 853149421：【GreenResourceManager里群*李代数】https://qm.qq.com/q/HgPf1nA4UK
+- QQ群 1098139167
 
 <img src="image/qrcode_1777297239552.jpg" alt="qrcode_1767085224573" style="zoom:25%;" />
 

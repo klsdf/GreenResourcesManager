@@ -184,6 +184,11 @@ declare global {
       openVideoWindow: (filePath: string, options?: any) => Promise<{ success: boolean; error?: string }>
       /** 在主窗口新标签页中打开视频播放器 */
       tabOpenVideoPlayer: (filePath: string, title?: string) => Promise<{ success: boolean; tabId?: string; error?: string }>
+      /**
+       * 新建标签页。
+       * external 为 true 时按外部网站打开：不注入应用权限，只接受 http 或 https。
+       */
+      tabCreate: (options?: { url?: string; title?: string; external?: boolean }) => Promise<{ success: boolean; tabId?: string; url?: string; error?: string }>
       
       // 开机自启
       setAutoStart: (enabled: boolean) => Promise<{ success: boolean; enabled?: boolean; error?: string }>

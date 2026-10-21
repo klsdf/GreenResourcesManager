@@ -86,33 +86,25 @@ const fixedRoutes: RouteRecordRaw[] = [
     name: 'users',
     component: () => import('../pages/UserView.vue'),
     meta: {
-      title: '用户',
-      icon: '👤',
-      description: '记录您的个人数据已经本软件的各种数据',
+      title: '统计与成就',
+      icon: '📊',
+      description: '查看使用统计与已解锁成就',
       requiresFilter: false
     },
     children: [
       {
-        path: 'profile',
-        name: 'users-profile',
-        component: () => import('../pages/user/ProfileView.vue'),
-        meta: { title: '用户资料' }
+        path: 'statistics',
+        name: 'users-statistics',
+        component: () => import('../pages/user/StatisticsView.vue')
       },
       {
         path: 'achievements',
         name: 'users-achievements',
-        component: () => import('../pages/user/AchievementView.vue'),
-        meta: { title: '成就' }
-      },
-      {
-        path: 'statistics',
-        name: 'users-statistics',
-        component: () => import('../pages/user/StatisticsView.vue'),
-        meta: { title: '统计' }
+        component: () => import('../pages/user/AchievementView.vue')
       },
       {
         path: '',
-        redirect: 'profile'
+        redirect: 'statistics'
       }
     ]
   },

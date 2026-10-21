@@ -30,6 +30,17 @@
           </button>
         </div>
       </div>
+
+      <SettingInput
+        :title="$lt('用户名')"
+        :description="$lt('这个功能现在没有用，是之后会用到的神秘功能')"
+        :model-value="userName"
+        :placeholder="$lt('请输入你的用户名')"
+        :input-style="{ minWidth: '280px' }"
+        @update:model-value="userName = $event"
+        @blur="saveUserName"
+        @keyup.enter="saveUserName"
+      />
       
       <SettingToggle
         :title="$t('settings.autoStart.title')"
@@ -211,6 +222,7 @@
 <script lang="ts">
 import { useI18n } from 'vue-i18n'
 import saveManager from '../../utils/SaveManager'
+import { lt } from '../../locales/lt'
 import { setDisguiseModeEnabled } from '../../utils/disguiseMode'
 import notify from '../../utils/NotificationService'
 import alertService from '../../utils/AlertService'
@@ -248,7 +260,10 @@ export default {
       /** 存档位置只来自项目根目录的记录，不放进真正的存档。 */
       saveLocationMode: 'default',
       /** 自定义存档的父目录。空字符串表示使用程序旁边的 SaveData。 */
-      saveLocationPath: ''
+      saveLocationPath: '',
+      userName: '',
+      savedUserName: '',
+      isSavingUserName: false
     }
   },
   computed: {
@@ -294,12 +309,50 @@ export default {
   },
   mounted() {
     this.loadSaveLocation()
+    this.loadUserName()
   },
 
   
   methods: {
     updateSetting(key: string, value: any) {
       this.$emit('update:settings', { key, value })
+    },
+
+    async loadUserName() {
+      try {
+        const profile = await saveManager.loadUserProfile()
+        this.userName = profile?.name || ''
+        this.savedUserName = this.userName
+      } catch (error) {
+        console.error('加载用户名失败:', error)
+      }
+    },
+
+    /**
+     * 用户档案是整条覆盖写入的，保存前先读回统计字段，
+     * 只改 name，避免把登录记录和成就进度冲掉。
+     */
+    async saveUserName() {
+      const name = this.userName.trim()
+      this.userName = name
+      if (this.isSavingUserName || name === this.savedUserName) return
+
+      this.isSavingUserName = true
+      try {
+        const profile = await saveManager.loadUserProfile()
+        const success = await saveManager.saveUserProfile({ ...profile, name })
+        if (success) {
+          this.savedUserName = name
+          notify.success(lt('用户名已保存'), '')
+        } else {
+          notify.error(lt('保存用户名失败'))
+        }
+      } catch (error: any) {
+        console.error('保存用户名失败:', error)
+        notify.error(lt('保存用户名失败'), error.message)
+      } finally {
+        this.isSavingUserName = false
+      }
     },
     
     onThemeChange(newTheme: string) {

@@ -1,0 +1,111 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro'
+import { url } from '../lib/site'
+---
+
+<BaseLayout
+  title="页面被仓鼠啃掉了 · Green Resources Manager"
+  description="这个页面不存在，回到 Green Resources Manager 首页或帮助文档看看吧。"
+  noindex
+>
+  <div class="not-found">
+    <div class="container not-found__inner">
+      <div class="not-found__art">
+        <img src={url('images/logo.png')} alt="抱着奶酪的仓鼠 Logo" width="360" height="360" />
+        <span>404</span>
+      </div>
+      <div class="not-found__copy">
+        <span class="eyebrow">🐹 哎呀</span>
+        <h1>这个页面<br />被仓鼠啃掉了。</h1>
+        <p>可能是链接走丢了，也可能是它偷偷躲进了别的文件夹。要不要回窝里看看？</p>
+        <div class="not-found__actions">
+          <a class="btn btn--primary" href={url('')}>回到首页</a>
+          <a class="btn btn--ghost" href={url('docs/')}>翻翻帮助手册</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .not-found {
+    padding: 80px 0 110px;
+  }
+
+  .not-found__inner {
+    display: grid;
+    grid-template-columns: minmax(240px, 0.8fr) minmax(0, 1.2fr);
+    align-items: center;
+    gap: 40px;
+  }
+
+  .not-found__art {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: min(360px, 100%);
+    aspect-ratio: 1;
+    margin-inline: auto;
+    border: 2px dashed var(--line-strong);
+    border-radius: 44% 56% 52% 48% / 50% 44% 56% 50%;
+    background: linear-gradient(145deg, #fff5e9, #ffe1ec);
+  }
+
+  .not-found__art img {
+    width: 58%;
+    border-radius: 22px;
+    transform: rotate(-7deg);
+  }
+
+  .not-found__art span {
+    position: absolute;
+    right: 8%;
+    bottom: 10%;
+    color: var(--pink-deep);
+    font-family: var(--font-round);
+    font-size: 2.4rem;
+    font-weight: 900;
+    transform: rotate(8deg);
+  }
+
+  .not-found__copy h1 {
+    margin-top: 20px;
+    font-size: clamp(2.2rem, 5vw, 3.6rem);
+  }
+
+  .not-found__copy p {
+    max-width: 520px;
+    margin-top: 16px;
+    color: var(--brown-soft);
+  }
+
+  .not-found__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 28px;
+  }
+
+  @media (max-width: 760px) {
+    .not-found {
+      padding: 50px 0 80px;
+    }
+
+    .not-found__inner {
+      grid-template-columns: 1fr;
+      text-align: center;
+    }
+
+    .not-found__copy p {
+      margin-inline: auto;
+    }
+
+    .not-found__actions {
+      justify-content: center;
+    }
+
+    .not-found__art {
+      width: 260px;
+    }
+  }
+</style>

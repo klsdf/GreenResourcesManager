@@ -1,0 +1,6 @@
+handle=Pipe
+handle closed
+console.log returned
+write returned
+write cb null
+done

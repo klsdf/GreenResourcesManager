@@ -16,10 +16,9 @@ import { ResourceField } from './base/ResourceField.ts'
  */
 export class Manga extends BaseResources {
 
-	// 接受的文件扩展名（只允许压缩包和文件夹）
+	// 图片文件夹本身。zip、cbz 等压缩包是独立的「压缩包」类型，由页面配置决定收不收。
 	// 注意：使用 '<folder>' 标记表示接受文件夹（无扩展名）
 	static acceptedExtensions = [
-		'.zip', '.rar', '.7z', '.cbr', '.cbz',  // 漫画压缩包格式
 		'.pdf',  // PDF 格式漫画
 		'<folder>'  // 文件夹标记（无扩展名）
 	]

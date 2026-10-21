@@ -1,6 +1,6 @@
 ## 帮助中心
 
-📚 **[帮助手册](./help-site/index.html)** - 详细的功能使用指南
+📚 **[帮助手册](https://klsdf.github.io/GreenResourcesManager/docs/)** - 详细的功能使用指南
 
 ## TODO
 

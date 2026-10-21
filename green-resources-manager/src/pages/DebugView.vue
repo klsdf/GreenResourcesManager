@@ -423,7 +423,7 @@ export default defineComponent({
     },
     isImageFile(filePath: string): boolean {
       if (!filePath) return false
-      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg']
+      const imageExtensions = ['.jpg', '.jpeg', '.jpe', '.jfif', '.png', '.gif', '.bmp', '.webp', '.svg', 'jpg', 'jpeg', 'jpe', 'jfif', 'png', 'gif', 'bmp', 'webp', 'svg']
       const fileExt = this.getFileExtension(filePath).toLowerCase()
       return imageExtensions.includes(fileExt) || imageExtensions.includes(`.${fileExt}`)
     },

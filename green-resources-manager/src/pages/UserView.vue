@@ -12,7 +12,7 @@
           active-class="active"
         >
           <span class="nav-icon">{{ tab.icon }}</span>
-          <span class="nav-text">{{ tab.name }}</span>
+          <span class="nav-text">{{ $lt(tab.name) }}</span>
         </router-link>
       </div>
       
@@ -31,28 +31,23 @@ export default {
     return {
       userTabs: [
         {
-          id: 'profile',
-          name: '用户资料',
-          icon: '👤'
+          id: 'statistics',
+          name: '统计',
+          icon: '📊'
         },
         {
           id: 'achievements',
           name: '成就',
           icon: '🏆'
-        },
-        {
-          id: 'statistics',
-          name: '统计',
-          icon: '📊'
         }
       ]
     }
   },
   mounted() {
     console.log('用户页面已加载')
-    // 如果当前路由是 /users，重定向到 profile
+    // 如果当前路由是 /users，重定向到统计
     if (this.$route.path === '/users') {
-      this.$router.replace({ name: 'users-profile' })
+      this.$router.replace({ name: 'users-statistics' })
     }
   }
 }
@@ -130,11 +125,8 @@ export default {
 
 .user-body {
   flex: 1;
-  padding: 40px 20px;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .placeholder-content {

@@ -16,7 +16,7 @@ export class SingleImage extends BaseResources {
 
 	// 接受的文件扩展名
 	static acceptedExtensions = [
-		'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.ico',  // 常见图片格式
+		'.jpg', '.jpeg', '.jpe', '.jfif', '.png', '.gif', '.bmp', '.webp', '.avif', '.svg', '.ico',  // 常见图片格式
 		'.tiff', '.tif', '.heic', '.heif'  // 其他图片格式
 	]
 
@@ -48,7 +48,7 @@ export class SingleImage extends BaseResources {
 	resourcePath: ResourceField<string> = new ResourceField<string>({
 		saveable: true,
 		editType: new FormField_SelectSingleImageFile('图片文件', [
-			{ name: '图片文件', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'] },
+			{ name: '图片文件', extensions: ['jpg', 'jpeg', 'jpe', 'jfif', 'png', 'gif', 'webp', 'avif', 'bmp', 'svg'] },
 			{ name: '所有文件', extensions: ['*'] }
 		], true)
 	})

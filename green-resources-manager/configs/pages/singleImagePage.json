@@ -21,13 +21,13 @@
     },
     {
       "id": "name-desc",
-      "label": "按名称排序（降序）",
+      "label": "按名称排序",
       "field": "name",
       "order": "desc"
     },
     {
       "id": "addedDate-asc",
-      "label": "按添加时间（升序）",
+      "label": "按添加时间",
       "field": "addedDate",
       "order": "asc"
     },
@@ -116,6 +116,43 @@
         "field": "author"
       },
       "isArray": false
+    }
+  ],
+  "acceptedKinds": [
+    "image"
+  ],
+  "pageFields": [
+    "name",
+    "description",
+    "author",
+    "tags",
+    "resourcePath"
+  ],
+  "pageFieldDefs": [
+    {
+      "key": "name",
+      "label": "游戏名",
+      "editor": "text"
+    },
+    {
+      "key": "description",
+      "label": "游戏简介",
+      "editor": "textarea"
+    },
+    {
+      "key": "author",
+      "label": "作者",
+      "editor": "tags"
+    },
+    {
+      "key": "tags",
+      "label": "标签",
+      "editor": "tags"
+    },
+    {
+      "key": "resourcePath",
+      "label": "游戏路径",
+      "editor": "file"
     }
   ]
 }

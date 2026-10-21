@@ -21,6 +21,8 @@ export interface PageConfig {
   acceptedKinds?: string[];
   /** 这个页面编辑时显示的字段。不改已经保存的资源内容 */
   pageFields?: string[];
+  /** 这一页自己的字段定义。值仍写在资源记录上 */
+  pageFieldDefs?: Array<{ key: string; label: string; editor: string }>;
   description?: string;
   isDefault?: boolean;
   isHidden?: boolean;

@@ -1,0 +1,107 @@
+---
+import '../styles/theme.css'
+import '../styles/site.css'
+import Header from '../components/Header.astro'
+import Footer from '../components/Footer.astro'
+import { absoluteUrl, siteDescription, siteTitle, url } from '../lib/site'
+
+interface Props {
+  title?: string
+  description?: string
+  image?: string
+  canonicalPath?: string
+  noindex?: boolean
+  jsonLd?: Record<string, unknown>
+}
+
+const {
+  title = siteTitle,
+  description = siteDescription,
+  image = 'images/og-cover.jpg',
+  canonicalPath = '',
+  noindex = false,
+  jsonLd
+} = Astro.props
+
+const canonical = absoluteUrl(canonicalPath)
+const ogImage = image.startsWith('http') ? image : absoluteUrl(image)
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+    <meta name="theme-color" content="#fffaf3" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Green Resources Manager" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:locale" content="zh_CN" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+    <link rel="icon" type="image/png" href={url('images/favicon.png')} />
+    <link rel="apple-touch-icon" href={url('images/apple-touch-icon.png')} />
+    <link rel="sitemap" href={url('sitemap-index.xml')} />
+    <script is:inline>
+      document.documentElement.classList.add('js')
+    </script>
+    {jsonLd && <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
+  </head>
+  <body>
+    <a class="skip-link" href="#main">跳到主要内容</a>
+    <Header />
+    <main id="main">
+      <slot />
+    </main>
+    <Footer />
+    <script>
+      const reveals = document.querySelectorAll('[data-reveal]')
+      if ('IntersectionObserver' in window && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        const observer = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) {
+                entry.target.classList.add('is-visible')
+                observer.unobserve(entry.target)
+              }
+            })
+          },
+          { threshold: 0.12 }
+        )
+        reveals.forEach((element) => observer.observe(element))
+      } else {
+        reveals.forEach((element) => element.classList.add('is-visible'))
+      }
+    </script>
+  </body>
+</html>
+
+<style>
+  .skip-link {
+    position: fixed;
+    top: 8px;
+    left: 8px;
+    z-index: 200;
+    padding: 10px 16px;
+    border-radius: 999px;
+    background: var(--brown);
+    color: var(--cream);
+    font-weight: 800;
+    transform: translateY(-160%);
+    transition: transform 160ms ease;
+  }
+
+  .skip-link:focus {
+    transform: none;
+  }
+</style>

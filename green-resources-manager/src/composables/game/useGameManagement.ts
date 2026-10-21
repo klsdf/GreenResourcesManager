@@ -51,8 +51,8 @@ export function useGameManagement(
    */
   async function saveGames() {
     // 使用 getSaveData 提取需要保存的字段
-    const saveableGames = games.value.map(game => 
-      game.getSaveData()
+    const saveableGames = games.value.map(game =>
+      BaseResources.composeSaveData(game, game.getSaveData())
     )
     return await saveManager.savePageData(pageId, saveableGames)
   }

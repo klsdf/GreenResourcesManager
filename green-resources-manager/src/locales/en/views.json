@@ -24,8 +24,8 @@
     "description": "Share and discover community creations"
   },
   "users": {
-    "name": "Users",
-    "description": "Record your personal data and various software data"
+    "name": "Statistics & Achievements",
+    "description": "View usage statistics and unlocked achievements"
   },
   "messages": {
     "name": "Messages",

@@ -2,6 +2,7 @@ const { BrowserView, app } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const { resolveMainPreloadPath } = require('../utils/preload-path')
+const { normalizeWebUrl } = require('../utils/open-browser-url')
 
 /**
  * 标签页管理器
@@ -54,23 +55,61 @@ class TabManager {
   }
 
   /**
+   * 判断这个地址是不是网页。
+   * 外部网站标签只允许停留在 http 或 https 上。
+   * @param {string} target 即将打开的地址
+   * @returns {boolean} 是网页地址时为 true
+   */
+  isWebUrl(target) {
+    return !!normalizeWebUrl(target)
+  }
+
+  /**
    * 创建新标签页
    * @param {string} url - 要加载的 URL（可选，默认空白页）
    * @param {string} title - 标签页标题（可选）
+   * @param {{ external?: boolean }} options - external 为 true 时按外部网站打开，不注入应用权限
    * @returns {string} 标签页 ID
    */
-  createTab(url = null, title = '新标签页') {
+  createTab(url = null, title = '新标签页', options = {}) {
+    /** 外部网站不能拿到应用的 preload，否则任意网页都能调用本机接口。 */
+    const external = options.external === true
     const tabId = `tab-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     
     // 创建 BrowserView
     const view = new BrowserView({
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true,
-        webSecurity: false,
-        preload: this.preloadPath
-      }
+      webPreferences: external
+        ? {
+            nodeIntegration: false,
+            contextIsolation: true,
+            sandbox: true,
+            webSecurity: true,
+            partition: 'persist:websites'
+          }
+        : {
+            nodeIntegration: false,
+            contextIsolation: true,
+            webSecurity: false,
+            preload: this.preloadPath
+          }
     })
+
+    if (external) {
+      // 页面里再开的窗口也留在软件标签里，仍然只接受网页地址。
+      view.webContents.setWindowOpenHandler(({ url: nextUrl }) => {
+        const safeUrl = normalizeWebUrl(nextUrl)
+        if (!safeUrl) {
+          return { action: 'deny' }
+        }
+        this.createTab(safeUrl, '新标签页', { external: true })
+        return { action: 'deny' }
+      })
+      view.webContents.on('will-navigate', (event, nextUrl) => {
+        if (!this.isWebUrl(nextUrl)) {
+          event.preventDefault()
+        }
+      })
+    }
 
     // 确定要加载的 URL
     let targetUrl = url
@@ -121,7 +160,8 @@ class TabManager {
       view: view,
       url: targetUrl,
       title: title,
-      isHome: false // 普通标签页
+      isHome: false, // 普通标签页
+      external // 外部网站标签，导航时继续限制为网页地址
     }
     this.tabs.set(tabId, tabInfo)
 
@@ -276,6 +316,10 @@ class TabManager {
     }
 
     const tabInfo = this.tabs.get(tabId)
+    if (tabInfo.external && !this.isWebUrl(url)) {
+      console.warn('外部网站标签拒绝打开非网页地址:', url)
+      return
+    }
     tabInfo.url = url
     tabInfo.view.webContents.loadURL(url).catch(err => {
       console.error('导航标签页失败:', err)

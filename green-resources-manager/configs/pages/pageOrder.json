@@ -52,5 +52,17 @@
     "order": 9,
     "isDefault": true,
     "isHidden": false
+  },
+  {
+    "fileName": "custom-anime-series-mvhvfeez.json",
+    "order": 10,
+    "isDefault": false,
+    "isHidden": false
+  },
+  {
+    "fileName": "custom-games-mvhvfrjw.json",
+    "order": 11,
+    "isDefault": false,
+    "isHidden": false
   }
 ]

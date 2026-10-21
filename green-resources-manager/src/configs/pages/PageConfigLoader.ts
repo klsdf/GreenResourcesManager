@@ -13,8 +13,10 @@ export interface PageConfig {
 	resourceTypes: string[]
 	/** 页面接受的基本资源类型，例如可执行文件、图片文件夹 */
 	acceptedKinds?: string[]
-	/** 这个页面编辑时显示的字段名 */
+	/** 这个页面编辑时显示的字段名，顺序就是编辑框顺序 */
 	pageFields?: string[]
+	/** 这一页自己的字段定义。旧页面可以只有 pageFields，打开编辑时再补定义 */
+	pageFieldDefs?: Array<{ key: string; label: string; editor: string }>
 	displayLayoutConfig: {
 		minWidth: number
 		maxWidth: number

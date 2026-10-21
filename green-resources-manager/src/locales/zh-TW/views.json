@@ -24,8 +24,8 @@
     "description": "分享和發現社區創作內容"
   },
   "users": {
-    "name": "用戶",
-    "description": "記錄您的個人資料已經本軟體的各種資料"
+    "name": "統計與成就",
+    "description": "查看使用統計與已解鎖成就"
   },
   "messages": {
     "name": "資訊中心",

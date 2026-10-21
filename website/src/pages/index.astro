@@ -1,0 +1,291 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro'
+import { absoluteUrl, links, siteDescription, url } from '../lib/site'
+import appPackage from '../../../green-resources-manager/package.json'
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Green Resources Manager',
+  alternateName: '绿色资源管理器',
+  applicationCategory: 'MultimediaApplication',
+  operatingSystem: 'Windows',
+  description: siteDescription,
+  url: absoluteUrl(''),
+  downloadUrl: links.latestRelease,
+  softwareVersion: appPackage.version,
+  offers: {
+    '@type': 'Offer',
+    price: '0',
+    priceCurrency: 'CNY'
+  },
+  author: {
+    '@type': 'Person',
+    name: 'YanChenXiang',
+    url: links.profile
+  },
+  screenshot: absoluteUrl('images/shot-games.webp')
+}
+
+const ribbonItems = ['🎮 游戏', '📚 漫画', '🎬 视频', '📖 小说', '🌐 网站', '🎵 音频', '🖼️ 图片', '🧩 创意工坊']
+
+const features = [
+  {
+    icon: '🎮',
+    title: '像 Steam 一样记录游戏',
+    text: '启动次数、游玩时长、第一次和最近一次运行时间，全都被悄悄记好，还会自动整理日报和周报。'
+  },
+  {
+    icon: '🏷️',
+    title: 'Tag 索引，一拉就找到',
+    text: '自动收集所有资源的标签。左键包含、右键排除，多个标签还能叠加筛选，再也不用纠结文件夹怎么分。'
+  },
+  {
+    icon: '📚',
+    title: '六种资源，一个窝',
+    text: '游戏、图片、视频、小说、网站、音频都能住进来。不同页面用不同模板管理，互不打扰。'
+  },
+  {
+    icon: '🖼️',
+    title: '封面和截图自动收好',
+    text: '添加资源时自动整理封面图，游戏还能随手截图。收藏再多，看起来也整整齐齐。'
+  },
+  {
+    icon: '🧩',
+    title: '创意工坊随心扩展',
+    text: '自定义页面、插件、便笺和日期管理。管理器不够用？那就自己捏一个更顺手的。'
+  },
+  {
+    icon: '🔒',
+    title: '完全离线，数据只在本地',
+    text: '不需要账号，不联网，不上传。你的收藏、游玩记录和截图，只住在你自己的硬盘里。'
+  }
+]
+
+const resourceTypes = [
+  { icon: '🎮', name: '游戏', desc: '时长 / 截图 / 启动' },
+  { icon: '📚', name: '漫画', desc: '文件夹 / 压缩包' },
+  { icon: '🎬', name: '视频', desc: '播放进度 / 封面' },
+  { icon: '📖', name: '小说', desc: 'TXT / EPUB' },
+  { icon: '🌐', name: '网站', desc: '网页收藏 / 索引' },
+  { icon: '🎵', name: '音频', desc: '播放列表 / 时长' }
+]
+---
+
+<BaseLayout
+  title="Green Resources Manager · 仓鼠症患者的资源管理神器"
+  description={siteDescription}
+  canonicalPath=""
+  jsonLd={jsonLd}
+>
+  <section class="hero">
+    <div class="container hero-grid">
+      <div class="hero-copy">
+        <span class="eyebrow">🐹 仓鼠症患者的资源管理神器</span>
+        <h1>把喜欢的资源，<br /><span class="scribble">统统藏进一个窝里。</span></h1>
+        <p class="hero-lead">
+          游戏、漫画、小说、视频、音乐、网站……散落在硬盘各处的收藏，
+          终于可以住进一个<strong>可爱又井井有条</strong>的本地仓库。
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn--primary" href={links.latestRelease} target="_blank" rel="noreferrer">
+            ⬇ 免费下载 Windows 版
+          </a>
+          <a class="btn btn--ghost" href={url('docs/')}>翻翻使用手册 →</a>
+        </div>
+        <ul class="hero-points">
+          <li>完全本地</li>
+          <li>数据不上传</li>
+          <li>个人非商业免费</li>
+        </ul>
+        <div class="hero-community">
+          <span>💬</span>
+          <span>QQ 群：<strong>853149421</strong> / <strong>1098139167</strong></span>
+        </div>
+      </div>
+
+      <div class="hero-visual">
+        <span class="hero-spark hero-spark--a">✦</span>
+        <span class="hero-spark hero-spark--b">✦</span>
+        <span class="hero-spark hero-spark--c">★</span>
+        <div class="mascot-blob">
+          <img
+            src={url('images/hamster-mascot.webp')}
+            alt="戴着仓鼠帽子的金发仓鼠娘正在用手机自拍"
+            width="1100"
+            height="1955"
+            loading="eager"
+            fetchpriority="high"
+          />
+        </div>
+        <div class="float-card float-card--one">🎮 游戏时长 +1</div>
+        <div class="float-card float-card--two">🏷️ 12 个 tag 已归档</div>
+        <div class="float-sticker">全都<br />收好！</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="type-ribbon" aria-hidden="true">
+    <div class="ribbon-track">
+      {[0, 1].map(() => (
+        <div class="ribbon-set">
+          {ribbonItems.map((item) => (
+            <span class="ribbon-item">{item}<span>✦</span></span>
+          ))}
+        </div>
+      ))}
+    </div>
+  </div>
+
+  <section class="section showcase" data-reveal>
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">🏠 一个窝，装下全部收藏</span>
+        <h2>你的收藏，<em>终于有自己的房间了</em></h2>
+        <p>不再翻遍十几个文件夹找一张封面，也不用把游戏、漫画和小说塞进同一个命名规则里。</p>
+      </div>
+
+      <div class="showcase-stage">
+        <div class="showcase-stat showcase-stat--a">
+          <span class="showcase-stat__icon">🗂️</span>
+          <span><strong>井井有条</strong>按页面与 TAG 归档</span>
+        </div>
+        <div class="showcase-stat showcase-stat--b">
+          <span class="showcase-stat__icon">🔒</span>
+          <span><strong>100% 本地</strong>数据只住在你的硬盘</span>
+        </div>
+        <div class="window-frame">
+          <div class="window-bar">
+            <span class="window-dot"></span>
+            <span class="window-dot"></span>
+            <span class="window-dot"></span>
+            <span class="window-title">Green Resources Manager · 游戏库</span>
+          </div>
+          <img
+            src={url('images/shot-games.webp')}
+            alt="Green Resources Manager 游戏库界面，展示游戏封面、标签和游玩时长"
+            width="1800"
+            height="1013"
+            loading="lazy"
+          />
+        </div>
+      </div>
+      <p class="showcase-note">每一张封面、每一段时长、每一个 TAG，都会乖乖待在该待的地方。</p>
+    </div>
+  </section>
+
+  <section class="section" id="features">
+    <div class="container">
+      <div class="section-head" data-reveal>
+        <span class="eyebrow">✨ 它到底能做什么</span>
+        <h2>软乎乎的外表，<em>很能装的内心</em></h2>
+        <p>为仓鼠症患者准备的六个小能力，让收藏这件事变得轻松又上头。</p>
+      </div>
+      <div class="feature-grid">
+        {features.map((feature, index) => (
+          <article class="feature-card" data-reveal data-delay={String(index % 3)}>
+            <div class="feature-icon">{feature.icon}</div>
+            <h3>{feature.title}</h3>
+            <p>{feature.text}</p>
+          </article>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class="section resource-shelf">
+    <div class="container">
+      <div class="section-head" data-reveal>
+        <span class="eyebrow">📦 来者不拒的仓鼠窝</span>
+        <h2>不管是什么，<em>先收进来再说</em></h2>
+        <p>六种资源类型，各有各的小房间。添加方式却一样简单：拖进来就好。</p>
+      </div>
+      <div class="shelf-grid">
+        {resourceTypes.map((type) => (
+          <div class="shelf-card" data-reveal>
+            <span class="shelf-icon">{type.icon}</span>
+            <span class="shelf-name">{type.name}</span>
+            <span class="shelf-desc">{type.desc}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="section-head" data-reveal>
+        <span class="eyebrow">📸 随便看看</span>
+        <h2>长这样，<em>软乎乎但很能装</em></h2>
+        <p>游戏、图片和小说，各过各的小日子。</p>
+      </div>
+      <div class="gallery-grid" data-reveal>
+        <figure class="shot-card">
+          <img src={url('images/shot-games.webp')} alt="游戏库页面" width="1800" height="1013" loading="lazy" />
+          <figcaption><span>🎮 游戏库</span><span>时长 / 标签 / 封面</span></figcaption>
+        </figure>
+        <figure class="shot-card">
+          <img src={url('images/shot-gallery.webp')} alt="漫画与图片详情页面" width="1800" height="950" loading="lazy" />
+          <figcaption><span>🖼️ 图片收藏</span><span>封面 / 预览</span></figcaption>
+        </figure>
+        <figure class="shot-card">
+          <img src={url('images/shot-novel.webp')} alt="小说阅读页面" width="1800" height="950" loading="lazy" />
+          <figcaption><span>📖 小说阅读</span><span>进度 / 字数</span></figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="community">
+    <div class="container">
+      <div class="cta-panel" data-reveal>
+        <div>
+          <span class="eyebrow">💬 来仓鼠窝里玩呀</span>
+          <h2>下载它，然后<br />把收藏一股脑搬进来。</h2>
+          <p>遇到问题、想提建议，或者只是想晒晒自己的收藏，都欢迎来 QQ 群找我们。仓鼠娘会努力回消息的！</p>
+          <div class="cta-actions">
+            <a class="btn btn--primary" href={links.latestRelease} target="_blank" rel="noreferrer">⬇ 下载最新版本</a>
+            <a class="btn btn--ghost" href={links.qqGroupA} target="_blank" rel="noreferrer">💬 加入 QQ 群</a>
+          </div>
+          <div class="cta-groups">
+            <span>QQ 853149421</span>
+            <span>QQ 1098139167</span>
+            <a href={links.issues} target="_blank" rel="noreferrer">GitHub Issues</a>
+          </div>
+        </div>
+        <div class="cta-mascot">
+          <div class="cta-mascot__plate">
+            <img src={url('images/logo.png')} alt="抱着奶酪的仓鼠 Logo" width="360" height="360" loading="lazy" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--tight">
+    <div class="container">
+      <div class="section-head" data-reveal>
+        <span class="eyebrow">❓ 常见问题</span>
+        <h2>先替仓鼠娘回答几个</h2>
+      </div>
+      <div class="faq-grid" data-reveal>
+        <details class="faq-item">
+          <summary>软件是免费的吗？</summary>
+          <div class="faq-body">个人非商业使用完全免费，不需要授权。项目采用 PolyForm Noncommercial 1.0.0 协议，商业使用需要单独获得许可。</div>
+        </details>
+        <details class="faq-item">
+          <summary>我的数据会上传到服务器吗？</summary>
+          <div class="faq-body">不会。资源路径、封面、游戏时长和截图都保存在本地。软件不需要账号，也不会上传你的收藏。</div>
+        </details>
+        <details class="faq-item">
+          <summary>支持哪些类型的资源？</summary>
+          <div class="faq-body">目前支持游戏、图片、视频、小说、网站和音频。你还可以通过页面管理创建更多分类，用创意工坊扩展自己的管理方式。</div>
+        </details>
+        <details class="faq-item">
+          <summary>遇到问题去哪里反馈？</summary>
+          <div class="faq-body">可以加入 QQ 群 853149421 或 1098139167，也可以在 GitHub Issues 里提交问题。详细说明都在 <a class="text-link" href={url('docs/support/')}>客服与反馈</a> 页面。</div>
+        </details>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

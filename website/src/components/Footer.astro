@@ -1,0 +1,40 @@
+---
+import { links, url } from '../lib/site'
+const year = new Date().getFullYear()
+---
+
+<footer class="site-footer">
+  <div class="container footer-inner">
+    <div class="footer-main">
+      <div class="footer-brand">
+        <img src={url('images/logo.png')} alt="" width="54" height="54" loading="lazy" />
+        <div>
+          <h3>Green Resources Manager</h3>
+          <p>把喜欢的游戏、漫画、小说、视频、音乐和网站，统统收进一个软乎乎的本地仓鼠窝。</p>
+        </div>
+      </div>
+
+      <div class="footer-col">
+        <h4>产品</h4>
+        <a href={url('')}>首页</a>
+        <a href={url('download/')}>下载</a>
+        <a href={url('docs/')}>帮助文档</a>
+        <a href={links.releases} target="_blank" rel="noreferrer">更新日志</a>
+      </div>
+
+      <div class="footer-col">
+        <h4>社区</h4>
+        <a href={links.github} target="_blank" rel="noreferrer">GitHub</a>
+        <a href={links.issues} target="_blank" rel="noreferrer">问题反馈</a>
+        <a href={links.bilibili} target="_blank" rel="noreferrer">哔哩哔哩</a>
+        <a href={links.hatSoft} target="_blank" rel="noreferrer">帽子社</a>
+        <p>QQ 群：853149421 / 1098139167</p>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <span>© {year} Green Resources Manager · PolyForm Noncommercial 1.0.0</span>
+      <span>Made with 🐹 by YanChenXiang</span>
+    </div>
+  </div>
+</footer>

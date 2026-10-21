@@ -92,7 +92,7 @@ function readFileAsDataUrl(filePath) {
     
     const ext = path.extname(filePath).toLowerCase()
     const mime = ext === '.png' ? 'image/png' :
-                 ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' :
+                 ext === '.jpg' || ext === '.jpeg' || ext === '.jpe' || ext === '.jfif' ? 'image/jpeg' :
                  ext === '.gif' ? 'image/gif' :
                  ext === '.webp' ? 'image/webp' :
                  ext === '.bmp' ? 'image/bmp' :

@@ -234,6 +234,8 @@ export default {
         novelTextColor: '#333333',
         novelWordsPerPage: 1000,
         novelShowProgress: true,
+        // 网站默认仍用系统浏览器。选「软件新标签页」后才在应用内打开。
+        websiteOpenMode: 'external',
         // 分页设置
         image: {
           listPageSize: 20,
@@ -594,6 +596,8 @@ export default {
             novelTextColor: '#333333',
             novelWordsPerPage: 1000,
             novelShowProgress: true,
+            // 网站设置。external 用系统浏览器，internal 在软件里新开标签页。
+            websiteOpenMode: 'external',
             // 分页设置
             image: {
               listPageSize: 20,
@@ -1103,6 +1107,10 @@ export default {
             }
             if (this.settings.novelShowProgress === undefined) {
               this.settings.novelShowProgress = true
+            }
+            // 旧存档没有这一项时，继续用系统浏览器，避免升级后网站忽然改在软件里打开。
+            if (this.settings.websiteOpenMode !== 'internal' && this.settings.websiteOpenMode !== 'external') {
+              this.settings.websiteOpenMode = 'external'
             }
             
             // 初始化安全键设置（如果未设置）

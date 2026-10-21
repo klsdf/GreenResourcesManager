@@ -1,0 +1,365 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro'
+import { links, url } from '../lib/site'
+
+const steps = [
+  {
+    icon: '📦',
+    title: '下载压缩包',
+    text: '点上面的按钮前往 GitHub Releases，下载最新版本的 Windows 压缩包。'
+  },
+  {
+    icon: '📂',
+    title: '解压到喜欢的位置',
+    text: '建议放在空间充足的硬盘里。绿色版不需要安装，解压后就能用。'
+  },
+  {
+    icon: '🐹',
+    title: '双击启动，开始囤货',
+    text: '打开程序后，把资源拖进对应页面。剩下的，交给仓鼠娘就好。'
+  }
+]
+---
+
+<BaseLayout
+  title="下载 Green Resources Manager · Windows 本地资源管理器"
+  description="下载 Green Resources Manager Windows 版。完全本地、无需安装、个人非商业免费，把游戏、漫画、小说、视频、音乐和网站收进一个仓鼠窝。"
+  canonicalPath="download/"
+>
+  <div class="download-page">
+    <div class="container">
+      <section class="download-hero">
+        <div class="download-hero__copy">
+          <span class="eyebrow">⬇ Windows 绿色版</span>
+          <h1>把它带回<br /><span>你的仓鼠窝。</span></h1>
+          <p>不需要安装，不需要账号，不联网也能用。下载、解压、双击，然后就可以开始囤资源了。</p>
+          <div class="download-actions">
+            <a class="btn btn--primary" href={links.latestRelease} target="_blank" rel="noreferrer">前往 GitHub 下载最新版</a>
+            <a class="btn btn--ghost" href={url('docs/introduction/')}>先看看它是什么 →</a>
+          </div>
+          <ul class="download-meta">
+            <li>🪟 Windows 10 / 11</li>
+            <li>💾 完全本地</li>
+            <li>🎁 个人非商业免费</li>
+          </ul>
+        </div>
+        <div class="download-hero__art">
+          <div class="download-plate">
+            <img src={url('images/logo.png')} alt="抱着奶酪的仓鼠 Logo" width="360" height="360" />
+          </div>
+          <span class="download-sticker">绿色版<br />免安装</span>
+        </div>
+      </section>
+
+      <section class="download-steps">
+        {steps.map((step, index) => (
+          <article class="download-step">
+            <span class="download-step__num">0{index + 1}</span>
+            <span class="download-step__icon">{step.icon}</span>
+            <h2>{step.title}</h2>
+            <p>{step.text}</p>
+          </article>
+        ))}
+      </section>
+
+      <section class="download-note">
+        <div>
+          <h2>🐹 放心，你的收藏只住在本地</h2>
+          <p>
+            资源路径、封面、游戏时长、截图和存档都保存在你的电脑里。软件不需要登录，也不会把数据传到任何服务器。
+            换电脑时，把整个软件目录和存档一起搬走就好。
+          </p>
+        </div>
+        <a class="btn btn--ghost" href={url('docs/basics/')}>查看数据存储说明 →</a>
+      </section>
+
+      <section class="download-help">
+        <h2>下载或运行遇到问题？</h2>
+        <p>来 QQ 群找我们，或者在 GitHub Issues 里留下问题。也可以先翻翻常见问题。</p>
+        <div class="download-help__actions">
+          <a class="btn btn--primary" href={links.qqGroupA} target="_blank" rel="noreferrer">💬 加入 QQ 群</a>
+          <a class="btn btn--ghost" href={url('docs/faq/')}>常见问题</a>
+          <a class="btn btn--ghost" href={links.issues} target="_blank" rel="noreferrer">GitHub Issues</a>
+        </div>
+        <p class="download-help__groups">QQ 群：853149421 / 1098139167</p>
+      </section>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .download-page {
+    padding: 54px 0 90px;
+  }
+
+  .download-hero {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(260px, 0.85fr);
+    align-items: center;
+    gap: 30px;
+    overflow: hidden;
+    padding: clamp(32px, 6vw, 64px);
+    border: 1px solid var(--line);
+    border-radius: 38px;
+    background:
+      radial-gradient(circle at 84% 18%, rgba(255, 255, 255, 0.8), transparent 32%),
+      linear-gradient(135deg, #fff0e5, #ffe0ea);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .download-hero::before {
+    content: '🐾 🐾';
+    position: absolute;
+    right: 28px;
+    bottom: 18px;
+    color: rgba(122, 48, 71, 0.1);
+    font-size: 2rem;
+    letter-spacing: 10px;
+    transform: rotate(-8deg);
+  }
+
+  .download-hero h1 {
+    margin-top: 20px;
+    font-size: clamp(2.3rem, 5.4vw, 4rem);
+    line-height: 1.13;
+  }
+
+  .download-hero h1 span {
+    color: var(--rose);
+  }
+
+  .download-hero p {
+    max-width: 620px;
+    margin-top: 18px;
+    color: var(--brown-soft);
+    font-size: 1.03rem;
+    line-height: 1.8;
+  }
+
+  .download-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 28px;
+  }
+
+  .download-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    margin: 24px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .download-meta li {
+    padding: 7px 13px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(255, 253, 249, 0.72);
+    color: var(--brown-soft);
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+
+  .download-hero__art {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .download-plate {
+    display: grid;
+    place-items: center;
+    width: min(300px, 88%);
+    aspect-ratio: 1;
+    border: 2px dashed rgba(122, 48, 71, 0.16);
+    border-radius: 50%;
+    background: rgba(255, 253, 249, 0.52);
+    transform: rotate(5deg);
+  }
+
+  .download-plate img {
+    width: 72%;
+    border-radius: 26px;
+    transform: rotate(-7deg);
+    filter: drop-shadow(0 18px 20px rgba(126, 82, 60, 0.16));
+  }
+
+  .download-sticker {
+    position: absolute;
+    right: 6%;
+    bottom: 10%;
+    display: grid;
+    place-items: center;
+    width: 92px;
+    height: 92px;
+    border-radius: 50%;
+    background: var(--gold);
+    color: #6b4722;
+    font-family: var(--font-round);
+    font-size: 0.82rem;
+    font-weight: 900;
+    line-height: 1.25;
+    text-align: center;
+    transform: rotate(8deg);
+    box-shadow: 0 6px 0 #e6b84c;
+  }
+
+  .download-steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+    margin-top: 26px;
+  }
+
+  .download-step {
+    position: relative;
+    padding: 28px;
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    background: var(--white);
+    box-shadow: var(--shadow-card);
+  }
+
+  .download-step__num {
+    position: absolute;
+    top: 18px;
+    right: 20px;
+    color: var(--pink-soft);
+    font-family: var(--font-round);
+    font-size: 2.2rem;
+    font-weight: 900;
+  }
+
+  .download-step__icon {
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    margin-bottom: 16px;
+    border-radius: 17px;
+    background: var(--cream-2);
+    font-size: 1.5rem;
+    transform: rotate(-3deg);
+  }
+
+  .download-step h2 {
+    font-size: 1.12rem;
+  }
+
+  .download-step p {
+    margin-top: 8px;
+    color: var(--brown-soft);
+    font-size: 0.9rem;
+  }
+
+  .download-note,
+  .download-help {
+    margin-top: 24px;
+    padding: clamp(26px, 4vw, 40px);
+    border: 1px solid var(--line);
+    border-radius: 28px;
+    background: var(--white);
+    box-shadow: var(--shadow-card);
+  }
+
+  .download-note {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    background: linear-gradient(135deg, #fff8ea, #fff2f5);
+  }
+
+  .download-note h2,
+  .download-help h2 {
+    font-size: clamp(1.3rem, 2.4vw, 1.7rem);
+  }
+
+  .download-note p,
+  .download-help > p {
+    max-width: 760px;
+    margin-top: 10px;
+    color: var(--brown-soft);
+    font-size: 0.94rem;
+  }
+
+  .download-note .btn {
+    flex-shrink: 0;
+  }
+
+  .download-help {
+    text-align: center;
+  }
+
+  .download-help > p {
+    margin-inline: auto;
+  }
+
+  .download-help__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 22px;
+  }
+
+  .download-help__groups {
+    margin-top: 16px !important;
+    color: var(--brown-faint) !important;
+    font-size: 0.8rem !important;
+    font-weight: 700;
+  }
+
+  @media (max-width: 880px) {
+    .download-hero {
+      grid-template-columns: 1fr;
+      text-align: center;
+    }
+
+    .download-hero p {
+      margin-inline: auto;
+    }
+
+    .download-actions,
+    .download-meta {
+      justify-content: center;
+    }
+
+    .download-hero__art {
+      margin-top: 10px;
+    }
+
+    .download-steps {
+      grid-template-columns: 1fr;
+    }
+
+    .download-note {
+      display: block;
+      text-align: center;
+    }
+
+    .download-note .btn {
+      margin-top: 18px;
+    }
+  }
+
+  @media (max-width: 620px) {
+    .download-actions .btn {
+      width: 100%;
+    }
+
+    .download-plate {
+      width: 220px;
+    }
+
+    .download-sticker {
+      width: 76px;
+      height: 76px;
+      font-size: 0.72rem;
+    }
+  }
+</style>

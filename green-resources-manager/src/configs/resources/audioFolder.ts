@@ -55,7 +55,7 @@ export class AudioFolder extends BaseResources {
 	coverPath: ResourceField<string> = new ResourceField<string>({
 		saveable: true,
 		editType: new FormField_SelectFile('缩略图', [
-			{ name: '图片文件', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'] },
+			{ name: '图片文件', extensions: ['jpg', 'jpeg', 'jpe', 'jfif', 'png', 'gif', 'webp', 'avif', 'bmp', 'svg'] },
 			{ name: '所有文件', extensions: ['*'] }
 		], false)
 	})

@@ -23,8 +23,7 @@ export class Software extends BaseResources {
 		'.app',  // macOS 应用
 		'.apk',  // Android 应用
 		'.bat',  // 批处理文件
-		'.sh',   // Shell 脚本
-		'.zip', '.rar', '.7z', '.tar', '.gz', '.tar.gz', '.bz2', '.tar.bz2', '.xz', '.tar.xz'  // 压缩包
+		'.sh'    // Shell 脚本
 	]
 	
 	resourceType: ResourceField<string> = new ResourceField<string>({

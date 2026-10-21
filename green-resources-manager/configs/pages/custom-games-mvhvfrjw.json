@@ -1,10 +1,10 @@
 {
-  "id": "games",
-  "name": "游戏",
+  "id": "games-mvhvfrjw",
+  "name": "游戏 2",
   "icon": "🎮",
   "description": "可以管理游戏、应用等exe文件",
-  "settingsKey": "game",
-  "defaultPageSize": 8,
+  "settingsKey": "games-mvhvfrjw",
+  "defaultPageSize": 30,
   "resourceTypes": [
     "Game"
   ],
@@ -51,7 +51,7 @@
     },
     {
       "id": "addedDate-asc",
-      "label": "按添加时间（升序）",
+      "label": "按添加时间",
       "field": "addedDate",
       "order": "asc"
     },
@@ -118,6 +118,12 @@
       }
     },
     {
+      "key": "rating",
+      "title": "星级筛选",
+      "filterType": "rating",
+      "params": {}
+    },
+    {
       "key": "tags",
       "title": "标签筛选",
       "filterType": "resourceField",
@@ -145,7 +151,7 @@
         "resource": "game",
         "field": "publisher"
       },
-      "isArray": false
+      "isArray": true
     },
     {
       "key": "engines",
@@ -165,5 +171,23 @@
         "runningLabel": "正在游玩"
       }
     }
+  ],
+  "acceptedKinds": [
+    "executable",
+    "archive"
+  ],
+  "pageFields": [
+    "name",
+    "nickname",
+    "nameZh",
+    "nameEn",
+    "nameJa",
+    "description",
+    "developers",
+    "publisher",
+    "tags",
+    "engine",
+    "coverPath",
+    "resourcePath"
   ]
 }

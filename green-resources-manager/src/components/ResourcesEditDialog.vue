@@ -317,6 +317,8 @@ import {
 } from '@resources/base/FormField.ts'
 import {ResourceField} from '@resources/base/ResourceField.ts'
 import {BaseResources} from '@resources/base/ResourcesDataBase.ts'
+import { resolvePageEditType } from '@resources/resourceKindCatalog.ts'
+import { defaultValueForEditor, type PageFieldDef } from '../configs/pages/pageFieldSchema.ts'
 import {FunInput, FunSelect, FunTagInput, FunTextarea} from "../fun-ui";
 import FunOption from "../fun-ui/data-input/Select/FunOption.vue";
 import FunSelectSlot from "../fun-ui/data-input/Select/FunSelectSlot.vue";
@@ -361,6 +363,14 @@ export default {
     enabledFieldKeys: {
       type: Array as PropType<string[] | null>,
       default: null
+    },
+    /**
+     * 这一页自己的字段定义。
+     * 资源类上没有的字段也要能编辑，名字和编辑框以页面为准。
+     */
+    pageFieldDefs: {
+      type: Array as PropType<PageFieldDef[]>,
+      default: () => []
     },
     // 资源数据（编辑模式）
     resourceData: {
@@ -463,18 +473,23 @@ export default {
       }
       
       const fields: Record<string, FormFieldType> = {}
+      const pageKeys = Array.isArray(props.enabledFieldKeys) ? props.enabledFieldKeys : null
+      const defs = Array.isArray(props.pageFieldDefs) ? props.pageFieldDefs : []
+      // 页面规定了字段时，按页面的顺序画。类上没有的字段也要出现，否则音声页加的声优在游戏类上永远编辑不了。
+      if (pageKeys) {
+        for (const key of pageKeys) {
+          const def = defs.find(item => item.key === key)
+          const edit = resolvePageEditType(key, resourceInstance, def)
+          if (edit) fields[key] = edit
+        }
+        return fields
+      }
       // 遍历资源实例的所有属性，保持定义顺序
       for (const key in resourceInstance) {
         const value = (resourceInstance as any)[key]
         if (value instanceof ResourceField) {
-          if (Array.isArray(props.enabledFieldKeys) && !props.enabledFieldKeys.includes(key)) continue
-          // 如果是 ResourceField，使用其 editType（只有当 editType 不为 null 时才添加）
-          if (value.editType) {
-            fields[key] = value.editType
-          }
+          if (value.editType) fields[key] = value.editType
         } else if (value instanceof FormFieldType) {
-          if (Array.isArray(props.enabledFieldKeys) && !props.enabledFieldKeys.includes(key)) continue
-          // 如果是 FormField，直接使用
           fields[key] = value
         }
       }
@@ -545,6 +560,12 @@ export default {
           }
         }
       }
+      // 页面新加的字段不在资源类上，这里补上空值，编辑框才有地方写。
+      const defs = Array.isArray(this.pageFieldDefs) ? this.pageFieldDefs : []
+      for (const def of defs) {
+        if (!def?.key || def.key in data) continue
+        data[def.key] = defaultValueForEditor(def.editor)
+      }
       return data
     }
     
@@ -582,17 +603,8 @@ export default {
       const resourceInstance = this.createResourceInstance()
       if (!resourceInstance) return false
       
-      for (const key in resourceInstance) {
-        const value = (resourceInstance as any)[key]
-        let field: FormFieldType | null = null
-        
-        // 支持 ResourceField 和 FormField 两种形式
-        if (value instanceof ResourceField) {
-          field = value.editType
-        } else if (value instanceof FormFieldType) {
-          field = value
-        }
-        
+      for (const key in this.formFields) {
+        const field = this.formFields[key]
         if (field && field.required) {
           const formValue = this.formData[key]
           if (!formValue || (typeof formValue === 'string' && formValue.trim() === '') || 
@@ -725,7 +737,7 @@ export default {
               Array.isArray(field.filters) &&
               field.filters.some((f: any) => 
                 f.extensions && f.extensions.some((ext: string) => 
-                  ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext.toLowerCase())
+                  ['jpg', 'jpeg', 'jpe', 'jfif', 'png', 'gif', 'webp'].includes(ext.toLowerCase())
                 )
               ))
     },
@@ -809,17 +821,10 @@ export default {
     },
     // 获取所有 FormField_Tags 字段（用于 TagSelectionPanel 多区块展示）
     getTagsFields(): { key: string; label: string }[] {
-      const resourceInstance = this.createResourceInstance()
-      if (!resourceInstance) return []
       const list: { key: string; label: string }[] = []
-      for (const key in resourceInstance) {
-        const value = (resourceInstance as any)[key]
-        let field: FormFieldType | null = null
-        if (value instanceof ResourceField) {
-          field = value.editType
-        } else if (value instanceof FormFieldType) {
-          field = value
-        }
+      const fields = this.formFields || {}
+      for (const key in fields) {
+        const field = fields[key]
         if (field instanceof FormField_Tags) {
           list.push({ key, label: lt(field.fieldName) })
         }
@@ -962,9 +967,34 @@ export default {
         }
       }
       
+      // 页面字段可能不在当前资源类上。类的循环读不到时，从记录或 retainedFields 里补上。
+      const defs = Array.isArray(this.pageFieldDefs) ? this.pageFieldDefs : []
+      for (const def of defs) {
+        if (!def?.key) continue
+        let resourceValue = (this.resourceData as any)[def.key]
+        if ((resourceValue === undefined || resourceValue === null) && (this.resourceData as any).retainedFields) {
+          resourceValue = (this.resourceData as any).retainedFields[def.key]
+        }
+        if (resourceValue instanceof ResourceField) resourceValue = resourceValue.value
+        if (resourceValue === undefined || resourceValue === null) continue
+        const field = this.formFields?.[def.key]
+        if (field instanceof FormField_Tags) {
+          initData[def.key] = Array.isArray(resourceValue)
+            ? [...resourceValue]
+            : (typeof resourceValue === 'string' && resourceValue.trim() !== '' ? [resourceValue] : [])
+        } else if (field instanceof FormField_Checkbox) {
+          initData[def.key] = Boolean(resourceValue)
+        } else if (field instanceof FormField_Number) {
+          initData[def.key] = typeof resourceValue === 'number' ? resourceValue : Number(resourceValue) || 0
+        } else if (typeof resourceValue === 'string' || typeof resourceValue === 'number' || typeof resourceValue === 'boolean' || Array.isArray(resourceValue)) {
+          initData[def.key] = Array.isArray(resourceValue) ? [...resourceValue] : resourceValue
+        }
+      }
+
       // 然后保留其他不在类中定义但在 resourceData 中的字段（如 duration）
       // 这些字段不会显示在表单中，但会在确认时保留
       for (const key in this.resourceData) {
+        if (key === 'retainedFields') continue
         if (!(key in initData) && key !== 'id' && key !== 'fileExists') {
           let value = (this.resourceData as any)[key]
           // 如果值是 ResourceField 对象，提取其 value
@@ -1127,7 +1157,7 @@ export default {
     },
     isImageFile(filePath: string): boolean {
       if (!filePath) return false
-      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg']
+      const imageExtensions = ['.jpg', '.jpeg', '.jpe', '.jfif', '.png', '.gif', '.bmp', '.webp', '.svg', 'jpg', 'jpeg', 'jpe', 'jfif', 'png', 'gif', 'bmp', 'webp', 'svg']
       const fileExt = this.getFileExtension(filePath).toLowerCase()
       return imageExtensions.includes(fileExt) || imageExtensions.includes(`.${fileExt}`)
     },
@@ -1247,7 +1277,7 @@ export default {
           } else {
             // 封面字段使用图片文件选择
             const coverField = new FormField_SelectFile('封面', [
-              { name: '图片文件', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'] }
+              { name: '图片文件', extensions: ['jpg', 'jpeg', 'jpe', 'jfif', 'png', 'gif', 'webp', 'bmp', 'svg'] }
             ])
             await this.handleBrowseFile(key, coverField)
           }
@@ -1672,8 +1702,10 @@ export default {
           const value = (resourceInstance as any)[key]
           let field: FormFieldType | null = null
           
-          // 支持 ResourceField 和 FormField 两种形式
-          if (value instanceof ResourceField) {
+          // 页面正在编辑的键，按这一页的框来写。否则标签框会把改成文本的值收成空数组。
+          if (this.formFields?.[key]) {
+            field = this.formFields[key]
+          } else if (value instanceof ResourceField) {
             field = value.editType
           } else if (value instanceof FormFieldType) {
             field = value
@@ -1698,6 +1730,7 @@ export default {
         
         // 保留不在类中定义但在 formData 中的字段（如 duration 等）
         for (const key in this.formData) {
+          if (key === 'retainedFields') continue
           if (!(key in resource) && key !== 'id' && key !== 'fileExists') {
             const value = this.formData[key]
             if (value !== undefined && value !== null) {

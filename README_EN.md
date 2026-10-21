@@ -8,6 +8,10 @@
 
 [English](#) | [中文](README.md)
 
+QQ groups: 853149421 / 1098139167
+
+🌐 [**Official website**](https://klsdf.github.io/GreenResourcesManager/) | 📖 [**Help center**](https://klsdf.github.io/GreenResourcesManager/docs/)
+
 ## 📑 Table of Contents
 
 * [📖 Product Introduction](#-product-introduction)
