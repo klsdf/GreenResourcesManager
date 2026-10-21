@@ -218,8 +218,8 @@ declare global {
       removeAllListeners: (channel: string) => void
       
       // 桌宠功能
-      showPetWindow: () => Promise<{ success: boolean }>
-      hidePetWindow: () => Promise<{ success: boolean }>
+      showPetWindow: () => Promise<{ success: boolean; visible?: boolean }>
+      hidePetWindow: () => Promise<{ success: boolean; visible?: boolean }>
       togglePetWindow: () => Promise<{ success: boolean; visible?: boolean }>
       isPetWindowVisible: () => Promise<{ visible: boolean }>
       getPetWindowPosition: () => Promise<{ success: boolean; x?: number; y?: number; error?: string }>

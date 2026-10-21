@@ -272,7 +272,7 @@ onMounted(async () => {
 <style scoped>
 /* 全局动画样式，确保动态创建的元素也能应用 */
 .pet-view {
-  width: 800px; /* 500px 菜单 + 300px 主区域 */
+  width: 850px; /* 500px 菜单 + 350px 主区域 */
   height: 700px;
   overflow: hidden;
   background: transparent;

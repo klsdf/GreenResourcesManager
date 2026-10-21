@@ -49,29 +49,31 @@ export default {
     },
     
     async onPetWindowToggle(newValue: boolean) {
+      const previous = this.petWindowVisible
       this.petWindowVisible = newValue
       try {
-        if (window.electronAPI && window.electronAPI.togglePetWindow) {
-          const result = await window.electronAPI.togglePetWindow()
-          if (result.success) {
-            this.petWindowVisible = result.visible || false
-            notify.success(
-              '桌宠已' + (this.petWindowVisible ? '显示' : '隐藏'),
-              this.petWindowVisible ? '桌宠已显示在桌面上，可以拖动它' : '桌宠已隐藏'
-            )
-          } else {
-            // 恢复状态
-            this.petWindowVisible = !newValue
-            notify.error('操作失败', '无法切换桌宠显示状态')
-          }
-        } else {
+        const api = window.electronAPI
+        if (!api || !api.showPetWindow || !api.hidePetWindow) {
           notify.warning('功能不可用', '当前环境不支持桌宠功能')
-          this.petWindowVisible = !newValue
+          this.petWindowVisible = previous
+          return
+        }
+        // 按开关目标状态显式显示/隐藏，避免 toggle 在窗口还没创建完成时返回错误状态
+        const result = newValue ? await api.showPetWindow() : await api.hidePetWindow()
+        if (result.success) {
+          this.petWindowVisible = result.visible !== undefined ? result.visible : newValue
+          notify.success(
+            '桌宠已' + (this.petWindowVisible ? '显示' : '隐藏'),
+            this.petWindowVisible ? '桌宠已显示在桌面上，可以拖动它' : '桌宠已隐藏'
+          )
+        } else {
+          this.petWindowVisible = previous
+          notify.error('操作失败', '无法切换桌宠显示状态')
         }
       } catch (error: any) {
         console.error('切换桌宠显示状态失败:', error)
         notify.error('操作失败', `切换桌宠显示状态失败: ${error.message}`)
-        this.petWindowVisible = !newValue
+        this.petWindowVisible = previous
       }
     }
   }
