@@ -1,0 +1,59 @@
+name: Sync Release Notes
+
+# 修改 release-notes/<tag>.md 并推送到 main 后，自动同步已发布 Release 的标题和正文
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'release-notes/*.md'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 同步发布文案
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: |
+          if [ -z "$BEFORE_SHA" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            changed=$(git show --pretty="" --name-only "$AFTER_SHA")
+          else
+            changed=$(git diff --name-only "$BEFORE_SHA" "$AFTER_SHA")
+          fi
+
+          files=$(printf '%s\n' "$changed" | grep -E '^release-notes/[^/]+\.md$' || true)
+          if [ -z "$files" ]; then
+            echo "没有需要同步的发布文案"
+            exit 0
+          fi
+
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            if [ ! -f "$file" ]; then
+              echo "跳过已删除的 $file"
+              continue
+            fi
+            tag=$(basename "$file" .md)
+            if ! gh release view "$tag" >/dev/null 2>&1; then
+              echo "Release $tag 尚未创建，跳过"
+              continue
+            fi
+            title=$(head -n 1 "$file" | sed 's/^# *//' | tr -d '\r')
+            body=$(mktemp)
+            tail -n +2 "$file" > "$body"
+            echo "更新 $tag：$title"
+            gh release edit "$tag" --title "$title" --notes-file "$body"
+            rm -f "$body"
+          done <<< "$files"

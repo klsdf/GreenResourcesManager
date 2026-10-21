@@ -60,6 +60,28 @@ jobs:
             exit 1
           fi
 
+      - name: 读取发布文案
+        id: notes
+        shell: bash
+        working-directory: .
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          file="release-notes/${TAG}.md"
+          if [ ! -f "$file" ]; then
+            echo "标签中没有 $file，尝试从 main 获取"
+            git fetch --depth=1 origin main
+            mkdir -p release-notes
+            git show "FETCH_HEAD:$file" > "$file" || {
+              echo "::error::缺少发布文案 $file"
+              exit 1
+            }
+          fi
+          title=$(head -n 1 "$file" | sed 's/^# *//' | tr -d '\r')
+          tail -n +2 "$file" > release-body.md
+          echo "title=$title" >> "$GITHUB_OUTPUT"
+          echo "body_path=release-body.md" >> "$GITHUB_OUTPUT"
+
       - name: 安装依赖
         run: npm ci
 
@@ -98,9 +120,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.release.outputs.tag }}
-          name: ${{ steps.release.outputs.tag }}
+          name: ${{ steps.notes.outputs.title }}
+          body_path: ${{ steps.notes.outputs.body_path }}
           files: green-resources-manager/release-assets/*
-          generate_release_notes: true
           draft: false
           prerelease: false
           make_latest: true
