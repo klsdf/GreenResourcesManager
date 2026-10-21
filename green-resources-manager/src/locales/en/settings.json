@@ -69,7 +69,12 @@
   },
   "disguiseMode": {
     "title": "Disguise Mode",
-    "description": "When enabled, image covers will be randomly replaced with images from the disguise folder for privacy protection"
+    "description": "When enabled, image covers will be randomly replaced with images from the disguise folder for privacy protection",
+    "openFolderTitle": "Open disguise image folder",
+    "openFolderDesc": "Open the folder that holds disguise images and disguise.txt",
+    "openFolderButton": "Open folder",
+    "openedDetail": "Opened disguise image folder: {path}",
+    "openFolderFailed": "Could not find the disguise image folder"
   },
   "safetyKey": {
     "title": "Safety Key",

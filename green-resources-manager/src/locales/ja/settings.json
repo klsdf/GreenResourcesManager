@@ -69,7 +69,12 @@
   },
   "disguiseMode": {
     "title": "偽装モード",
-    "description": "有効にすると、画像カバーがdisguiseフォルダの画像にランダムに置き換えられ、プライバシーを保護"
+    "description": "有効にすると、画像カバーがdisguiseフォルダの画像にランダムに置き換えられ、プライバシーを保護",
+    "openFolderTitle": "偽装画像フォルダを開く",
+    "openFolderDesc": "偽装画像と disguise.txt を置くフォルダを開きます",
+    "openFolderButton": "フォルダを開く",
+    "openedDetail": "偽装画像フォルダを開きました: {path}",
+    "openFolderFailed": "偽装画像フォルダが見つかりません"
   },
   "safetyKey": {
     "title": "セーフティキー",

@@ -1,0 +1,66 @@
+name: Deploy Help Site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'green-resources-manager/src/**'
+      - 'green-resources-manager/help-index.html'
+      - 'green-resources-manager/vite.config.help.js'
+      - 'green-resources-manager/scripts/post-build-help.js'
+      - 'green-resources-manager/package.json'
+      - 'green-resources-manager/package-lock.json'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: green-resources-manager
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: green-resources-manager/package-lock.json
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 构建帮助站
+        run: npm run build-help
+
+      - name: 配置 Pages
+        uses: actions/configure-pages@v5
+
+      - name: 上传站点产物
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: green-resources-manager/help-site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 部署到 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

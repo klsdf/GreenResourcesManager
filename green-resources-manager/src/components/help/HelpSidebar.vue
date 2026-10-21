@@ -10,7 +10,7 @@
       <FunMenu
         :items="menuItems"
         :active-key="activeSection"
-        :default-expanded-keys="['user-manual']"
+        :default-expanded-keys="['user-manual', 'workshop']"
         :is-item-active-fn="isItemActive"
         :collapsed="isCollapsed"
         @item-click="handleMenuClick"
@@ -50,12 +50,8 @@ const menuItems = computed<MenuItem[]>(() => [
     children: [
       { id: 'intro', icon: '🏠', label: t('help.sidebar.intro') },
       { id: 'general', icon: '🛠️', label: t('help.sidebar.general') },
-      { id: 'game', icon: '🎮', label: t('help.sidebar.game') },
-      { id: 'image', icon: '🖼️', label: t('help.sidebar.image') },
-      { id: 'video', icon: '🎬', label: t('help.sidebar.video') },
-      { id: 'novel', icon: '📚', label: t('help.sidebar.novel') },
-      { id: 'website', icon: '🌐', label: t('help.sidebar.website') },
-      { id: 'audio', icon: '🎵', label: t('help.sidebar.audio') },
+      { id: 'pages', icon: '📄', label: t('help.sidebar.pages') },
+      { id: 'resources', icon: '📦', label: t('help.sidebar.resources') },
       { id: 'faq', icon: '❓', label: t('help.sidebar.faq') },
 
     ]
@@ -73,7 +69,17 @@ const menuItems = computed<MenuItem[]>(() => [
       { id: 'api-audio', icon: '🎵', label: t('help.sidebar.apiAudio') }
     ]
   },
-  { id: 'workshop', icon: '🎨', label: t('help.sidebar.workshop') },
+  {
+    id: 'workshop',
+    icon: '🎨',
+    label: t('help.sidebar.workshop'),
+    children: [
+      { id: 'workshop-pages', icon: '📄', label: t('help.sidebar.workshopPages') },
+      { id: 'workshop-plugin', icon: '🧩', label: t('help.sidebar.workshopPlugin') },
+      { id: 'workshop-note', icon: '📝', label: t('help.sidebar.workshopNote') },
+      { id: 'workshop-calendar', icon: '📅', label: t('help.sidebar.workshopCalendar') }
+    ]
+  },
   { id: 'support', icon: '💬', label: t('help.sidebar.support') },
   { id: 'about', icon: 'ℹ️', label: t('help.sidebar.about') },
 ])
@@ -83,6 +89,11 @@ const isItemActive = (item: MenuItem): boolean => {
     return item.children.some(child => props.activeSection === child.id)
   }
   
+  if (item.id === 'workshop' && item.children) {
+    return props.activeSection === 'workshop' ||
+           item.children.some(child => props.activeSection === child.id)
+  }
+
   if (item.id === 'api' && item.children) {
     return props.activeSection === 'api' || 
            props.activeSection === 'api-games' ||

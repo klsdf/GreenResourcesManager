@@ -16,12 +16,8 @@ import { defineComponent, ref, computed } from 'vue'
 import HelpSidebar from '../components/help/HelpSidebar.vue'
 import IntroSection from '../components/help/sections/IntroSection.vue'
 import GeneralSection from '../components/help/sections/GeneralSection.vue'
-import GameSection from '../components/help/sections/GameSection.vue'
-import ImageSection from '../components/help/sections/ImageSection.vue'
-import VideoSection from '../components/help/sections/VideoSection.vue'
-import NovelSection from '../components/help/sections/NovelSection.vue'
-import WebsiteSection from '../components/help/sections/WebsiteSection.vue'
-import AudioSection from '../components/help/sections/AudioSection.vue'
+import PagesSection from '../components/help/sections/PagesSection.vue'
+import ResourcesSection from '../components/help/sections/ResourcesSection.vue'
 import ApiSection from '../components/help/sections/ApiSection.vue'
 import ApiGamesSection from '../components/help/sections/api-pages/ApiGamesSection.vue'
 import ApiMangaSection from '../components/help/sections/api-pages/ApiMangaSection.vue'
@@ -31,6 +27,10 @@ import ApiWebsitesSection from '../components/help/sections/api-pages/ApiWebsite
 import ApiAudioSection from '../components/help/sections/api-pages/ApiAudioSection.vue'
 import FaqSection from '../components/help/sections/FaqSection.vue'
 import WorkshopSection from '../components/help/sections/WorkshopSection.vue'
+import WorkshopPagesSection from '../components/help/sections/WorkshopPagesSection.vue'
+import WorkshopPluginSection from '../components/help/sections/WorkshopPluginSection.vue'
+import WorkshopNoteSection from '../components/help/sections/WorkshopNoteSection.vue'
+import WorkshopCalendarSection from '../components/help/sections/WorkshopCalendarSection.vue'
 import SupportSection from '../components/help/sections/SupportSection.vue'
 import AboutSection from '../components/help/sections/AboutSection.vue'
 
@@ -40,12 +40,8 @@ export default defineComponent({
     HelpSidebar,
     IntroSection,
     GeneralSection,
-    GameSection,
-    ImageSection,
-    VideoSection,
-    NovelSection,
-    WebsiteSection,
-    AudioSection,
+    PagesSection,
+    ResourcesSection,
     ApiSection,
     ApiGamesSection,
     ApiMangaSection,
@@ -56,7 +52,11 @@ export default defineComponent({
     FaqSection,
     SupportSection,
     AboutSection,
-    WorkshopSection
+    WorkshopSection,
+    WorkshopPagesSection,
+    WorkshopPluginSection,
+    WorkshopNoteSection,
+    WorkshopCalendarSection
   },
   setup() {
     const activeSection = ref('intro')
@@ -64,12 +64,8 @@ export default defineComponent({
     const sectionComponents: Record<string, any> = {
       intro: IntroSection,
       general: GeneralSection,
-      game: GameSection,
-      image: ImageSection,
-      video: VideoSection,
-      novel: NovelSection,
-      website: WebsiteSection,
-      audio: AudioSection,
+      pages: PagesSection,
+      resources: ResourcesSection,
       api: ApiSection,
       'api-games': ApiGamesSection,
       'api-manga': ApiMangaSection,
@@ -80,7 +76,11 @@ export default defineComponent({
       faq: FaqSection,
       support: SupportSection,
       about: AboutSection,
-      workshop: WorkshopSection
+      workshop: WorkshopSection,
+      'workshop-pages': WorkshopPagesSection,
+      'workshop-plugin': WorkshopPluginSection,
+      'workshop-note': WorkshopNoteSection,
+      'workshop-calendar': WorkshopCalendarSection
     }
 
     const currentSectionComponent = computed(() => {
@@ -156,7 +156,7 @@ export default defineComponent({
 // 技术标签 - 单个技术标签的样式
 .tech-tag {
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   padding: 6px var(--spacing-md);
   border-radius: 16px;
   font-size: 0.85rem;
@@ -191,7 +191,7 @@ export default defineComponent({
   // 悬停效果 - 背景色变化和轻微上移
   &:hover {
     background: var(--accent-color);
-    color: white;
+    color: var(--text-on-accent, #1a1a1a);
     transform: translateY(-2px);
   }
 }
@@ -370,7 +370,7 @@ export default defineComponent({
   gap: var(--spacing-md);
   padding: var(--spacing-lg) var(--spacing-2xl);
   background: var(--accent-color);
-  color: white;
+  color: var(--text-on-accent, #1a1a1a);
   border-radius: var(--radius-lg);
   cursor: pointer;
   transition: all var(--transition-base);

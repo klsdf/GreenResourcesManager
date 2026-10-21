@@ -69,7 +69,12 @@
   },
   "disguiseMode": {
     "title": "偽裝模式",
-    "description": "開啟後，圖片封面會隨機替換為disguise資料夾中的圖片，提供隱私保護"
+    "description": "開啟後，圖片封面會隨機替換為disguise資料夾中的圖片，提供隱私保護",
+    "openFolderTitle": "打開偽裝圖片資料夾",
+    "openFolderDesc": "在檔案總管中打開存放偽裝圖片和 disguise.txt 的資料夾",
+    "openFolderButton": "打開資料夾",
+    "openedDetail": "已打開偽裝圖片資料夾: {path}",
+    "openFolderFailed": "找不到偽裝圖片資料夾"
   },
   "safetyKey": {
     "title": "安全鍵",

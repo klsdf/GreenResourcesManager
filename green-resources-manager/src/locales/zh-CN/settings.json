@@ -69,7 +69,12 @@
   },
   "disguiseMode": {
     "title": "伪装模式",
-    "description": "开启后，图片封面会随机替换为disguise文件夹中的图片，提供隐私保护"
+    "description": "开启后，图片封面会随机替换为disguise文件夹中的图片，提供隐私保护",
+    "openFolderTitle": "打开伪装图片文件夹",
+    "openFolderDesc": "在文件管理器中打开存放伪装图片和 disguise.txt 的文件夹",
+    "openFolderButton": "打开文件夹",
+    "openedDetail": "已打开伪装图片文件夹: {path}",
+    "openFolderFailed": "找不到伪装图片文件夹"
   },
   "safetyKey": {
     "title": "安全键",
