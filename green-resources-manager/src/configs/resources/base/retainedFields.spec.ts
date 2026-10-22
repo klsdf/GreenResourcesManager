@@ -20,6 +20,22 @@ describe('页面字段留在资源记录上', () => {
     expect(saved.retainedFields).toBeUndefined()
   })
 
+  it('番剧详情挂上的视频列表不会写进存档', () => {
+    const game = Game.fromJSON({
+      id: 'g1',
+      name: '示例',
+      resourceType: 'game',
+      folderVideos: [{ name: '第一集', path: 'a.mp4' }],
+      voiceActor: ['甲']
+    })
+    expect(game.retainedFields.folderVideos).toBeUndefined()
+    expect((game as any).folderVideos).toBeUndefined()
+    BaseResources.assignSavedValue(game, 'folderVideos', [{ name: '第二集', path: 'b.mp4' }])
+    const saved = BaseResources.composeSaveData(game, game.getSaveData())
+    expect(saved.folderVideos).toBeUndefined()
+    expect(saved.voiceActor).toEqual(['甲'])
+  })
+
   it('写入新字段时不覆盖记录里已有的另一项', () => {
     const audio = Audio.fromJSON({
       id: 'a1',

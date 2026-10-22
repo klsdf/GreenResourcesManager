@@ -14,6 +14,12 @@ const phraseBooks: Record<string, Record<string, string>> = {
 }
 
 /**
+ * 一句话里连续出现的数字，按顺序填进这些占位符。
+ * 词条里写成「检测到 {n} 个文件不存在」，才能把已经存下来的「检测到 12 个文件不存在」对上。
+ */
+const numberSlots = ['n', 'm', 'k', 'a', 'b', 'c']
+
+/**
  * 把界面上的简体中文原文换成当前语言。
  *
  * 资源名、标签、用户自己写的句子不在对照表里，会原样返回。
@@ -31,7 +37,45 @@ export function lt(text: string | null | undefined): string {
     return text
   }
   const book = phraseBooks[locale]
-  return book?.[text] ?? text
+  if (!book) {
+    return text
+  }
+  if (Object.prototype.hasOwnProperty.call(book, text)) {
+    return book[text]
+  }
+  return translateCountedSentence(text, book) ?? text
+}
+
+/**
+ * 把句子里的数字换成 {n}、{m} 再查词条。
+ * 通知经常带着个数，整句对不上，但去掉数字后的模板是固定的。
+ *
+ * @param text 已经填好数字的简体句子
+ * @param book 当前语言的词条
+ * @returns 译好的句子；模板不存在时返回 null
+ */
+function translateCountedSentence(text: string, book: Record<string, string>): string | null {
+  if (!/\d/.test(text)) {
+    return null
+  }
+  /** 按出现顺序记下原来的数字，译完再填回去。 */
+  const values: string[] = []
+  const template = text.replace(/\d+(?:\.\d+)?/g, (num) => {
+    const slot = numberSlots[values.length] || `x${values.length}`
+    values.push(num)
+    return `{${slot}}`
+  })
+  if (!Object.prototype.hasOwnProperty.call(book, template)) {
+    return null
+  }
+  return book[template].replace(/\{(\w+)\}/g, (_match, key: string) => {
+    const index = numberSlots.indexOf(key)
+    if (index >= 0) {
+      return values[index] ?? ''
+    }
+    const extra = /^x(\d+)$/.exec(key)
+    return extra ? values[Number(extra[1])] ?? '' : ''
+  })
 }
 
 /**

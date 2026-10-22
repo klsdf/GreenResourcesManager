@@ -1013,7 +1013,14 @@ export default defineComponent({
         throw new Error('不在 Electron 环境或数据库 API 不可用，无法保存')
       }
       const saveableData = items.value.map(item => BaseResources.composeSaveData(item, (item as any).getSaveData()))
-      const result = await window.electronAPI.sqliteSavePageResources(pageId, saveableData)
+      // 先收成纯 JSON。响应式代理直接传给主进程时无法克隆，番剧详情上的视频列表就会让整次保存失败。
+      let plainData: any
+      try {
+        plainData = JSON.parse(JSON.stringify(saveableData))
+      } catch (serializeError: any) {
+        throw new Error(`数据无法保存: ${serializeError?.message || '存档里有不能序列化的内容'}`)
+      }
+      const result = await window.electronAPI.sqliteSavePageResources(pageId, plainData)
       if (!result || !result.ok) {
         throw new Error((result && result.message) ? result.message : '保存页面数据到数据库失败')
       }
@@ -4328,6 +4335,10 @@ export default defineComponent({
     },
     // 更新筛选器数据到 App.vue
     updateFilterData() {
+      // 标签索引异步回来之后也会走这里。先按当前资源重算不走索引的筛选项，再把候选抄给左侧栏。
+      if (typeof (this as any).extractAllFilters === 'function') {
+        (this as any).extractAllFilters()
+      }
       // 优先从 this 访问，如果不存在则从 filterComposable 访问
       const getFilterDataFn = (this as any).getFilterData || 
                              ((this as any)._filterComposable && (this as any)._filterComposable.getFilterData)

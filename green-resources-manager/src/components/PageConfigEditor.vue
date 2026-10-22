@@ -44,7 +44,7 @@
         <div class="check-grid">
           <label v-for="kind in basicResourceKinds" :key="kind.id" class="check-item">
             <input type="checkbox" :checked="editingPage.acceptedKinds.includes(kind.id)" @change="toggleAcceptedKind(kind.id, $event)" />
-            <span>{{ kind.label }}</span>
+            <span>{{ $lt(kind.label) }}</span>
           </label>
         </div>
         <div class="add-type-row">
@@ -56,7 +56,7 @@
         <div class="check-grid">
           <label v-for="field in officialFields" :key="field.key" class="check-item">
             <input type="checkbox" :checked="isOfficialEnabled(field.key)" @change="toggleOfficialField(field.key)" />
-            <span>{{ field.label }}</span>
+            <span>{{ $lt(field.label) }}</span>
           </label>
         </div>
 
@@ -80,7 +80,7 @@
         <div class="add-type-row">
           <select v-model="knownFieldToAdd" class="type-select">
             <option value="">{{ $lt('选择已有字段') }}</option>
-            <option v-for="field in knownFieldsToAdd" :key="field.key" :value="field.key">{{ field.label }}</option>
+            <option v-for="field in knownFieldsToAdd" :key="field.key" :value="field.key">{{ $lt(field.label) }}</option>
           </select>
           <button class="btn-secondary" type="button" :disabled="!knownFieldToAdd" @click="addKnownField">{{ $lt('添加已有字段') }}</button>
         </div>
@@ -236,7 +236,7 @@
               <div class="form-group">
                 <label>{{ $lt('排序字段') }}</label>
                 <select class="type-select" :value="sortChoice.field" @change="changeSortField(sortChoice, $event)">
-                  <option v-for="option in sortFieldOptionsFor(sortChoice.field)" :key="option.field" :value="option.field">{{ option.label }}</option>
+                  <option v-for="option in sortFieldOptionsFor(sortChoice.field)" :key="option.field" :value="option.field">{{ $lt(option.label) }}</option>
                 </select>
               </div>
             </div>

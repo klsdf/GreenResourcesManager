@@ -26,7 +26,7 @@
                 :style="{ background: color }"
               ></span>
             </span>
-            <span class="theme-name">{{ option.label }}</span>
+            <span class="theme-name">{{ $lt(option.label) }}</span>
           </button>
         </div>
       </div>

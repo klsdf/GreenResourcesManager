@@ -18,7 +18,7 @@
           @click="currentTab = tab.id"
         >
           <span class="sidebar-icon">{{ tab.icon }}</span>
-          <span class="sidebar-label">{{ tab.label }}</span>
+          <span class="sidebar-label">{{ $lt(tab.label) }}</span>
         </button>
       </div>
       

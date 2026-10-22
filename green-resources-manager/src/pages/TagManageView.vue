@@ -4,7 +4,7 @@
     <aside class="tm-sidebar">
       <h3 class="tm-title">{{ $lt('🏷️ 标签管理') }}</h3>
       <div v-for="res in registry" :key="res.type" class="tm-res-group">
-        <div class="tm-res-name">{{ res.label }}</div>
+        <div class="tm-res-name">{{ $lt(res.label) }}</div>
         <div
           v-for="f in res.fields"
           :key="f.field"
@@ -12,7 +12,7 @@
           :class="{ active: selectedType === res.type && selectedField === f.field }"
           @click="selectField(res.type, f.field)"
         >
-          <span>{{ f.label }}</span>
+          <span>{{ $lt(f.label) }}</span>
         </div>
       </div>
     </aside>

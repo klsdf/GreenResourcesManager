@@ -32,6 +32,13 @@ export interface ResourceDisplayTexts {
  * 子类必须实现或重写这些抽象属性
  */
 export abstract class BaseResources {
+
+	/**
+	 * 只给界面用的临时字段，不能写进存档。
+	 * 番剧详情会把文件夹里扫出来的视频列表放在 folderVideos 上。
+	 * 这些对象是 Vue 的响应式代理，交给数据库进程时无法克隆，保存会报 An object could not be cloned。
+	 */
+	static readonly ephemeralFieldKeys = new Set<string>(['folderVideos'])
 	
 	/**
 	 * 静态方法：获取显示文本配置
@@ -290,6 +297,9 @@ export abstract class BaseResources {
 			}
 		}
 		delete merged.retainedFields
+		for (const key of BaseResources.ephemeralFieldKeys) {
+			delete merged[key]
+		}
 		return merged
 	}
 
@@ -303,6 +313,12 @@ export abstract class BaseResources {
 	 */
 	static assignSavedValue(item: any, key: string, raw: any): void {
 		if (!item || !key || key === 'retainedFields') return
+		if (BaseResources.ephemeralFieldKeys.has(key)) {
+			if (item.retainedFields && Object.prototype.hasOwnProperty.call(item.retainedFields, key)) {
+				delete item.retainedFields[key]
+			}
+			return
+		}
 		const value = BaseResources.extractPrimitiveValue(raw)
 		const field = item[key]
 		if (field instanceof ResourceField) {
@@ -394,7 +410,7 @@ export abstract class BaseResources {
 		// 类上没有的键也要留下。音声页写入的声优，回到游戏页时游戏类不认识它，但不能从记录里丢掉。
 		const retained: Record<string, any> = {}
 		for (const key of Object.keys(jsonData || {})) {
-			if (key === 'retainedFields') continue
+			if (key === 'retainedFields' || BaseResources.ephemeralFieldKeys.has(key)) continue
 			const current = (instance as any)[key]
 			if (current instanceof ResourceField || typeof current === 'function') continue
 			const value = BaseResources.extractPrimitiveValue(jsonData[key])

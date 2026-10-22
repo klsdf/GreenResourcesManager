@@ -5,7 +5,8 @@
       <div
         v-for="toast in toasts"
         :key="toast.id"
-        :class="['fun-notification-toast', `fun-notification-toast--${toast.type}`]"
+        :class="['fun-notification-toast', `fun-notification-toast--${toast.type}`, { 'fun-notification-toast--clickable': !!toast.onClick }]"
+        @click="handleToastClick(toast)"
       >
         <div class="fun-notification-toast__icon">
           <span v-if="toast.type === 'success'">✅</span>
@@ -45,6 +46,8 @@ export interface NotificationOptions {
   image?: string
   duration?: number
   persistent?: boolean
+  /** 点击通知正文时执行。关闭按钮不触发，避免点叉时误打开链接。 */
+  onClick?: () => void
 }
 
 export interface Notification {
@@ -57,6 +60,8 @@ export interface Notification {
   duration: number
   timestamp: number
   persistent: boolean
+  /** 点击通知正文时执行。没有时点击只停留在界面上。 */
+  onClick?: () => void
 }
 
 // 数据
@@ -73,7 +78,8 @@ const showToast = (options: NotificationOptions = {}): number => {
     image: options.image || '',
     duration: options.duration || 3000,
     timestamp: Date.now(),
-    persistent: options.persistent || false
+    persistent: options.persistent || false,
+    onClick: options.onClick
   }
 
   toasts.value.push(toast)
@@ -86,6 +92,17 @@ const showToast = (options: NotificationOptions = {}): number => {
   }
 
   return toast.id
+}
+
+/**
+ * 点击通知正文。
+ * 关闭按钮单独处理，这里只负责打开调用方交给通知的动作，例如打开下载页。
+ * @param toast 被点击的那条通知
+ */
+const handleToastClick = (toast: Notification): void => {
+  if (typeof toast.onClick === 'function') {
+    toast.onClick()
+  }
 }
 
 // 移除 Toast
@@ -137,6 +154,10 @@ defineExpose({
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.fun-notification-toast--clickable {
+  cursor: pointer;
 }
 
 .fun-notification-toast {

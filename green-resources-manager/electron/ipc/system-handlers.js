@@ -1252,6 +1252,80 @@ $results | ConvertTo-Json -Depth 10
     }
   })
 
+  /**
+   * 从 exe 里取出较大的程序图标，转成 PNG 的 data URL。
+   * 卡片旁的小图标用系统的 32 像素就够。封面要放大看，32 像素会糊成一块，所以封面这条路单独要大图。
+   * 取不到就返回空，调用方再退回系统的小图标。
+   * @param {string} filePath 程序文件路径
+   * @param {number} size 希望的边长，像素
+   * @returns {Promise<{ success: boolean, icon: string } | null>}
+   */
+  function extractLargeFileIcon(filePath, size) {
+    const pixels = Math.max(48, Math.min(256, Number(size) || 256))
+    const escapedPath = String(filePath).replace(/'/g, "''")
+    const script = [
+      'try {',
+      'Add-Type -TypeDefinition @"',
+      'using System;',
+      'using System.Drawing;',
+      'using System.Drawing.Imaging;',
+      'using System.IO;',
+      'using System.Runtime.InteropServices;',
+      'public class GrCoverIcon {',
+      '  [DllImport("user32.dll", CharSet = CharSet.Unicode)]',
+      '  public static extern uint PrivateExtractIcons(string szFileName, int nIconIndex, int cxIcon, int cyIcon, IntPtr[] phicon, uint[] piconid, uint nIcons, uint flags);',
+      '  [DllImport("user32.dll", SetLastError = true)]',
+      '  public static extern bool DestroyIcon(IntPtr hIcon);',
+      '  public static string ToBase64(string path, int size) {',
+      '    IntPtr[] icons = new IntPtr[1];',
+      '    uint[] ids = new uint[1];',
+      '    uint count = PrivateExtractIcons(path, 0, size, size, icons, ids, 1, 0);',
+      '    if (count == 0 || count == 0xFFFFFFFF || icons[0] == IntPtr.Zero) return "";',
+      '    try {',
+      '      using (Icon icon = Icon.FromHandle(icons[0]))',
+      '      using (Bitmap bitmap = icon.ToBitmap())',
+      '      using (MemoryStream stream = new MemoryStream()) {',
+      '        bitmap.Save(stream, ImageFormat.Png);',
+      '        return Convert.ToBase64String(stream.ToArray());',
+      '      }',
+      '    } finally {',
+      '      DestroyIcon(icons[0]);',
+      '    }',
+      '  }',
+      '}',
+      '"@',
+      "[GrCoverIcon]::ToBase64('" + escapedPath + "', " + pixels + ")",
+      '} catch {',
+      'Write-Output ("ERROR: " + $_.Exception.Message)',
+      '}'
+    ].join('\n')
+
+    return new Promise((resolve) => {
+      const powershell = spawn('powershell', ['-NoProfile', '-Command', script])
+      const timeout = setTimeout(() => {
+        if (powershell && !powershell.killed) powershell.kill()
+        resolve(null)
+      }, 8000)
+      let output = ''
+      powershell.stdout.on('data', (data) => {
+        output += data.toString()
+      })
+      powershell.on('close', () => {
+        clearTimeout(timeout)
+        const base64 = output.replace(/\s+/g, '')
+        if (!base64 || base64.startsWith('ERROR:')) {
+          resolve(null)
+          return
+        }
+        resolve({ success: true, icon: `data:image/png;base64,${base64}` })
+      })
+      powershell.on('error', () => {
+        clearTimeout(timeout)
+        resolve(null)
+      })
+    })
+  }
+
   // 获取文件图标（主要用于 exe 文件）
   ipcMain.handle('get-file-icon', async (event, filePath, size = 32) => {
     try {
@@ -1273,10 +1347,17 @@ $results | ConvertTo-Json -Depth 10
         return { success: false, error: '仅支持 .exe 和 .lnk 文件' }
       }
 
+      // 封面需要大图。系统自带接口最大大约 48 像素，exe 里往往有更大的图标。
+      if (Number(size) > 32 && ext === '.exe') {
+        const largeIcon = await extractLargeFileIcon(filePath, size)
+        if (largeIcon?.success && largeIcon.icon) return largeIcon
+      }
+
       // 使用 Electron 的 app.getFileIcon 方法（如果可用）
       if (app.getFileIcon) {
         try {
-          const icon = await app.getFileIcon(filePath, { size: size === 16 ? 'small' : 'normal' })
+          const iconSize = Number(size) > 32 ? 'large' : (Number(size) <= 16 ? 'small' : 'normal')
+          const icon = await app.getFileIcon(filePath, { size: iconSize })
           if (icon && !icon.isEmpty()) {
             // 转换为 base64 data URL
             const pngBuffer = icon.toPNG()

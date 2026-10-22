@@ -289,6 +289,8 @@ import { updateDynamicRoutes } from './router/index'
 
 
 import notificationService from './utils/NotificationService.ts'
+import { lf, lt } from './locales/lt'
+import { GITHUB_REPO } from './utils/constants'
 import alertService from './utils/AlertService.ts'
 import confirmService from './utils/ConfirmService.ts'
 
@@ -319,6 +321,12 @@ export default {
       version: '0.0.0',
       isLoading: true, // 应用加载状态
       showVersionModal: false, // 启动时版本更新弹窗
+      /** 这次启动是否已经在主窗口提示过新版本，避免托盘事件和手动检查各弹一次。 */
+      updateToastShown: false,
+      /** 通知组件还没挂上时，先记住已经发现的新版本，挂上后再补一条 toast。 */
+      hasPendingUpdateToast: false,
+      /** 还没弹出的新版本号。检查结果没带版本号时为空字符串。 */
+      pendingUpdateVersion: '',
       changelogEntries, // 全部更新记录（来自 data/changelog）
       isInitialized: false, // 存档系统是否已初始化
       isLogoClicked: false, // logo 是否被点击过
@@ -525,6 +533,71 @@ export default {
     },
   },
   methods: {
+    /**
+     * 监听主进程的更新结果，并在主窗口弹出 toast。
+     * 检查发生在启动大约 5 秒后。监听要在这之前挂上；通知组件若还没就绪，先把版本号记下。
+     * 托盘可以被用户关掉，所以新版本必须出现在主窗口里。
+     */
+    setupAppUpdateToast() {
+      if (!window.electronAPI || !window.electronAPI.onUpdateAvailable) {
+        return
+      }
+      window.electronAPI.onUpdateAvailable((_event: any, info: any) => {
+        const version = info && info.version ? String(info.version) : ''
+        this.showUpdateAvailableToast(version)
+      })
+      if (window.electronAPI.onUpdateError) {
+        window.electronAPI.onUpdateError((_event: any, error: any) => {
+          const code = error && typeof error === 'object' ? error.code : ''
+          if (code !== 'MANUAL_DOWNLOAD_REQUIRED') {
+            return
+          }
+          const version = error.version ? String(error.version) : ''
+          this.showUpdateAvailableToast(version)
+        })
+      }
+    },
+
+    /**
+     * 在主窗口提示有新版本。
+     * 同一版本只弹一次。通知服务还没就绪时先记下，避免启动检查比界面更早完成时把提示丢掉。
+     * 通知会一直留着，直到用户关掉或点它打开下载页。短时间消失的话，和托盘气泡一样容易错过。
+     * @param version 远端版本号
+     */
+    showUpdateAvailableToast(version: string) {
+      if (this.updateToastShown) {
+        return
+      }
+      if (!notificationService.isInitialized) {
+        this.hasPendingUpdateToast = true
+        this.pendingUpdateVersion = version || ''
+        return
+      }
+      this.updateToastShown = true
+      this.hasPendingUpdateToast = false
+      this.pendingUpdateVersion = ''
+      const message = version
+        ? lf('版本 {version} 已发布。点这条通知可以打开 GitHub 下载页。', { version })
+        : lf('有新版本发布。点这条通知可以打开 GitHub 下载页。', {})
+      notificationService.info('发现新版本', message, {
+        persistent: true,
+        onClick: () => this.openLatestReleasePage()
+      })
+    },
+
+    /**
+     * 用系统浏览器打开最新 Release 页面。
+     * 绿色版不能自己替换解压目录，所以这里只带用户去下载。
+     */
+    openLatestReleasePage() {
+      const url = GITHUB_REPO.latestReleaseUrl
+      if (window.electronAPI && window.electronAPI.openExternal) {
+        window.electronAPI.openExternal(url)
+        return
+      }
+      window.open(url, '_blank')
+    },
+
     startSidebarResize(e: MouseEvent) {
       this.isSidebarResizing = true
       this.sidebarResizeStartX = e.clientX
@@ -1176,27 +1249,28 @@ export default {
     },
     getCurrentViewTitle() {
       const route = this.$route
+      // 路由和页面配置里存的是简体原文。先查词条，用户自己起的页面名对不上就原样显示。
       if (route.meta?.title) {
-        return route.meta.title as string
+        return lt(route.meta.title as string)
       }
       const viewId = route.name as string
       if (this.$te('views.' + viewId + '.name')) {
         return this.$t('views.' + viewId + '.name')
       }
       const config = this.viewConfig[viewId]
-      return config?.name || '未知页面'
+      return lt(config?.name || '未知页面')
     },
     getCurrentViewDescription() {
       const route = this.$route
       if (route.meta?.description) {
-        return route.meta.description as string
+        return lt(route.meta.description as string)
       }
       const viewId = route.name as string
       if (this.$te('views.' + viewId + '.description')) {
         return this.$t('views.' + viewId + '.description')
       }
       const config = this.viewConfig[viewId]
-      return config?.description || '无描述'
+      return lt(config?.description || '无描述')
     },
     async applyBackgroundImage(imagePath: string) {
       try {
@@ -1462,6 +1536,9 @@ export default {
     }
   },
   async mounted() {
+    // 先挂上更新监听。后面的存档初始化可能超过 5 秒，检查结果要先接住。
+    this.setupAppUpdateToast()
+
     // 监听应用整体缩放变化（菜单、快捷键、Ctrl+滚轮），显示“缩放至 XX%”提示
     if (window.electronAPI && typeof window.electronAPI.onAppZoomChanged === 'function') {
       this.removeAppZoomChanged = window.electronAPI.onAppZoomChanged((data) => {
@@ -1600,6 +1677,9 @@ export default {
     // 初始化通知服务
     try {
       notificationService.init(this.$refs.toastNotification)
+      if (this.hasPendingUpdateToast) {
+        this.showUpdateAvailableToast(this.pendingUpdateVersion)
+      }
     } catch (error) {
       console.error('通知服务初始化失败:', error)
     }

@@ -26,6 +26,16 @@
               ⚠️
             </div>
           </div>
+          <button
+            v-if="canUseAppIconAsCover"
+            type="button"
+            class="btn-app-icon-cover"
+            :disabled="appIconCoverLoading"
+            :title="$lt('读取这个程序自带的图标，设为封面')"
+            @click="useAppIconAsCover"
+          >
+            {{ $lt(appIconCoverLoading ? '正在读取图标' : '使用应用图标作为封面') }}
+          </button>
           
           <!-- 玩家评价区域 -->
           <div class="detail-rating">
@@ -140,6 +150,7 @@
 
 <script>
 import coverManager from '../utils/CoverManager.ts'
+import notify from '../utils/NotificationService.ts'
 import { playCompletionCelebration } from '../utils/completionCelebration.ts'
 
 export default {
@@ -194,7 +205,9 @@ export default {
       /** 这次解析对应的原始封面路径。慢请求回来时用来判断封面有没有已经换成另一张。 */
       detailCoverRequestPath: '',
       /** 完成按钮正在弹一下。只在刚点亮时为真，用来配合烟花。 */
-      completionPopping: false
+      completionPopping: false,
+      /** 正在把程序图标写成封面。避免连点重复提取。 */
+      appIconCoverLoading: false
     }
   },
   watch: {
@@ -243,6 +256,23 @@ export default {
       // 从配置中读取，如果没有配置返回默认值
       const config = this.detailPanelConfig
       return config?.tagsTitle || '标签'
+    },
+    /**
+     * 游戏或软件对应的程序文件。
+     * 图标从这里提取。没有路径时不能提供这个封面选项。
+     */
+    appExecutablePath() {
+      const value = this.getFieldValue(this.item?.resourcePath)
+      return typeof value === 'string' ? value.trim() : ''
+    },
+    /**
+     * 只有游戏和软件，并且文件是 exe 或快捷方式时，才显示「使用应用图标作为封面」。
+     * 漫画、电影没有程序图标，不出现这个按钮。
+     */
+    canUseAppIconAsCover() {
+      const kind = String(this.getFieldValue(this.item?.resourceType) || this.item?.constructor?.name || '').toLowerCase()
+      if (kind !== 'game' && kind !== 'software') return false
+      return /\.(exe|lnk)$/i.test(this.appExecutablePath)
     },
     /**
      * 详情页左侧封面的原始路径。
@@ -651,6 +681,41 @@ export default {
       window.setTimeout(() => {
         this.completionPopping = false
       }, 700)
+    },
+    /**
+     * 把程序自带图标存成这条资源的封面。
+     * 先取出较大的图标，再走原来的封面保存：复制进存档目录，详情和卡片都用这张图。
+     */
+    async useAppIconAsCover() {
+      const itemId = this.item?.id?.value ?? this.item?.id
+      const filePath = this.appExecutablePath
+      if (!this.item || !itemId || !filePath || this.appIconCoverLoading) return
+      if (!window.electronAPI?.getFileIcon) {
+        notify.toast('warning', '无法读取图标', '当前环境不支持读取程序图标')
+        return
+      }
+      this.appIconCoverLoading = true
+      try {
+        const result = await window.electronAPI.getFileIcon(filePath, 256)
+        if (!result?.success || !result.icon) {
+          notify.toast('warning', '无法读取图标', result?.error || '没有读到这个程序的图标')
+          return
+        }
+        if (this.item.coverPath && typeof this.item.coverPath === 'object' && 'value' in this.item.coverPath) {
+          this.item.coverPath.value = result.icon
+        } else {
+          this.item.coverPath = result.icon
+        }
+        if (typeof this.onUpdateResource === 'function') {
+          await this.onUpdateResource(itemId, { coverPath: result.icon })
+        }
+        notify.toast('success', '封面已更新', '已使用程序自带的图标作为封面')
+      } catch (error) {
+        console.error('使用应用图标作为封面失败:', error)
+        notify.toast('error', '封面更新失败', '读取程序图标时出错了')
+      } finally {
+        this.appIconCoverLoading = false
+      }
     },
     async handleCommentChange(comment) {
       // 检查 item 是否存在，避免在面板关闭时触发更新
@@ -1102,6 +1167,26 @@ export default {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.btn-app-icon-cover {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.btn-app-icon-cover:hover:not(:disabled) {
+  background: var(--bg-secondary);
+}
+
+.btn-app-icon-cover:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .file-error-icon {

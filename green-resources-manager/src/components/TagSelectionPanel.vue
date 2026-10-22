@@ -26,7 +26,7 @@
           class="tag-list-section"
         >
           <div class="tag-list-title">
-            <span>{{ field.label }}</span>
+            <span>{{ $lt(field.label) }}</span>
             <span class="tag-count-badge">{{ getFilteredAvailableTagsForField(field).length }}</span>
           </div>
           <div v-if="getFilteredAvailableTagsForField(field).length > 0" class="tag-list">

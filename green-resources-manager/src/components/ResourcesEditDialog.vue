@@ -175,6 +175,16 @@
                   :title="$lt('使用该游戏截图文件夹内第一张图片作为封面')"
                 >
                   <span class="btn-icon">🖼️</span> {{ $lt('选择第一张封面') }} </button>
+                <!-- 游戏和软件：用程序自带图标当封面 -->
+                <button
+                  v-if="field instanceof FormField_SelectGameCover"
+                  type="button"
+                  class="btn-cover-action"
+                  @click="() => handleUseAppIconAsCover(key)"
+                  :disabled="!canUseAppIconCover || appIconCoverLoading"
+                  :title="$lt('读取这个程序自带的图标，设为封面')"
+                >
+                  <span class="btn-icon">🧩</span> {{ $lt(appIconCoverLoading ? '正在读取图标' : '使用应用图标作为封面') }} </button>
                 <!-- 漫画封面：使用第一张图片（自带） -->
                 <button 
                   v-if="field instanceof FormField_SelectMangaCover"
@@ -579,7 +589,9 @@ export default {
        */
       coverPreviewUrls: {} as Record<string, string>,
       /** 正在读取的封面路径，避免每次渲染都再读一遍文件。 */
-      coverPreviewLoading: {} as Record<string, boolean>
+      coverPreviewLoading: {} as Record<string, boolean>,
+      /** 正在把程序图标写入封面字段。避免连点重复提取。 */
+      appIconCoverLoading: false
     }
   },
   computed: {
@@ -645,6 +657,12 @@ export default {
       const hasPath = this.getExecutablePathValue().trim() !== ''
       if (this.isEditMode) return hasName && !!this.formData.id
       return hasName || hasPath
+    },
+    /**
+     * 当前选中的程序是 exe 或快捷方式时，才能用它的图标当封面。
+     */
+    canUseAppIconCover(): boolean {
+      return /\.(exe|lnk)$/i.test(this.getExecutablePathValue().trim())
     }
   },
   watch: {
@@ -994,7 +1012,7 @@ export default {
       // 然后保留其他不在类中定义但在 resourceData 中的字段（如 duration）
       // 这些字段不会显示在表单中，但会在确认时保留
       for (const key in this.resourceData) {
-        if (key === 'retainedFields') continue
+        if (key === 'retainedFields' || BaseResources.ephemeralFieldKeys.has(key)) continue
         if (!(key in initData) && key !== 'id' && key !== 'fileExists') {
           let value = (this.resourceData as any)[key]
           // 如果值是 ResourceField 对象，提取其 value
@@ -1583,6 +1601,33 @@ export default {
     handleClearCover(key: string) {
       this.formData[key] = ''
     },
+    /**
+     * 把程序自带图标填进封面字段。
+     * 这里只改表单里的预览。保存时会和其他封面一样复制进存档目录。
+     * @param key 封面字段名
+     */
+    async handleUseAppIconAsCover(key: string) {
+      const filePath = this.getExecutablePathValue().trim()
+      if (!filePath || this.appIconCoverLoading) return
+      if (!this.isElectronEnvironment || !window.electronAPI?.getFileIcon) {
+        notify.toast('warning', '无法读取图标', '当前环境不支持读取程序图标')
+        return
+      }
+      this.appIconCoverLoading = true
+      try {
+        const result = await window.electronAPI.getFileIcon(filePath, 256)
+        if (!result?.success || !result.icon) {
+          notify.toast('warning', '无法读取图标', result?.error || '没有读到这个程序的图标')
+          return
+        }
+        this.formData[key] = result.icon
+      } catch (error) {
+        console.error('使用应用图标作为封面失败:', error)
+        notify.toast('error', '封面更新失败', '读取程序图标时出错了')
+      } finally {
+        this.appIconCoverLoading = false
+      }
+    },
     async handleAutoDetectEngine() {
       const executablePath = this.getExecutablePathValue()
       if (!executablePath) {
@@ -1730,7 +1775,7 @@ export default {
         
         // 保留不在类中定义但在 formData 中的字段（如 duration 等）
         for (const key in this.formData) {
-          if (key === 'retainedFields') continue
+          if (key === 'retainedFields' || BaseResources.ephemeralFieldKeys.has(key)) continue
           if (!(key in resource) && key !== 'id' && key !== 'fileExists') {
             const value = this.formData[key]
             if (value !== undefined && value !== null) {

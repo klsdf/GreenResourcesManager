@@ -56,6 +56,15 @@ const loadingPages = new Set<string>()
 let listenersBound = false
 
 /**
+ * 让左侧筛选栏按最新候选再抄一份。
+ * 侧栏用的是当时的数组副本。索引稍后增减时，副本自己不会变，所以要主动再要一次。
+ */
+function notifySidebar() {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent('filter-request-update'))
+}
+
+/**
  * 注册一个标签字段，返回其候选项的 Ref
  * 多次注册同一 (resourceType, field) 返回同一份引用
  */
@@ -121,6 +130,7 @@ async function handleChanged(data: any) {
 
   applyRemoves(resourceType, removes)
   applyAdds(resourceType, adds)
+  notifySidebar()
 }
 
 /** 重新拉取某些资源类型的全部已注册字段 */
@@ -140,6 +150,7 @@ async function reloadByTypes(resourceTypes: string[]) {
     for (const q of queries) {
       itemsStore[q.key] = res.data[q.key] || []
     }
+    notifySidebar()
   }
 }
 
@@ -189,6 +200,7 @@ async function ensurePageLoaded(pageId: string, queries: TagQuery[]) {
         itemsStore[id] = res.data[q.key] || []
       }
       loadedPages.add(pageId)
+      notifySidebar()
     }
   } catch (err) {
     console.warn(`[useTagIndex] 加载页面 ${pageId} 标签候选失败:`, err)

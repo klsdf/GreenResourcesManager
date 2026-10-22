@@ -112,7 +112,7 @@
       <!-- 特殊项（如演员列表等） -->
       <template v-for="specialItem in cardSpecialItems" :key="specialItem.field">
         <div class="media-actors" v-if="getSpecialItemValue(specialItem) && scale >= 50">
-          <span class="actors-label">{{ specialItem.label }}</span>
+          <span class="actors-label">{{ $lt(specialItem.label) }}</span>
           <span class="actors-list">{{ formatSpecialItem(specialItem) }}</span>
         </div>
       </template>
@@ -135,7 +135,7 @@
             class="stat-item" 
             :class="{ 'running-status': stat.showRunningStatus && isRunning }"
           >
-            <span v-if="stat.label" class="stat-label">{{ stat.label }}</span>
+            <span v-if="stat.label" class="stat-label">{{ $lt(stat.label) }}</span>
             <span v-if="stat.showRunningStatus && isRunning" class="running-info">
               <span class="running-indicator">
                 <span class="running-icon">▶️</span>

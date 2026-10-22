@@ -26,7 +26,7 @@
           @click="activeTab = tab.type"
         >
           <span class="tab-icon">{{ tab.icon }}</span>
-          {{ tab.label }}
+          {{ $lt(tab.label) }}
           <span class="tab-count">({{ getMessagesByType(tab.type).length }})</span>
         </button>
       </div>
@@ -66,11 +66,11 @@
           
           <div class="message-content">
             <div class="message-header">
-              <h4 class="message-title">{{ message.title }}</h4>
-              <span class="message-time">{{ formatTime(message.timestamp) }}</span>
+              <h4 class="message-title">{{ $lt(message.title) }}</h4>
+              <span class="message-time">{{ $lt(formatTime(message.timestamp)) }}</span>
             </div>
             
-            <div class="message-text" v-if="message.content">{{ message.content }}</div>
+            <div class="message-text" v-if="message.content">{{ $lt(message.content) }}</div>
           </div>
           
           <div class="message-actions">
@@ -190,12 +190,12 @@ export default {
     getEmptyMessage() {
       if (this.activeTab !== 'all') {
         const tab = this.messageTabs.find(t => t.type === this.activeTab)
-        return `暂无${tab ? tab.label : ''}消息`
+        return this.$lf('暂无{name}消息', { name: this.$lt(tab ? tab.label : '') })
       }
       if (this.searchQuery.trim()) {
-        return '没有找到匹配的消息'
+        return this.$lt('没有找到匹配的消息')
       }
-      return '还没有任何系统消息'
+      return this.$lt('还没有任何系统消息')
     },
     
     // 格式化时间
