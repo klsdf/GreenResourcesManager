@@ -103,11 +103,8 @@ jobs:
           $assets = "release-assets"
           New-Item -ItemType Directory -Force $assets | Out-Null
 
-          Copy-Item "$out/GreenResourcesManager_Setup_$ver.exe" $assets
-          Copy-Item "$out/GreenResourcesManager_Portable_$ver.exe" $assets
+          # Publish only latest.yml and the portable zip.
           Copy-Item "$out/latest.yml" $assets
-          Get-ChildItem "$out/*.blockmap" -ErrorAction SilentlyContinue |
-            Copy-Item -Destination $assets
 
           # portable zip keeps a top-level GreenResourcesManager_<version> folder
           $green = Join-Path $assets "GreenResourcesManager_$ver"
