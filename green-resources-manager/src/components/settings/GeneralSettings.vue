@@ -202,6 +202,91 @@
           </button>
         </div>
       </div>
+
+      <div class="setting-item resource-rule-setting">
+        <label class="setting-label">
+          <span class="setting-title">{{ $t('settings.sameResource.title') }}</span>
+          <span class="setting-desc">{{ $t('settings.sameResource.description') }}</span>
+        </label>
+        <div class="resource-rule-panel">
+          <div class="rule-presets" role="group" :aria-label="$t('settings.sameResource.presets.label')">
+            <button
+              v-for="preset in sameResourcePresets"
+              :key="preset.id"
+              type="button"
+              class="rule-preset"
+              :class="{ active: isSameResourcePresetActive(preset.id) }"
+              :aria-pressed="isSameResourcePresetActive(preset.id)"
+              @click="applySameResourcePreset(preset.id)"
+            >
+              {{ $t(`settings.sameResource.presets.${preset.id}`) }}
+            </button>
+          </div>
+
+          <div class="rule-criteria">
+            <label
+              v-for="criterion in sameResourceCriteria"
+              :key="criterion"
+              class="rule-criterion"
+              :class="{ active: sameResourceRule.criteria.includes(criterion) }"
+            >
+              <input
+                type="checkbox"
+                :checked="sameResourceRule.criteria.includes(criterion)"
+                @change="toggleSameResourceCriterion(criterion, $event)"
+              />
+              <span class="rule-criterion-text">
+                <span class="rule-criterion-name">{{ $t(`settings.sameResource.criteria.${criterion}.name`) }}</span>
+                <span class="rule-criterion-desc">{{ $t(`settings.sameResource.criteria.${criterion}.desc`) }}</span>
+              </span>
+            </label>
+          </div>
+
+          <div class="rule-mode">
+            <span class="rule-mode-label">{{ $t('settings.sameResource.mode.label') }}</span>
+            <label class="rule-mode-option">
+              <input
+                type="radio"
+                name="same-resource-mode"
+                value="all"
+                :checked="sameResourceRule.mode === 'all'"
+                @change="setSameResourceMode('all')"
+              />
+              <span>{{ $t('settings.sameResource.mode.all') }}</span>
+            </label>
+            <label class="rule-mode-option">
+              <input
+                type="radio"
+                name="same-resource-mode"
+                value="any"
+                :checked="sameResourceRule.mode === 'any'"
+                @change="setSameResourceMode('any')"
+              />
+              <span>{{ $t('settings.sameResource.mode.any') }}</span>
+            </label>
+          </div>
+
+          <p class="rule-summary">
+            <span class="rule-summary-label">{{ $t('settings.sameResource.summaryPrefix') }}</span>
+            <strong>{{ sameResourceSummary }}</strong>
+          </p>
+          <p v-if="sameResourceRule.mode === 'any'" class="rule-warning">
+            {{ $t('settings.sameResource.mode.anyWarning') }}
+          </p>
+          <p v-if="sameResourceRule.criteria.includes('fingerprint')" class="rule-hint">
+            {{ $t('settings.sameResource.fingerprintHint') }}
+          </p>
+          <p class="rule-hint">{{ $t('settings.sameResource.pathHint') }}</p>
+        </div>
+      </div>
+
+      <SettingToggle
+        :key="resourceMarkerToggleKey"
+        :title="$t('settings.resourceMarker.title')"
+        :description="$t('settings.resourceMarker.description')"
+        :model-value="resourceMarkerEnabled"
+        @update:model-value="onResourceMarkerChange"
+      />
       
       <div class="setting-item">
         <label class="setting-label">
@@ -233,6 +318,13 @@ import SettingInput from './SettingInput.vue'
 import SettingSlider from './SettingSlider.vue'
 import SettingFilePicker from './SettingFilePicker.vue'
 import FunShortcutInput from '../../fun-ui/data-input/ShortcutInput/FunShortcutInput.vue'
+import {
+  SAME_RESOURCE_CRITERIA,
+  SAME_RESOURCE_PRESETS,
+  normalizeSameResourceRule,
+  type SameResourceCriterion,
+  type SameResourceMode
+} from '../../utils/sameResourceRule'
 
 export default {
   name: 'GeneralSettings',
@@ -263,12 +355,39 @@ export default {
       saveLocationPath: '',
       userName: '',
       savedUserName: '',
-      isSavingUserName: false
+      isSavingUserName: false,
+      /** 取消关闭标记文件时换 key 强制开关回到原状态 */
+      resourceMarkerToggleKey: 0
     }
   },
   computed: {
     maxBackupCountValue() {
       return this.settings.maxBackupCount ?? 5
+    },
+    resourceMarkerEnabled() {
+      return this.settings.resourceMarkerEnabled !== false
+    },
+    sameResourceCriteria() {
+      return SAME_RESOURCE_CRITERIA
+    },
+    sameResourcePresets() {
+      return SAME_RESOURCE_PRESETS
+    },
+    sameResourceRule() {
+      return normalizeSameResourceRule(this.settings.sameResourceRule)
+    },
+    /** 把当前勾选实时拼成一句人话，改完就能看到规则变成了什么。 */
+    sameResourceSummary() {
+      const rule = this.sameResourceRule
+      const names = rule.criteria.map((criterion: SameResourceCriterion) =>
+        this.t(`settings.sameResource.criteria.${criterion}.name`)
+      )
+      const joiner = this.t(
+        rule.mode === 'any'
+          ? 'settings.sameResource.mode.joinAny'
+          : 'settings.sameResource.mode.joinAll'
+      )
+      return names.join(joiner)
     },
     /**
      * 主题色板。
@@ -316,6 +435,68 @@ export default {
   methods: {
     updateSetting(key: string, value: any) {
       this.$emit('update:settings', { key, value })
+    },
+
+    /**
+     * 规则整体写回。勾选顺序统一按固定顺序存，刷新后摘要不会变来变去。
+     */
+    saveSameResourceRule(criteria: SameResourceCriterion[], mode: SameResourceMode) {
+      this.updateSetting('sameResourceRule', {
+        version: 1,
+        mode,
+        criteria: SAME_RESOURCE_CRITERIA.filter(criterion => criteria.includes(criterion))
+      })
+    },
+
+    toggleSameResourceCriterion(criterion: SameResourceCriterion, event: Event) {
+      const checked = (event.target as HTMLInputElement).checked
+      const current = this.sameResourceRule.criteria
+      const next = checked
+        ? [...current, criterion]
+        : current.filter(item => item !== criterion)
+      if (next.length === 0) {
+        ;(event.target as HTMLInputElement).checked = true
+        notify.warning(
+          this.t('settings.sameResource.title'),
+          this.t('settings.sameResource.needOne')
+        )
+        return
+      }
+      this.saveSameResourceRule(next, this.sameResourceRule.mode)
+    },
+
+    setSameResourceMode(mode: SameResourceMode) {
+      this.saveSameResourceRule(this.sameResourceRule.criteria, mode)
+    },
+
+    applySameResourcePreset(presetId: string) {
+      const preset = SAME_RESOURCE_PRESETS.find(item => item.id === presetId)
+      if (!preset) return
+      this.saveSameResourceRule(preset.criteria, this.sameResourceRule.mode)
+    },
+
+    isSameResourcePresetActive(presetId: string) {
+      const preset = SAME_RESOURCE_PRESETS.find(item => item.id === presetId)
+      if (!preset) return false
+      const current = this.sameResourceRule.criteria
+      return preset.criteria.length === current.length && preset.criteria.every(item => current.includes(item))
+    },
+
+    /**
+     * 关闭标记文件前提醒一次：之后移动或改名再导入，可能认不回原记录。
+     * 取消时把开关强制刷回开启，避免组件内部已经先切过去了。
+     */
+    async onResourceMarkerChange(enabled: boolean) {
+      if (!enabled) {
+        const confirmed = await confirmService.confirm(
+          this.t('settings.resourceMarker.disableConfirm')
+        )
+        if (!confirmed) {
+          this.resourceMarkerToggleKey += 1
+          return
+        }
+      }
+      this.updateSetting('resourceMarkerEnabled', enabled)
     },
 
     async loadUserName() {
@@ -971,6 +1152,153 @@ export default {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.resource-rule-setting {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+}
+
+.resource-rule-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+}
+
+.rule-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rule-preset {
+  padding: 6px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.rule-preset:hover {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.rule-preset.active {
+  border-color: var(--accent-color);
+  background: var(--accent-color);
+  color: var(--text-on-accent, #1a1a1a);
+  font-weight: 600;
+}
+
+.rule-criteria {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+}
+
+.rule-criterion {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rule-criterion.active {
+  border-color: var(--accent-color);
+  box-shadow: inset 0 0 0 1px var(--accent-color);
+}
+
+.rule-criterion input {
+  margin-top: 2px;
+  accent-color: var(--accent-color);
+}
+
+.rule-criterion-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.rule-criterion-name {
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+
+.rule-criterion-desc {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.rule-mode {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.rule-mode-label {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+
+.rule-mode-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.rule-mode-option input {
+  accent-color: var(--accent-color);
+}
+
+.rule-summary {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.rule-summary-label {
+  margin-right: 4px;
+}
+
+.rule-summary strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.rule-warning,
+.rule-hint {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.rule-warning {
+  color: #d97706;
+}
+
+.rule-hint {
+  color: var(--text-secondary);
 }
 
 .setting-select {

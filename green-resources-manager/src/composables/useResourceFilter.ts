@@ -650,21 +650,100 @@ export function useResourceFilter<T = any>(
   }
 
   /**
+   * 左侧筛选用的一组数据。
+   * filterKey 记在每一项上，点「丢失的资源」时仍走它自己的筛选，不跟「正在游玩」搅在一起。
+   */
+  interface SidebarFilterItem {
+    /** 显示名，例如「丢失的资源」 */
+    name: string
+    /** 当前有多少条资源命中 */
+    count: number
+    /** 这一项真正对应的筛选器键 */
+    filterKey?: string
+  }
+
+  /**
+   * 左侧筛选用的一组。
+   * clearKeys 里放这一组实际包含的筛选器，清除时要一起清掉。
+   */
+  interface SidebarFilterGroup {
+    /** 这一组的键。合并后的「其他筛选」用原来那组的键。 */
+    key: string
+    /** 组标题 */
+    title: string
+    /** 这一组里的选项 */
+    items: SidebarFilterItem[]
+    /** 当前选中的选项名 */
+    selected: string[]
+    /** 当前排除的选项名 */
+    excluded: string[]
+    /** 清除按钮要清掉的筛选器键 */
+    clearKeys?: string[]
+  }
+
+  /**
+   * 把「其他筛选」放到最上面，并把「丢失的资源」收进这一组。
+   * 丢失的资源以前单独占一组，还经常排在最前。现在它只是其他筛选里的一项。
+   * @param filters 按页面配置排好的筛选组
+   */
+  function placeOtherFiltersFirst(filters: SidebarFilterGroup[]): SidebarFilterGroup[] {
+    /** 页面里标题叫「其他筛选」的那一组，游戏页里是正在游玩。 */
+    const others = filters.find(filter => filter.title === '其他筛选')
+    /** 丢失的资源。它有自己的筛选键，不能和正在游玩合成同一个键。 */
+    const missing = filters.find(filter => filter.key === 'missing-resources')
+    if (!others && !missing) return filters
+    /** 剩下的组，保持原来的顺序。 */
+    const rest = filters.filter(filter => filter !== others && filter !== missing)
+    /** 合并后要一起清除的键。 */
+    const clearKeys: string[] = []
+    /** 其他筛选里的选项。先放原来的，再放丢失的资源。 */
+    const items: SidebarFilterItem[] = []
+    /** 这一组里已经勾上的名字。 */
+    const selected: string[] = []
+    /** 这一组里已经排除的名字。 */
+    const excluded: string[] = []
+    if (others) {
+      items.push(...others.items.map(item => ({ ...item, filterKey: item.filterKey || others.key })))
+      selected.push(...others.selected)
+      excluded.push(...others.excluded)
+      clearKeys.push(others.key)
+    }
+    if (missing) {
+      items.push(...missing.items.map(item => ({ ...item, filterKey: missing.key })))
+      selected.push(...missing.selected)
+      excluded.push(...missing.excluded)
+      clearKeys.push(missing.key)
+    }
+    /** 放在最上面的其他筛选。没有原来那一组时，也用这个标题把丢失的资源装进去。 */
+    const merged: SidebarFilterGroup = {
+      key: others?.key || 'others',
+      title: '其他筛选',
+      items,
+      selected,
+      excluded,
+      clearKeys
+    }
+    return [merged, ...rest]
+  }
+
+  /**
    * 获取筛选器数据（用于 FilterSidebar）
    */
   function getFilterData() {
+    /** 先按配置摊开，再把其他筛选和丢失的资源收成最上面的一组。 */
+    const filters = filterConfigs.map(config => {
+      const state = filterStates[config.key]
+      // 确保返回的是普通数组，而不是 Proxy（使用展开运算符创建新数组）
+      return {
+        key: config.key,
+        title: config.title,
+        items: state ? [...state.items.value] : [],
+        selected: state ? [...state.selected.value] : [],
+        excluded: state ? [...state.excluded.value] : []
+      }
+    })
     return {
-      filters: filterConfigs.map(config => {
-        const state = filterStates[config.key]
-        // 确保返回的是普通数组，而不是 Proxy（使用展开运算符创建新数组）
-        return {
-          key: config.key,
-          title: config.title,
-          items: state ? [...state.items.value] : [],
-          selected: state ? [...state.selected.value] : [],
-          excluded: state ? [...state.excluded.value] : []
-        }
-      })
+      filters: placeOtherFiltersFirst(filters)
     }
   }
 

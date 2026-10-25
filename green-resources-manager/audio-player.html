@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>音乐播放器</title>
+  <script>
+    // 播放器标签页独立加载，先套上打开时带来的主题，避免白屏闪烁
+    (function () {
+      var params = new URLSearchParams(location.search)
+      var theme = params.get('theme') || localStorage.getItem('butter-manager-theme') || 'light'
+      if (theme === 'auto') {
+        theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+      }
+      document.documentElement.setAttribute('data-theme', theme)
+    })()
+  </script>
+  <style>
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      background: #f4f6fb;
+    }
+    html[data-theme="dark"] body,
+    html[data-theme="night"] body,
+    html[data-theme="night-ink"] body {
+      background: #111a24;
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module" src="/src/audio-player-main.ts"></script>
+</body>
+</html>

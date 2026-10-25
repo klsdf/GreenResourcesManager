@@ -46,13 +46,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveThumbnail: (filePath, dataUrl) => ipcRenderer.invoke('save-thumbnail', filePath, dataUrl),
   getFileStats: (filePath) => ipcRenderer.invoke('get-file-stats', filePath),
   listFiles: (dirPath) => ipcRenderer.invoke('list-files', dirPath),
-  searchMatchingFiles: (rootDir, extensions) => ipcRenderer.invoke('search-matching-files', rootDir, extensions),
+  /** 读取 exe 版本信息里的产品名。用来辨认 Kirikiri Z，不看文件名。 */
+  getFileProductName: (filePath) => ipcRenderer.invoke('get-file-product-name', filePath),
+  searchMatchingFiles: (rootDir, extensions, options) => ipcRenderer.invoke('search-matching-files', rootDir, extensions, options),
   
   // 伪装图片功能
   readDisguiseImages: () => ipcRenderer.invoke('read-disguise-images'),
   /** 伪装图片文件夹。不存在时主进程会先创建。 */
   getDisguiseDirectory: () => ipcRenderer.invoke('get-disguise-directory'),
   getAppRootPath: () => ipcRenderer.invoke('get-app-root-path'),
+
+  // 创意工坊公共目录
+  workshopGetRegistry: (force = false) => ipcRenderer.invoke('workshop-get-registry', force),
+  workshopInstallMod: (payload) => ipcRenderer.invoke('workshop-install-mod', payload),
+  workshopUninstallMod: (id) => ipcRenderer.invoke('workshop-uninstall-mod', id),
+  workshopGetInstalled: () => ipcRenderer.invoke('workshop-get-installed'),
+  workshopCheckUpdates: () => ipcRenderer.invoke('workshop-check-updates'),
   
   // 文件选择对话框
   selectExecutableFile: () => ipcRenderer.invoke('select-executable-file'),
@@ -63,12 +72,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectFolder: () => ipcRenderer.invoke('select-folder'),
   // 根据过滤器数组选择文件（统一入口）
   selectFileWithExtensions: (filters, defaultPath, title) => ipcRenderer.invoke('select-file-with-extensions', filters, defaultPath, title),
-  listImageFiles: (folderPath) => ipcRenderer.invoke('list-image-files', folderPath),
+  listImageFiles: (folderPath, options) => ipcRenderer.invoke('list-image-files', folderPath, options),
+  listImageFilesBatch: (folderPaths, options) => ipcRenderer.invoke('list-image-files-batch', folderPaths, options),
   listImageFilesInArchive: (archivePath) => ipcRenderer.invoke('list-image-files-in-archive', archivePath),
   getFolderSize: (filePath) => ipcRenderer.invoke('get-folder-size', filePath),
   checkFileExists: (filePath) => ipcRenderer.invoke('check-file-exists', filePath),
+  checkFileExistsBatch: (filePaths) => ipcRenderer.invoke('check-file-exists-batch', filePaths),
+  generateThumbnail: (filePath, maxWidth, maxHeight) => ipcRenderer.invoke('generate-thumbnail', filePath, maxWidth, maxHeight),
   computeResourceFingerprint: (filePath, kind) => ipcRenderer.invoke('compute-resource-fingerprint', filePath, kind),
   findRelocatedResource: (oldPath, fingerprint, allowPageCountOnly) => ipcRenderer.invoke('find-relocated-resource', oldPath, fingerprint, allowPageCountOnly),
+  writeResourceMarker: (payload) => ipcRenderer.invoke('write-resource-marker', payload),
+  listResourceMarkers: (filePath) => ipcRenderer.invoke('list-resource-markers', filePath),
+  findResourceMarkerLocation: (resourceId, oldPath) => ipcRenderer.invoke('find-resource-marker-location', resourceId, oldPath),
   
   // 文件URL处理
   getFileUrl: (filePath) => ipcRenderer.invoke('get-file-url', filePath),
@@ -105,12 +120,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   sqliteAddResourceToPage: (pageId, resourceType, resourceId) => ipcRenderer.invoke('sqlite-add-resource-to-page', pageId, resourceType, resourceId),
   // 保存页面资源（批量）
   sqliteSavePageResources: (pageId, resources) => ipcRenderer.invoke('sqlite-save-page-resources', pageId, resources),
+  // 增量保存资源正文（不动页面索引），用于改星级、计数、访问记录等
+  sqliteUpsertPageResources: (pageId, resources) => ipcRenderer.invoke('sqlite-upsert-page-resources', pageId, resources),
   // 从数据库删除资源
   sqliteDeleteResource: (tableName, resourceId) => ipcRenderer.invoke('sqlite-delete-resource', tableName, resourceId),
   // 删除页面名单，资源正文保留
   sqliteDeletePageData: (pageId) => ipcRenderer.invoke('sqlite-delete-page-data', pageId),
   // 按文件路径查找已经入库的资源，供别的页面接上同一条记录
   sqliteFindResourceByPath: (filePath) => ipcRenderer.invoke('sqlite-find-resource-by-path', filePath),
+  // 按资源 ID 查找已经入库的资源，供导入时更新旧记录的路径
+  sqliteFindResourceById: (resourceId) => ipcRenderer.invoke('sqlite-find-resource-by-id', resourceId),
   // 将旧格式 SQL 迁移为 id+jsonData 格式
   sqliteMigrateToJsonFormat: () => ipcRenderer.invoke('sqlite-migrate-to-json-format'),
   // 从 JSON 迁移成就数据到 SQLite
@@ -219,6 +238,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // 读取文本文件内容
   readTextFile: (filePath) => ipcRenderer.invoke('read-text-file', filePath),
+  // 读取音频同目录下的同名 .lrc 歌词
+  readAudioLyrics: (audioPath) => ipcRenderer.invoke('read-audio-lyrics', audioPath),
   // 只统计小说字数，不把整本书内容传回页面
   countNovelWords: (filePath) => ipcRenderer.invoke('count-novel-words', filePath),
   
@@ -309,6 +330,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   tabOpenNovelViewer: (path, title, fileType) => ipcRenderer.invoke('tab-open-novel-viewer', { path, title, fileType }),
   // 在新标签页中打开视频播放器，传入 path（视频文件路径）与 title（视频名称）
   tabOpenVideoPlayer: (path, title) => ipcRenderer.invoke('tab-open-video-player', { path, title }),
+  // 在新标签页中打开独立音乐播放器，传入 path、title、id、pageId（来源页面）与 theme
+  tabOpenAudioPlayer: (payload) => ipcRenderer.invoke('tab-open-audio-player', payload),
   
   // 标签页事件监听
   onTabLoaded: (callback) => ipcRenderer.on('tab-loaded', (event, data) => callback(data)),

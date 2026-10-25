@@ -413,6 +413,14 @@ export abstract class BaseResources {
 			if (key === 'retainedFields' || BaseResources.ephemeralFieldKeys.has(key)) continue
 			const current = (instance as any)[key]
 			if (current instanceof ResourceField || typeof current === 'function') continue
+			// 派生属性只有 getter（如 Audio.playCount），回写会抛 TypeError
+			let descriptor: PropertyDescriptor | undefined
+			let target: any = instance
+			while (target && !descriptor) {
+				descriptor = Object.getOwnPropertyDescriptor(target, key)
+				target = Object.getPrototypeOf(target)
+			}
+			if (descriptor?.get && !descriptor.set) continue
 			const value = BaseResources.extractPrimitiveValue(jsonData[key])
 			retained[key] = value
 			;(instance as any)[key] = value

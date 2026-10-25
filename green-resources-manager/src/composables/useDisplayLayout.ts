@@ -1,10 +1,17 @@
-import { ref, computed } from 'vue'
+import { ref, computed, type Ref } from 'vue'
 
-export function useDisplayLayout(initialScale = 80, baseWidth = 200) {
+export type DisplayMode = 'grid' | 'list'
+
+export function useDisplayLayout(initialScale = 80, baseWidth = 200, initialMode: DisplayMode = 'grid') {
   const scale = ref(initialScale)
+  const displayMode: Ref<DisplayMode> = ref(initialMode)
 
   const updateScale = (newScale: number) => {
     scale.value = newScale
+  }
+
+  const updateDisplayMode = (mode: DisplayMode) => {
+    displayMode.value = mode === 'list' ? 'list' : 'grid'
   }
 
   const layoutStyles = computed(() => {
@@ -18,7 +25,9 @@ export function useDisplayLayout(initialScale = 80, baseWidth = 200) {
 
   return {
     scale,
+    displayMode,
     updateScale,
+    updateDisplayMode,
     layoutStyles
   }
 }

@@ -25,6 +25,9 @@
     <DetailCard :title="$lt('打开自己的页面')">
       <p>{{ $lt('api.ui.showCustomView({ title, content, onMount })。content 是一段 HTML。onMount 会拿到页面容器，用来给按钮绑定点击。') }}</p>
     </DetailCard>
+    <DetailCard :title="$lt('发布到公共工坊')">
+      <p>{{ $lt('在插件自己的 GitHub 仓库发布 Release，把 manifest.json、入口脚本和可选的 styles.css 作为资源上传，再把仓库写进 workshop/community-mods.json。客户端会从最新 Release 读取文件和版本。') }}</p>
+    </DetailCard>
   </HelpSection>
 </template>
 

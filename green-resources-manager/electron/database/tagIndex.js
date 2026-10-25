@@ -237,24 +237,25 @@ function removeAllRefsInTx(db, resourceType, resourceId) {
  * ========================================================================= */
 
 /**
- * 按字段查询标签候选及计数（INNER JOIN，只含仍在被使用的标签）
+ * 按字段查询标签候选及计数。
+ * 从标签名册出发，没有引用的也返回，数量是 0。左侧和标签管理都要留着这个名字，不能因为没人用就消失。
  */
 function getTagsByField(db, resourceType, field, options = {}) {
   ensureTagTables(db)
   const { keyword, limit = 500, offset = 0 } = options
-  const where = ['r.resource_type = ?', 'r.field = ?']
+  const where = ['m.resource_type = ?', 'm.field = ?']
   const params = [resourceType, field]
   if (keyword && keyword.trim()) {
     where.push('m.display_name LIKE ?')
     params.push(`%${keyword.trim()}%`)
   }
   return db.prepare(`
-    SELECT m.display_name AS name, r.tag_norm AS norm, COUNT(*) AS count
-    FROM tag_refs r
-    JOIN tag_meta m ON m.resource_type = r.resource_type
-      AND m.field = r.field AND m.tag_norm = r.tag_norm
+    SELECT m.display_name AS name, m.tag_norm AS norm, COUNT(r.resource_id) AS count
+    FROM tag_meta m
+    LEFT JOIN tag_refs r ON r.resource_type = m.resource_type
+      AND r.field = m.field AND r.tag_norm = m.tag_norm
     WHERE ${where.join(' AND ')}
-    GROUP BY r.tag_norm
+    GROUP BY m.tag_norm
     ORDER BY count DESC, name COLLATE NOCASE
     LIMIT ? OFFSET ?
   `).all(...params, limit, offset)
@@ -586,11 +587,37 @@ function rebuild() {
   }
 }
 
+/**
+ * 清掉已经没有对应资源的标签引用。
+ * 以前删除资源只改页面名单，引用留在 tag_refs 里。重启后使用数还是删之前的数字。
+ * @param {object} db better-sqlite3 实例
+ * @returns {string[]} 清过引用的逻辑资源类型
+ */
+function removeDanglingTagRefs(db) {
+  ensureTagTables(db)
+  const affected = []
+  const tx = db.transaction(() => {
+    for (const [resourceType, table] of Object.entries(TYPE_TO_TABLE)) {
+      if (!tableExists(db, table)) continue
+      const result = db.prepare(
+        `DELETE FROM tag_refs WHERE resource_type = ? AND resource_id NOT IN (SELECT id FROM "${table}")`
+      ).run(resourceType)
+      if (result.changes > 0) affected.push(resourceType)
+    }
+  })
+  tx()
+  return affected
+}
+
 /** 应用启动时调用：自开连接，版本不符则全量构建一次 */
 function initOnStartup() {
   const { db } = openDb()
   try {
     ensureTagIndexReady(db)
+    const affected = removeDanglingTagRefs(db)
+    if (affected.length > 0) {
+      console.log('[TagIndex] 已清掉失效标签引用:', affected.join(', '))
+    }
   } catch (err) {
     console.error('[TagIndex] 启动初始化失败:', err)
   } finally {

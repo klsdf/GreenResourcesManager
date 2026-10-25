@@ -5,17 +5,39 @@
   "description": "可以管理番剧和电视剧",
   "settingsKey": "anime",
   "defaultPageSize": 20,
-  "resourceTypes": ["Anime"],
+  "resourceTypes": [
+    "Anime"
+  ],
   "showFolderVideosInDetail": true,
   "displayLayoutConfig": {
     "minWidth": 150,
     "maxWidth": 400
   },
   "sortOptions": [
-    { "id": "name-asc", "label": "按名称排序", "field": "name", "order": "asc" },
-    { "id": "name-desc", "label": "按名称排序（降序）", "field": "name", "order": "desc" },
-    { "id": "addedDate-asc", "label": "按添加时间（升序）", "field": "addedDate", "order": "asc" },
-    { "id": "addedDate-desc", "label": "按添加时间（降序）", "field": "addedDate", "order": "desc" }
+    {
+      "id": "name-asc",
+      "label": "按名称排序",
+      "field": "name",
+      "order": "asc"
+    },
+    {
+      "id": "name-desc",
+      "label": "按名称排序（降序）",
+      "field": "name",
+      "order": "desc"
+    },
+    {
+      "id": "addedDate-asc",
+      "label": "按添加时间",
+      "field": "addedDate",
+      "order": "asc"
+    },
+    {
+      "id": "addedDate-desc",
+      "label": "按添加时间（降序）",
+      "field": "addedDate",
+      "order": "desc"
+    }
   ],
   "emptyStateConfig": {
     "icon": "📺",
@@ -125,6 +147,67 @@
         "field": "productionTeam"
       },
       "isArray": true
+    }
+  ],
+  "acceptedKinds": [
+    "videoFolder"
+  ],
+  "pageFields": [
+    "name",
+    "description",
+    "series",
+    "tags",
+    "actors",
+    "voiceActors",
+    "productionTeam",
+    "resourcePath",
+    "thumbnail"
+  ],
+  "pageFieldDefs": [
+    {
+      "key": "name",
+      "label": "游戏名",
+      "editor": "text"
+    },
+    {
+      "key": "description",
+      "label": "游戏简介",
+      "editor": "textarea"
+    },
+    {
+      "key": "series",
+      "label": "系列名",
+      "editor": "text"
+    },
+    {
+      "key": "tags",
+      "label": "标签",
+      "editor": "tags"
+    },
+    {
+      "key": "actors",
+      "label": "演员",
+      "editor": "tags"
+    },
+    {
+      "key": "voiceActors",
+      "label": "声优",
+      "editor": "tags"
+    },
+    {
+      "key": "productionTeam",
+      "label": "制作组",
+      "editor": "tags"
+    },
+    {
+      "key": "resourcePath",
+      "label": "游戏路径",
+      "editor": "file"
+    },
+    {
+      "key": "thumbnail",
+      "label": "缩略图",
+      "editor": "cover"
     }
   ]
 }

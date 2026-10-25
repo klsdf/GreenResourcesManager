@@ -1,68 +1,62 @@
 [
   {
-    "fileName": "singleImagePage.json",
+    "fileName": "gamePage.json",
     "order": 1,
     "isDefault": true,
     "isHidden": false
   },
   {
-    "fileName": "websitePage.json",
+    "fileName": "videoPage.json",
     "order": 2,
     "isDefault": true,
     "isHidden": false
   },
   {
-    "fileName": "imagePage.json",
+    "fileName": "custom-anime-series-mvhvfeez.json",
     "order": 3,
-    "isDefault": true,
+    "isDefault": false,
     "isHidden": false
   },
   {
-    "fileName": "gamePage.json",
+    "fileName": "singleImagePage.json",
     "order": 4,
     "isDefault": true,
     "isHidden": false
   },
   {
-    "fileName": "videoPage.json",
+    "fileName": "websitePage.json",
     "order": 5,
     "isDefault": true,
     "isHidden": false
   },
   {
-    "fileName": "animePage.json",
+    "fileName": "imagePage.json",
     "order": 6,
     "isDefault": true,
     "isHidden": false
   },
   {
-    "fileName": "novelPage.json",
+    "fileName": "animePage.json",
     "order": 7,
     "isDefault": true,
     "isHidden": false
   },
   {
-    "fileName": "audioPage.json",
+    "fileName": "novelPage.json",
     "order": 8,
     "isDefault": true,
     "isHidden": false
   },
   {
-    "fileName": "otherPage.json",
+    "fileName": "audioPage.json",
     "order": 9,
     "isDefault": true,
     "isHidden": false
   },
   {
-    "fileName": "custom-anime-series-mvhvfeez.json",
+    "fileName": "otherPage.json",
     "order": 10,
-    "isDefault": false,
-    "isHidden": false
-  },
-  {
-    "fileName": "custom-games-mvhvfrjw.json",
-    "order": 11,
-    "isDefault": false,
+    "isDefault": true,
     "isHidden": false
   }
 ]

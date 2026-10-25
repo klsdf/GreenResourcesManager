@@ -48,6 +48,45 @@ declare global {
     /** @deprecated 使用 webUtils.getPathForFile 替代 */
     path?: string
   }
+
+  // ===== 创意工坊公共目录 =====
+  interface WorkshopRegistryMod {
+    id: string
+    repo: string
+    name: string
+    author: string
+    description: string
+    icon: string
+    tags: string[]
+  }
+  interface WorkshopInstalledMod {
+    id: string
+    repo: string
+    name: string
+    version: string
+    installedAt: string
+  }
+  interface WorkshopUpdate {
+    id: string
+    repo: string
+    currentVersion: string
+    latestVersion: string
+  }
+
+  /** 资源旁边的隐藏标记文件内容 */
+  interface ResourceMarkerInfo {
+    app: string
+    markerVersion: number
+    resourceId: string
+    resourceType?: string
+    resourceName?: string
+    targetType?: 'folder' | 'file'
+    targetFileName?: string
+    resourcePath?: string
+    createdAt?: string
+    updatedAt?: string
+    markerPath?: string
+  }
 }
 
 // Electron API 类型声明
@@ -108,10 +147,27 @@ declare global {
       
       // 文件系统操作
       checkFileExists: (filePath: string) => Promise<{ success: boolean; exists?: boolean; error?: string }>
+      /** 批量检查文件是否存在，一次 IPC 返回与输入同序的结果 */
+      checkFileExistsBatch: (filePaths: string[]) => Promise<{ success: boolean; results?: boolean[]; error?: string }>
+      /** 生成缩略图并写入磁盘缓存，返回缩略图文件路径 */
+      generateThumbnail: (filePath: string, maxWidth?: number, maxHeight?: number) => Promise<{ success: boolean; thumbnailPath?: string; cached?: boolean; error?: string }>
       /** 按资源类型计算内容指纹，用来认出改名或移动后的同一个资源 */
       computeResourceFingerprint: (filePath: string, kind: 'names' | 'pages' | 'size') => Promise<{ success: boolean; fingerprint?: string; error?: string }>
       /** 在原路径的父目录里查找指纹相同的新位置 */
       findRelocatedResource: (oldPath: string, fingerprint: string, allowPageCountOnly?: boolean) => Promise<{ success: boolean; newPath?: string | null; ambiguous?: boolean; error?: string }>
+      /** 在资源旁边写隐藏标记文件，记住资源 ID */
+      writeResourceMarker: (payload: {
+        resourcePath: string
+        resourceId: string
+        resourceType?: string
+        resourceName?: string
+        previousPath?: string
+        onlyIfMissing?: boolean
+      }) => Promise<{ success: boolean; markerPath?: string; skipped?: boolean; error?: string }>
+      /** 读取资源旁边的标记文件 */
+      listResourceMarkers: (filePath: string) => Promise<{ success: boolean; markers?: ResourceMarkerInfo[]; error?: string }>
+      /** 按资源 ID 在旧路径附近查找标记指向的新位置 */
+      findResourceMarkerLocation: (resourceId: string, oldPath: string) => Promise<{ success: boolean; newPath?: string | null; ambiguous?: boolean; error?: string }>
       ensureDirectory: (dirPath: string) => Promise<{ success: boolean; error?: string }>
       getFolderSize: (filePath: string) => Promise<{ success: boolean; size?: number; error?: string }>
       openFileFolder: (filePath: string) => Promise<{ success: boolean; folderPath?: string; error?: string }>
@@ -124,6 +180,13 @@ declare global {
       openFileWithProgram: (programPath: string, filePath: string) => Promise<{ success: boolean; error?: string }>
       getFileIcon: (filePath: string, size?: number) => Promise<{ success: boolean; icon?: string; error?: string }>
       
+      // 创意工坊公共目录
+      workshopGetRegistry: (force?: boolean) => Promise<{ success: boolean; mods?: WorkshopRegistryMod[]; cached?: boolean; stale?: boolean; warning?: string; error?: string }>
+      workshopInstallMod: (payload: { id: string; repo: string }) => Promise<{ success: boolean; error?: string }>
+      workshopUninstallMod: (id: string) => Promise<{ success: boolean; error?: string }>
+      workshopGetInstalled: () => Promise<{ success: boolean; mods?: WorkshopInstalledMod[]; error?: string }>
+      workshopCheckUpdates: () => Promise<{ success: boolean; updates?: WorkshopUpdate[]; failed?: Array<{ id: string; error: string }>; error?: string }>
+
       // JSON 文件操作
       writeJsonFile: (filePath: string, data: any) => Promise<{ success: boolean; error?: string }>
       readJsonFile: (filePath: string) => Promise<{ success: boolean; data?: any; error?: string }>
@@ -139,8 +202,18 @@ declare global {
       saveThumbnail: (filePath: string, dataUrl: string) => Promise<{ success: boolean; error?: string }>
       getFileStats: (filePath: string) => Promise<{ success: boolean; size?: number; isFile?: boolean; isDirectory?: boolean; mtime?: Date; ctime?: Date; atime?: Date; birthtime?: Date; error?: string }>
       listFiles: (dirPath: string) => Promise<{ success: boolean; files?: string[]; error?: string }>
-      searchMatchingFiles: (rootDir: string, extensions: string[]) => Promise<{ success: boolean; files?: string[]; error?: string }>
-      listImageFiles: (folderPath: string) => Promise<{ success: boolean; files?: string[]; error?: string }>
+      /** 读取 Windows 程序版本信息里的 ProductName。 */
+      getFileProductName: (filePath: string) => Promise<{ success: boolean; productName?: string; error?: string }>
+      /**
+       * 在文件夹里按扩展名搜索。
+       * maxDepth 是往下进入的子文件夹层数，null 表示不限制。
+       * excludePatterns 是文件名片段，命中的文件和同名文件夹都会跳过。
+       * stopAtFirstMatch 为 true 时，某个文件夹本层找到匹配后不再进入它的子文件夹。
+       */
+      searchMatchingFiles: (rootDir: string, extensions: string[], options?: { maxDepth?: number | null; excludePatterns?: string[]; stopAtFirstMatch?: boolean }) => Promise<{ success: boolean; files?: string[]; error?: string }>
+      listImageFiles: (folderPath: string, options?: { verifyContent?: boolean }) => Promise<{ success: boolean; files?: string[]; cached?: boolean; mtimeMs?: number; error?: string }>
+      /** 批量列出多个文件夹中的图片，返回 文件夹路径 → 结果 */
+      listImageFilesBatch: (folderPaths: string[], options?: { verifyContent?: boolean }) => Promise<{ success: boolean; data?: Record<string, { success: boolean; files: string[]; cached?: boolean; mtimeMs?: number; error?: string }>; error?: string }>
       listImageFilesInArchive: (archivePath: string) => Promise<{ success: boolean; files?: string[]; error?: string }>
       
       // 文件URL处理
@@ -149,6 +222,8 @@ declare global {
       
       // 文本文件操作
       readTextFile: (filePath: string) => Promise<{ success: boolean; content?: string; fileSize?: number; wordCount?: number; encoding?: string; error?: string }>
+      /** 读取音频同目录下同名的 .lrc 歌词（兼容 UTF-8 / UTF-16 / GBK） */
+      readAudioLyrics: (audioPath: string) => Promise<{ success: boolean; content?: string; path?: string; error?: string }>
       /** 统计 txt、md、epub 的字数，不返回正文 */
       countNovelWords: (filePath: string) => Promise<{ success: boolean; wordCount?: number; error?: string }>
       
@@ -184,6 +259,14 @@ declare global {
       openVideoWindow: (filePath: string, options?: any) => Promise<{ success: boolean; error?: string }>
       /** 在主窗口新标签页中打开视频播放器 */
       tabOpenVideoPlayer: (filePath: string, title?: string) => Promise<{ success: boolean; tabId?: string; error?: string }>
+      /** 在主窗口新标签页中打开独立音乐播放器 */
+      tabOpenAudioPlayer: (payload: {
+        path?: string
+        title?: string
+        id?: string | number
+        pageId?: string
+        theme?: string
+      }) => Promise<{ success: boolean; tabId?: string; error?: string }>
       /**
        * 新建标签页。
        * external 为 true 时按外部网站打开：不注入应用权限，只接受 http 或 https。
@@ -245,9 +328,12 @@ declare global {
       sqliteDeleteResource: (tableName: string, resourceId: string) => Promise<{ ok: boolean; message?: string }>
       sqliteDeletePageData: (pageId: string) => Promise<{ ok: boolean; message?: string }>
       sqliteFindResourceByPath: (filePath: string) => Promise<{ ok: boolean; resource?: any; tableName?: string; message?: string }>
+      sqliteFindResourceById: (resourceId: string) => Promise<{ ok: boolean; resource?: any; tableName?: string; message?: string }>
       sqliteSaveResource: (resourceType: string, resource: any) => Promise<{ ok: boolean; message?: string }>
       sqliteAddResourceToPage: (pageId: string, resourceType: string, resourceId: string) => Promise<{ ok: boolean; message?: string }>
       sqliteSavePageResources: (pageId: string, resources: Array<any>) => Promise<{ ok: boolean; message?: string }>
+      /** 增量保存资源正文（不修改页面索引） */
+      sqliteUpsertPageResources: (pageId: string, resources: Array<any>) => Promise<{ ok: boolean; updated?: number; message?: string }>
       sqliteMigrateToJsonFormat: () => Promise<{ ok: boolean; migratedTables?: string[]; message?: string }>
       sqliteMigrateAchievements: (customSaveDataPath?: string) => Promise<{ ok: boolean; message?: string; migratedCount?: number }>
       sqliteMigrateSettings: (customSaveDataPath?: string) => Promise<{ ok: boolean; message?: string }>

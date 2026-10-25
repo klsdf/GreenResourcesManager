@@ -28,7 +28,7 @@
     },
     {
       "id": "pagesCount-asc",
-      "label": "按页数（升序）",
+      "label": "按页数",
       "field": "pagesCount",
       "order": "asc"
     },
@@ -40,7 +40,7 @@
     },
     {
       "id": "addedDate-asc",
-      "label": "按添加时间（升序）",
+      "label": "按添加时间",
       "field": "addedDate",
       "order": "asc"
     },
@@ -52,7 +52,7 @@
     },
     {
       "id": "lastViewed-asc",
-      "label": "按最后查看（升序）",
+      "label": "按最后查看",
       "field": "lastViewed",
       "order": "asc"
     },
@@ -76,7 +76,7 @@
     },
     {
       "id": "viewCount-asc",
-      "label": "按查看次数（升序）",
+      "label": "按查看次数",
       "field": "viewCount",
       "order": "asc"
     },
@@ -178,5 +178,37 @@
     "tags",
     "resourcePath",
     "coverPath"
+  ],
+  "pageFieldDefs": [
+    {
+      "key": "name",
+      "label": "游戏名",
+      "editor": "text"
+    },
+    {
+      "key": "description",
+      "label": "游戏简介",
+      "editor": "textarea"
+    },
+    {
+      "key": "author",
+      "label": "作者",
+      "editor": "tags"
+    },
+    {
+      "key": "tags",
+      "label": "标签",
+      "editor": "tags"
+    },
+    {
+      "key": "resourcePath",
+      "label": "游戏路径",
+      "editor": "file"
+    },
+    {
+      "key": "coverPath",
+      "label": "游戏封面",
+      "editor": "cover"
+    }
   ]
 }

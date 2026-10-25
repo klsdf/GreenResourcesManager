@@ -197,6 +197,8 @@ function collectIdentityNames(dirPath, names, depth, isRoot, relativeDir) {
       continue
     }
     if (!entry.isFile()) continue
+    // 本软件写的标记文件不能进入指纹，否则第一次写入标记就会让旧指纹对不上。
+    if (entryName.startsWith('.grm-')) continue
     if (isRoot && EXEC_EXT.has(path.extname(entryName).toLowerCase())) continue
     if (isVolatileFile(entryName)) continue
     names.push(childRelative.toLowerCase())
@@ -479,9 +481,309 @@ function findRelocatedResource(oldPath, fingerprint, allowPageCountOnly) {
   }
 }
 
+/* ------------------------------------------------------------------
+ * 异步版本。
+ * 上面的同步实现继续留给测试和小目录使用；主进程 IPC 走下面这套，
+ * 扫几千个文件的游戏目录时不会把整个主进程卡住。
+ * ------------------------------------------------------------------ */
+
+const pendingFingerprints = new Map()
+
+/**
+ * 目录清单缓存：目录路径 -> { count, hash } 或 null。
+ *
+ * 同一目录里的多个 exe 生成的 names 指纹，只有最后的启动文件名不同，
+ * 文件清单完全一样。以前每个 exe 都把整个目录重扫一遍，批量导入几十个
+ * 游戏时主进程会一直占满 CPU。这里按目录缓存扫描结果，各 exe 只拼自己的 anchor。
+ * @type {Map<string, Promise<{ count: number, hash: string } | null>>}
+ */
+const directoryScanCache = new Map()
+
+/** 目录清单缓存的条目上限，避免长时间运行后无限增长。 */
+const DIRECTORY_SCAN_CACHE_LIMIT = 500
+
+async function collectIdentityNamesAsync(dirPath, names, depth, isRoot, relativeDir) {
+  if (depth > MAX_DEPTH || names.length >= MAX_FILES) return names.length >= MAX_FILES
+  let entries = []
+  try {
+    entries = await fs.promises.readdir(dirPath, { withFileTypes: true })
+  } catch (error) {
+    return false
+  }
+  for (const entry of entries) {
+    if (names.length >= MAX_FILES) return true
+    if (entry.isSymbolicLink()) continue
+    const entryName = entry.name
+    const childRelative = relativeDir ? `${relativeDir}/${entryName}` : entryName
+    if (entry.isDirectory()) {
+      if (VOLATILE_DIRS.has(entryName.toLowerCase()) || entryName.startsWith('.')) continue
+      const childPartial = await collectIdentityNamesAsync(path.join(dirPath, entryName), names, depth + 1, false, childRelative)
+      if (childPartial) return true
+      continue
+    }
+    if (!entry.isFile()) continue
+    if (entryName.startsWith('.grm-')) continue
+    if (isRoot && EXEC_EXT.has(path.extname(entryName).toLowerCase())) continue
+    if (isVolatileFile(entryName)) continue
+    names.push(childRelative.toLowerCase())
+  }
+  return names.length >= MAX_FILES
+}
+
+/**
+ * 扫描目录文件清单，并按目录缓存。扫描根目录时启动文件不参与，所以结果和 anchor 无关。
+ * @param {string} dirPath 要扫描的目录
+ * @returns {Promise<{ count: number, hash: string } | null>} 清单摘要；文件太多或为空时返回 null
+ */
+async function scanDirectoryNamesAsync(dirPath) {
+  const cacheKey = normalizePathKey(dirPath)
+  if (directoryScanCache.has(cacheKey)) {
+    return directoryScanCache.get(cacheKey)
+  }
+  const promise = (async () => {
+    const names = []
+    const partial = await collectIdentityNamesAsync(dirPath, names, 0, true, '')
+    const result = !partial && names.length >= 1
+      ? { count: names.length, hash: hashNames(names) }
+      : null
+    directoryScanCache.set(cacheKey, result)
+    while (directoryScanCache.size > DIRECTORY_SCAN_CACHE_LIMIT) {
+      directoryScanCache.delete(directoryScanCache.keys().next().value)
+    }
+    return result
+  })()
+  directoryScanCache.set(cacheKey, promise)
+  return promise
+}
+
+async function fingerprintDirectoryNamesAsync(dirPath, anchor) {
+  const scan = await scanDirectoryNamesAsync(dirPath)
+  if (!scan) return null
+  return `v1|names|${scan.count}|${scan.hash}|${anchor || ''}`
+}
+
+async function collectImageNamesAsync(dirPath, relativeDir, names, depth) {
+  if (depth > MAX_DEPTH || names.length >= MAX_FILES) return
+  let entries = []
+  try {
+    entries = await fs.promises.readdir(dirPath, { withFileTypes: true })
+  } catch (error) {
+    return
+  }
+  for (const entry of entries) {
+    if (names.length >= MAX_FILES) return
+    if (entry.isSymbolicLink()) continue
+    const childRelative = relativeDir ? `${relativeDir}/${entry.name}` : entry.name
+    if (entry.isDirectory()) {
+      if (entry.name.startsWith('.') || VOLATILE_DIRS.has(entry.name.toLowerCase())) continue
+      await collectImageNamesAsync(path.join(dirPath, entry.name), childRelative, names, depth + 1)
+      continue
+    }
+    if (!entry.isFile()) continue
+    if (!IMAGE_EXT.has(path.extname(entry.name).toLowerCase())) continue
+    names.push(childRelative.toLowerCase())
+  }
+}
+
+async function fingerprintFileSizeAsync(filePath) {
+  const stats = await fs.promises.stat(filePath)
+  if (!stats.isFile() || stats.size <= 0) return null
+  const ext = path.extname(filePath).toLowerCase()
+  return `v1|size|${stats.size}|${ext}`
+}
+
+function fingerprintPagesAsync(filePath) {
+  const cacheKey = `pages|${normalizePathKey(filePath)}`
+  if (fingerprintCache.has(cacheKey)) return Promise.resolve(fingerprintCache.get(cacheKey))
+  if (pendingFingerprints.has(cacheKey)) return pendingFingerprints.get(cacheKey)
+  const promise = (async () => {
+    const stats = await fs.promises.stat(filePath)
+    let names = []
+    if (stats.isDirectory()) {
+      await collectImageNamesAsync(filePath, '', names, 0)
+    } else if (ARCHIVE_EXT.includes(path.extname(filePath).toLowerCase())) {
+      try {
+        names = listArchiveImageNames(filePath)
+      } catch (error) {
+        names = []
+      }
+    }
+    let fingerprint = null
+    if (names.length >= 1 && names.length < MAX_FILES) {
+      fingerprint = `v1|pages|${names.length}|${hashNames(names)}`
+    } else if (stats.isFile()) {
+      fingerprint = await fingerprintFileSizeAsync(filePath)
+    }
+    fingerprintCache.set(cacheKey, fingerprint)
+    return fingerprint
+  })().finally(() => pendingFingerprints.delete(cacheKey))
+  pendingFingerprints.set(cacheKey, promise)
+  return promise
+}
+
+async function computeResourceFingerprintAsync(filePath, kind) {
+  try {
+    if (!filePath) {
+      return { success: false, error: '路径不存在' }
+    }
+    let stats
+    try {
+      stats = await fs.promises.stat(filePath)
+    } catch (error) {
+      return { success: false, error: '路径不存在' }
+    }
+    let fingerprint = null
+    if (kind === 'pages') {
+      fingerprint = await fingerprintPagesAsync(filePath)
+    } else if (kind === 'names' || (kind === 'size' && stats.isDirectory())) {
+      const root = stats.isDirectory() ? filePath : path.dirname(filePath)
+      const anchor = stats.isDirectory() ? '' : path.basename(filePath)
+      fingerprint = await fingerprintDirectoryNamesAsync(root, anchor)
+      if (!fingerprint && stats.isFile()) {
+        fingerprint = await fingerprintFileSizeAsync(filePath)
+      }
+    } else {
+      fingerprint = await fingerprintFileSizeAsync(filePath)
+    }
+    if (!fingerprint) {
+      return { success: false, error: '没有足够的内容可以生成指纹' }
+    }
+    return { success: true, fingerprint }
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+}
+
+async function resolveExecutableAsync(dirPath, anchor) {
+  if (anchor) {
+    const anchored = path.join(dirPath, anchor)
+    try {
+      await fs.promises.access(anchored, fs.constants.F_OK)
+      return anchored
+    } catch {
+      // 原来的启动文件不在了，继续找别的
+    }
+  }
+  let entries = []
+  try {
+    entries = await fs.promises.readdir(dirPath, { withFileTypes: true })
+  } catch (error) {
+    return null
+  }
+  const executables = entries
+    .filter((entry) => entry.isFile() && EXEC_EXT.has(path.extname(entry.name).toLowerCase()))
+    .map((entry) => path.join(dirPath, entry.name))
+    .filter((fullPath) => !/uninstall|crashhandler|unitycrash|vc_redist|setup|notification_helper/i.test(path.basename(fullPath)))
+  if (executables.length === 1) return executables[0]
+  return null
+}
+
+async function listChildrenAsync(parentDir, entryKind) {
+  if (!parentDir) return []
+  try {
+    const entries = await fs.promises.readdir(parentDir, { withFileTypes: true })
+    return entries
+      .filter((entry) => !entry.isSymbolicLink() && (entryKind === 'dir' ? entry.isDirectory() : entry.isFile()))
+      .map((entry) => path.join(parentDir, entry.name))
+  } catch (error) {
+    return []
+  }
+}
+
+async function findRelocatedResourceAsync(oldPath, fingerprint, allowPageCountOnly) {
+  try {
+    const parsed = parseFingerprint(fingerprint)
+    if (!parsed || parsed.partial || !oldPath) {
+      return { success: true, newPath: null }
+    }
+
+    if (parsed.kind === 'names' && parsed.anchor) {
+      const root = path.dirname(oldPath)
+      let rootStats = null
+      try { rootStats = await fs.promises.stat(root) } catch { rootStats = null }
+      if (rootStats?.isDirectory()) {
+        const current = await fingerprintDirectoryNamesAsync(root, parsed.anchor)
+        if (current && isSameFingerprint(current, fingerprint)) {
+          const resolved = await resolveExecutableAsync(root, parsed.anchor)
+          if (resolved && !isSamePath(resolved, oldPath)) {
+            return { success: true, newPath: resolved }
+          }
+        }
+        return { success: true, newPath: null }
+      }
+      const matches = []
+      for (const dirPath of await listChildrenAsync(path.dirname(root), 'dir')) {
+        const current = await fingerprintDirectoryNamesAsync(dirPath, parsed.anchor)
+        if (!current || !isSameFingerprint(current, fingerprint)) continue
+        const resolved = await resolveExecutableAsync(dirPath, parsed.anchor)
+        if (resolved) matches.push(resolved)
+      }
+      if (matches.length === 1) return { success: true, newPath: matches[0] }
+      return { success: true, newPath: null, ambiguous: matches.length > 1 }
+    }
+
+    if (parsed.kind === 'names') {
+      const matches = []
+      for (const dirPath of await listChildrenAsync(path.dirname(oldPath), 'dir')) {
+        if (isSamePath(dirPath, oldPath)) continue
+        const current = await fingerprintDirectoryNamesAsync(dirPath, '')
+        if (current && isSameFingerprint(current, fingerprint)) matches.push(dirPath)
+      }
+      if (matches.length === 1) return { success: true, newPath: matches[0] }
+      return { success: true, newPath: null, ambiguous: matches.length > 1 }
+    }
+
+    if (parsed.kind === 'pages') {
+      const isArchive = ARCHIVE_EXT.includes(path.extname(oldPath).toLowerCase())
+      const children = isArchive
+        ? (await listChildrenAsync(path.dirname(oldPath), 'file')).filter((filePath) => ARCHIVE_EXT.includes(path.extname(filePath).toLowerCase()))
+        : await listChildrenAsync(path.dirname(oldPath), 'dir')
+      const countMatches = []
+      const hashMatches = []
+      for (const candidate of children) {
+        if (isSamePath(candidate, oldPath)) continue
+        const current = await fingerprintPagesAsync(candidate)
+        const currentParsed = parseFingerprint(current)
+        if (!currentParsed || currentParsed.kind !== 'pages' || currentParsed.count !== parsed.count) continue
+        countMatches.push(candidate)
+        if (currentParsed.hash && currentParsed.hash === parsed.hash) hashMatches.push(candidate)
+      }
+      if (hashMatches.length === 1) return { success: true, newPath: hashMatches[0] }
+      if (hashMatches.length > 1) return { success: true, newPath: null, ambiguous: true }
+      if (allowPageCountOnly && parsed.count >= MIN_PAGE_COUNT_ONLY && countMatches.length === 1) {
+        return { success: true, newPath: countMatches[0] }
+      }
+      return { success: true, newPath: null, ambiguous: countMatches.length > 1 }
+    }
+
+    if (parsed.kind === 'size') {
+      const matches = []
+      for (const filePath of await listChildrenAsync(path.dirname(oldPath), 'file')) {
+        if (isSamePath(filePath, oldPath)) continue
+        if (path.extname(filePath).toLowerCase() !== parsed.ext) continue
+        let stats = null
+        try {
+          stats = await fs.promises.stat(filePath)
+        } catch (error) {
+          continue
+        }
+        if (stats.isFile() && stats.size === parsed.size) matches.push(filePath)
+      }
+      if (matches.length === 1) return { success: true, newPath: matches[0] }
+      return { success: true, newPath: null, ambiguous: matches.length > 1 }
+    }
+
+    return { success: true, newPath: null }
+  } catch (error) {
+    return { success: false, newPath: null, error: error.message }
+  }
+}
+
 module.exports = {
   computeResourceFingerprint,
+  computeResourceFingerprintAsync,
   findRelocatedResource,
+  findRelocatedResourceAsync,
   isSameFingerprint,
   parseFingerprint
 }

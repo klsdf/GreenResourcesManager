@@ -32,8 +32,10 @@ function registerIpcHandlers(ipcMain, pathUtils) {
         return { success: false, error: '文件路径为空' }
       }
 
-      // 检查文件是否存在
-      if (!fs.existsSync(filePath)) {
+      // 检查文件是否存在。异步查，卡片封面再多也不会把主进程卡住
+      try {
+        await fs.promises.access(filePath, fs.constants.F_OK)
+      } catch {
         console.warn('文件不存在:', filePath)
         return { success: false, error: '文件不存在' }
       }

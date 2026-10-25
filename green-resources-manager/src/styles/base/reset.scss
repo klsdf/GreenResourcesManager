@@ -5,6 +5,12 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
@@ -13,14 +19,14 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background: var(--bg-primary);
   color: var(--text-primary);
-  min-height: 100vh;
   transition: background-color var(--transition-slow) ease, color var(--transition-slow) ease;
 }
 
 #app {
-  min-height: 100vh;
+  height: 100%;
   width: 100%;
   display: flex;
+  overflow: hidden;
   background: var(--bg-primary);
   transition: background-color var(--transition-slow) ease;
 }

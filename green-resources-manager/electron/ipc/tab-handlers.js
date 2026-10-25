@@ -171,6 +171,57 @@ function registerTabHandlers(ipcMain, mainWindow, isDev) {
     }
   })
 
+  // 在新标签页中打开独立音乐播放器
+  // 渲染进程传入 path（音频文件路径）、title、id（音频 ID）、pageId（来源页面）与 theme
+  ipcMain.handle('tab-open-audio-player', async (event, { path: filePath, title, id, pageId, theme } = {}) => {
+    try {
+      if (!filePath && !id) {
+        return { success: false, error: '未提供音频文件路径或音频 ID' }
+      }
+      if (filePath && !fs.existsSync(filePath)) {
+        return { success: false, error: '音频文件不存在' }
+      }
+
+      /** 音乐播放器页面地址，开发环境走 Vite，生产环境走本地 html */
+      let viewerUrl
+      const queryParams = new URLSearchParams()
+      if (filePath) queryParams.set('path', filePath)
+      if (title) queryParams.set('title', title)
+      if (id) queryParams.set('id', String(id))
+      if (pageId) queryParams.set('pageId', pageId)
+      if (theme) queryParams.set('theme', theme)
+      const query = `?${queryParams.toString()}`
+
+      if (isDev) {
+        viewerUrl = `http://localhost:5173/audio-player.html${query}`
+      } else {
+        const appPath = app.getAppPath()
+        const possiblePaths = [
+          path.join(appPath, 'dist', 'audio-player.html'),
+          path.join(appPath, 'audio-player.html'),
+          path.join(__dirname, '../../audio-player.html'),
+          path.join(__dirname, '../../dist/audio-player.html')
+        ]
+        const htmlPath = possiblePaths.find((p) => fs.existsSync(p))
+        if (!htmlPath) {
+          const errorMsg = `找不到 audio-player.html 文件。尝试的路径: ${possiblePaths.join(', ')}`
+          console.error('❌', errorMsg)
+          return { success: false, error: errorMsg }
+        }
+        const normalized = htmlPath.replace(/\\/g, '/')
+        viewerUrl = `file:///${normalized}${query}`
+      }
+
+      const tabManager = getTabManager(mainWindow, isDev)
+      const tabId = tabManager.openAudioPlayerTab(viewerUrl, title || '音乐播放器', id || filePath)
+      console.log('✅ 已在新标签页打开音乐播放器:', title, viewerUrl)
+      return { success: true, tabId }
+    } catch (error) {
+      console.error('在新标签页打开音乐播放器失败:', error)
+      return { success: false, error: error.message }
+    }
+  })
+
   // 关闭标签页
   ipcMain.handle('tab-close', async (event, { tabId }) => {
     try {

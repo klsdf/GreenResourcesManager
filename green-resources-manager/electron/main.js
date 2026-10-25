@@ -96,6 +96,7 @@ const apiServer = require('./api-server')
 // 引入 IPC 处理器模块
 const dialogHandlers = require('./ipc/dialog-handlers')
 const fileHandlers = require('./ipc/file-handlers')
+const workshopHandlers = require('./ipc/workshop-handlers')
 const pathHandlers = require('./ipc/path-handlers')
 const systemHandlers = require('./ipc/system-handlers')
 const settingsHandlers = require('./ipc/settings-handlers')
@@ -297,6 +298,9 @@ if (!gotTheLock) {
     
     // 注册文件操作相关的 IPC 处理器
     fileHandlers.registerIpcHandlers(ipcMain, fileUtils, pathUtils)
+
+    // 注册创意工坊公共目录相关的 IPC 处理器
+    workshopHandlers.registerIpcHandlers(ipcMain)
     
     // 注册路径/URL 相关的 IPC 处理器
     pathHandlers.registerIpcHandlers(ipcMain, pathUtils)
@@ -358,6 +362,9 @@ if (!gotTheLock) {
     
     // 保存页面资源（批量）
     ipcMain.handle('sqlite-save-page-resources', (event, pageId, resources) => sqlite.savePageResources(pageId, resources))
+
+    // 增量保存资源正文（不修改页面索引）
+    ipcMain.handle('sqlite-upsert-page-resources', (event, pageId, resources) => sqlite.upsertPageResources(pageId, resources))
     
     // 从数据库删除资源
     ipcMain.handle('sqlite-delete-resource', (event, tableName, resourceId) => sqlite.deleteResourceFromTable(tableName, resourceId))
@@ -367,6 +374,9 @@ if (!gotTheLock) {
 
     // 按路径查找已有资源，多个页面可以共用同一条
     ipcMain.handle('sqlite-find-resource-by-path', (event, filePath) => sqlite.findResourceByPath(filePath))
+
+    // 按资源 ID 查找已有资源，导入时用它把旧记录改到新路径
+    ipcMain.handle('sqlite-find-resource-by-id', (event, resourceId) => sqlite.findResourceById(resourceId))
     
     // 将旧格式 SQL（多列）迁移为 id+jsonData 格式
     ipcMain.handle('sqlite-migrate-to-json-format', () => sqlite.migrateOldSqlToJsonFormat())

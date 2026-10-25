@@ -10,6 +10,9 @@
     <DetailCard :title="$lt('🧩 自定义功能')">
       <p>{{ $lt('在 mods 文件夹里放一个插件。打开开关后，它可以在侧边栏登记入口，并打开自己的页面。') }}</p>
     </DetailCard>
+    <DetailCard :title="$lt('🛒 从公共工坊安装')">
+      <p>{{ $lt('打开「在线工坊」，搜索插件后点安装。插件会下载到 mods 文件夹，默认不启用，打开开关才会加载。有新版本时可以在「已安装」里直接更新或卸载。') }}</p>
+    </DetailCard>
     <DetailCard :title="$lt('📝 便笺插件')">
       <p>{{ $lt('最少的例子。两份文件放进 mods/hello-note，侧边栏就会多出一个「便笺」。') }}</p>
     </DetailCard>

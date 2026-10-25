@@ -23,8 +23,10 @@
  * - `write-file`: 写入普通文件。
  * - `save-thumbnail`: 保存缩略图。
  * - `list-files`: 列出目录文件。
+ * - `get-file-product-name`: 读取 Windows 程序的产品名。
  * - `get-file-stats`: 获取文件统计信息。
  * - `read-text-file`: 读取文本文件。
+ * - `read-audio-lyrics`: 读取音频同目录下的同名 .lrc 歌词。
  * - `count-novel-words`: 统计小说字数。
  * - `open-file-folder`: 打开文件所在文件夹。
  * - `check-file-exists`: 检查文件是否存在。
@@ -36,10 +38,164 @@
 const fs = require('fs')
 const path = require('path')
 const crypto = require('crypto')
-const { app, shell } = require('electron')
+const { app, shell, nativeImage } = require('electron')
 const AdmZip = require('adm-zip')
 const { SUPPORTED_IMAGE_FORMATS, MAX_BACKUP_FILES } = require('../utils/constants')
 const { isImageFile } = require('../utils/image-file')
+
+/** 支持的图片扩展名集合，用于列表时先按扩展名过滤，避免逐个打开文件读头。 */
+const IMAGE_EXTENSION_SET = new Set(SUPPORTED_IMAGE_FORMATS.map(ext => `.${ext}`))
+
+/** 图片目录列表缓存：路径 → { mtimeMs, files }。目录内容变化时 mtime 会变，缓存自动失效。 */
+const IMAGE_LIST_CACHE = new Map()
+const IMAGE_LIST_CACHE_LIMIT = 300
+
+/** 图片文件名排序器只建一次，避免每次比较都创建 options。 */
+const IMAGE_NAME_COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
+
+/** 缩略图磁盘缓存目录：<SaveData>/cache/thumbnails。 */
+const THUMBNAIL_CACHE_DIR_NAME = 'thumbnails'
+
+/**
+ * 判断文件名是否可能是图片（只看扩展名）。
+ * @param {string} name 文件名
+ * @returns {boolean}
+ */
+function isSupportedImageName(name) {
+  return IMAGE_EXTENSION_SET.has(path.extname(name).toLowerCase())
+}
+
+/**
+ * 限制并发的批量处理，避免一次打开过多文件句柄。
+ * @template T, R
+ * @param {T[]} items 待处理项
+ * @param {number} limit 并发上限
+ * @param {(item: T, index: number) => Promise<R>} worker 处理函数
+ * @returns {Promise<R[]>} 与输入顺序一致的结果
+ */
+async function mapWithConcurrency(items, limit, worker) {
+  const results = new Array(items.length)
+  let cursor = 0
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor++
+      results[index] = await worker(items[index], index)
+    }
+  })
+  await Promise.all(runners)
+  return results
+}
+
+/**
+ * 读取目录中的图片文件。
+ * 默认只按扩展名过滤，必要时再读取文件头校验内容。
+ * @param {string} folderPath 目录
+ * @param {{ verifyContent?: boolean }} options 选项
+ * @returns {Promise<{ files: string[], mtimeMs: number, cached: boolean }>}
+ */
+async function readImageFiles(folderPath, options = {}) {
+  const absolutePath = path.resolve(folderPath)
+  const stats = await fs.promises.stat(absolutePath)
+  if (!stats.isDirectory()) {
+    throw new Error('路径不是文件夹')
+  }
+
+  const verifyContent = options.verifyContent === true
+  const cached = IMAGE_LIST_CACHE.get(absolutePath)
+  if (!verifyContent && cached && cached.mtimeMs === stats.mtimeMs) {
+    // 刷新 LRU 顺序
+    IMAGE_LIST_CACHE.delete(absolutePath)
+    IMAGE_LIST_CACHE.set(absolutePath, cached)
+    return { files: cached.files, mtimeMs: stats.mtimeMs, cached: true }
+  }
+
+  const entries = await fs.promises.readdir(absolutePath, { withFileTypes: true })
+  const candidates = entries
+    .filter(entry => entry.isFile() && isSupportedImageName(entry.name))
+    .map(entry => path.join(absolutePath, entry.name))
+
+  let files = candidates
+  if (verifyContent && candidates.length > 0) {
+    const flags = await mapWithConcurrency(candidates, 8, async filePath => isImageFile(filePath))
+    files = candidates.filter((_, index) => flags[index])
+  }
+
+  files.sort(IMAGE_NAME_COLLATOR.compare)
+
+  if (!verifyContent) {
+    IMAGE_LIST_CACHE.set(absolutePath, { mtimeMs: stats.mtimeMs, files })
+    while (IMAGE_LIST_CACHE.size > IMAGE_LIST_CACHE_LIMIT) {
+      IMAGE_LIST_CACHE.delete(IMAGE_LIST_CACHE.keys().next().value)
+    }
+  }
+
+  return { files, mtimeMs: stats.mtimeMs, cached: false }
+}
+
+/**
+ * 异步递归计算文件夹大小，不阻塞主进程事件循环。
+ * @param {string} targetPath 文件或文件夹
+ * @returns {Promise<number>} 字节数
+ */
+async function calculateFolderSize(targetPath) {
+  const stats = await fs.promises.stat(targetPath)
+  if (stats.isFile()) {
+    return stats.size
+  }
+
+  let totalSize = 0
+  const stack = [targetPath]
+  while (stack.length > 0) {
+    const current = stack.pop()
+    let entries
+    try {
+      entries = await fs.promises.readdir(current, { withFileTypes: true })
+    } catch {
+      continue
+    }
+    for (const entry of entries) {
+      const fullPath = path.join(current, entry.name)
+      if (entry.isDirectory()) {
+        stack.push(fullPath)
+      } else if (entry.isFile()) {
+        try {
+          const fileStats = await fs.promises.stat(fullPath)
+          totalSize += fileStats.size
+        } catch {
+          // 文件在遍历途中消失时忽略
+        }
+      }
+    }
+  }
+  return totalSize
+}
+
+/**
+ * 按 BOM / 内容猜测歌词文件编码。
+ * 网上的 lrc 有相当一部分是 GBK，直接按 utf8 读会变成乱码。
+ * @param {Buffer} buffer - 文件内容
+ * @returns {string} 解码后的文本
+ */
+function decodeLyricBuffer(buffer) {
+  if (buffer.length >= 3 && buffer[0] === 0xef && buffer[1] === 0xbb && buffer[2] === 0xbf) {
+    return buffer.toString('utf8').replace(/^\uFEFF/, '')
+  }
+  if (buffer.length >= 2 && buffer[0] === 0xff && buffer[1] === 0xfe) {
+    return new TextDecoder('utf-16le').decode(buffer).replace(/^\uFEFF/, '')
+  }
+  if (buffer.length >= 2 && buffer[0] === 0xfe && buffer[1] === 0xff) {
+    return new TextDecoder('utf-16be').decode(buffer).replace(/^\uFEFF/, '')
+  }
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buffer)
+  } catch {
+    try {
+      return new TextDecoder('gbk').decode(buffer)
+    } catch {
+      return buffer.toString('utf8')
+    }
+  }
+}
 
 /**
  * 读取压缩包里某一张图的大小。
@@ -79,7 +235,8 @@ function getArchiveEntryStats(archiveUrl) {
 }
 const { normalizePath } = require('../utils/path-utils')
 const { resolveSaveDataDirectory } = require('../utils/save-location')
-const { computeResourceFingerprint, findRelocatedResource } = require('../utils/resource-fingerprint')
+const { computeResourceFingerprintAsync, findRelocatedResourceAsync } = require('../utils/resource-fingerprint')
+const { writeResourceMarker, listMarkersNearPath, findMarkerLocation } = require('../utils/resource-marker')
 
 /** CBZ/ZIP 漫画包扩展名 */
 const CBZ_ARCHIVE_EXT = ['.cbz', '.zip']
@@ -125,8 +282,12 @@ function registerIpcHandlers(ipcMain, fileUtils, pathUtils) {
     return await fileUtils.listFiles(dirPath)
   })
 
-  ipcMain.handle('search-matching-files', async (event, rootDir, extensions) => {
-    return await fileUtils.searchMatchingFiles(rootDir, extensions)
+  ipcMain.handle('get-file-product-name', async (event, filePath) => {
+    return await fileUtils.getFileProductName(filePath)
+  })
+
+  ipcMain.handle('search-matching-files', async (event, rootDir, extensions, options) => {
+    return await fileUtils.searchMatchingFiles(rootDir, extensions, options || {})
   })
 
   ipcMain.handle('get-file-stats', async (event, filePath) => {
@@ -138,6 +299,33 @@ function registerIpcHandlers(ipcMain, fileUtils, pathUtils) {
 
   ipcMain.handle('read-text-file', async (event, filePath) => {
     return await fileUtils.readTextFile(filePath)
+  })
+
+  // 读取音频同级的 .lrc 歌词。文件名大小写不敏感，兼容 UTF-8 / UTF-16 / GBK。
+  ipcMain.handle('read-audio-lyrics', async (event, audioPath) => {
+    try {
+      if (!audioPath || typeof audioPath !== 'string') {
+        return { success: false, error: '音频路径不能为空' }
+      }
+      const dirPath = path.dirname(audioPath)
+      if (!fs.existsSync(dirPath)) {
+        return { success: false, error: '音频所在目录不存在' }
+      }
+      const baseName = path.basename(audioPath, path.extname(audioPath)).toLowerCase()
+      const lyricName = fs.readdirSync(dirPath).find((name) => {
+        return path.extname(name).toLowerCase() === '.lrc' &&
+          path.basename(name, path.extname(name)).toLowerCase() === baseName
+      })
+      if (!lyricName) {
+        return { success: false, error: '未找到同名歌词文件' }
+      }
+      const lyricPath = path.join(dirPath, lyricName)
+      const content = decodeLyricBuffer(fs.readFileSync(lyricPath))
+      return { success: true, content, path: lyricPath }
+    } catch (error) {
+      console.error('读取歌词文件失败:', error)
+      return { success: false, error: error.message }
+    }
   })
 
   ipcMain.handle('count-novel-words', async (event, filePath) => {
@@ -180,13 +368,40 @@ function registerIpcHandlers(ipcMain, fileUtils, pathUtils) {
       // 规范化路径
       const normalizedPath = pathUtils ? pathUtils.normalizePath(filePath) : filePath
 
-      // 检查文件是否存在
-      const exists = fs.existsSync(normalizedPath)
+      // 异步检查，避免同步 IO 阻塞主进程
+      let exists = false
+      try {
+        await fs.promises.access(normalizedPath, fs.constants.F_OK)
+        exists = true
+      } catch {
+        exists = false
+      }
 
-      return { success: true, exists: exists }
+      return { success: true, exists }
     } catch (error) {
       console.error('检查文件存在性失败:', error)
       return { success: false, error: error.message }
+    }
+  })
+
+  // 批量检查文件是否存在：一次 IPC 代替 N 次往返
+  ipcMain.handle('check-file-exists-batch', async (event, filePaths) => {
+    try {
+      const paths = Array.isArray(filePaths) ? filePaths : []
+      const results = await mapWithConcurrency(paths, 16, async filePath => {
+        if (!filePath || typeof filePath !== 'string' || filePath.trim() === '') return false
+        const normalizedPath = pathUtils ? pathUtils.normalizePath(filePath) : filePath
+        try {
+          await fs.promises.access(normalizedPath, fs.constants.F_OK)
+          return true
+        } catch {
+          return false
+        }
+      })
+      return { success: true, results }
+    } catch (error) {
+      console.error('批量检查文件存在性失败:', error)
+      return { success: false, error: error.message, results: [] }
     }
   })
 
@@ -199,30 +414,13 @@ function registerIpcHandlers(ipcMain, fileUtils, pathUtils) {
 
       const absolutePath = pathUtils ? pathUtils.normalizePath(filePath) : path.resolve(filePath)
 
-      if (!fs.existsSync(absolutePath)) {
+      try {
+        await fs.promises.access(absolutePath, fs.constants.F_OK)
+      } catch {
         return { success: false, error: `文件/文件夹不存在: ${absolutePath}` }
       }
 
-      const stats = fs.statSync(absolutePath)
-      let targetFolderPath = absolutePath
-
-      if (stats.isFile()) {
-        targetFolderPath = path.dirname(absolutePath)
-      }
-
-      let totalSize = 0
-      const calculateSize = (itemPath) => {
-        const itemStats = fs.statSync(itemPath)
-        if (itemStats.isDirectory()) {
-          fs.readdirSync(itemPath).forEach(child => {
-            calculateSize(path.join(itemPath, child))
-          })
-        } else {
-          totalSize += itemStats.size
-        }
-      }
-
-      calculateSize(targetFolderPath)
+      const totalSize = await calculateFolderSize(absolutePath)
       return { success: true, size: totalSize }
     } catch (error) {
       console.error('获取文件夹大小失败:', error)
@@ -231,22 +429,92 @@ function registerIpcHandlers(ipcMain, fileUtils, pathUtils) {
   })
 
   // 列出指定文件夹下的图片文件
-  ipcMain.handle('list-image-files', async (event, folderPath) => {
+  ipcMain.handle('list-image-files', async (event, folderPath, options = {}) => {
     try {
       if (!folderPath) {
         return { success: false, error: '未提供文件夹路径' }
       }
 
-      const entries = fs.readdirSync(folderPath, { withFileTypes: true })
-      const files = entries
-        .filter(e => e.isFile())
-        .map(e => path.join(folderPath, e.name))
-        .filter(full => isImageFile(full))
-        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-
-      return { success: true, files }
+      const result = await readImageFiles(folderPath, options)
+      return {
+        success: true,
+        files: result.files,
+        cached: result.cached,
+        mtimeMs: result.mtimeMs
+      }
     } catch (error) {
       console.error('列出图片文件失败:', error)
+      return { success: false, error: error.message, files: [] }
+    }
+  })
+
+  // 批量列出多个文件夹下的图片文件，供一页卡片/详情一次性取用
+  ipcMain.handle('list-image-files-batch', async (event, folderPaths, options = {}) => {
+    try {
+      const uniqueFolders = [...new Set((Array.isArray(folderPaths) ? folderPaths : []).filter(Boolean))]
+      const entries = await mapWithConcurrency(uniqueFolders, 4, async folderPath => {
+        try {
+          const result = await readImageFiles(folderPath, options)
+          return [folderPath, {
+            success: true,
+            files: result.files,
+            cached: result.cached,
+            mtimeMs: result.mtimeMs
+          }]
+        } catch (error) {
+          return [folderPath, { success: false, error: error.message, files: [] }]
+        }
+      })
+      return { success: true, data: Object.fromEntries(entries) }
+    } catch (error) {
+      console.error('批量列出图片文件失败:', error)
+      return { success: false, error: error.message, data: {} }
+    }
+  })
+
+  // 生成缩略图并写入磁盘缓存，返回缩略图文件路径，避免把 base64 大字符串跨 IPC 传输
+  ipcMain.handle('generate-thumbnail', async (event, filePath, maxWidth, maxHeight) => {
+    try {
+      if (!filePath || typeof filePath !== 'string') {
+        return { success: false, error: '未提供图片路径' }
+      }
+      if (filePath.startsWith('archive://')) {
+        return { success: false, error: '压缩包内图片暂不生成缩略图' }
+      }
+
+      const absolutePath = pathUtils ? pathUtils.normalizePath(filePath) : path.resolve(filePath)
+      const stats = await fs.promises.stat(absolutePath)
+      if (!stats.isFile()) {
+        return { success: false, error: '不是文件' }
+      }
+
+      const width = Math.max(16, Math.min(2048, Number(maxWidth) || 200))
+      const height = Math.max(16, Math.min(2048, Number(maxHeight) || 200))
+      const quality = 80
+      const digest = crypto
+        .createHash('sha1')
+        .update(`${absolutePath}|${stats.mtimeMs}|${stats.size}|${width}x${height}|${quality}`)
+        .digest('hex')
+      const cacheDir = path.join(resolveSaveDataDirectory(), 'cache', THUMBNAIL_CACHE_DIR_NAME)
+      const targetPath = path.join(cacheDir, `${digest}.jpg`)
+
+      try {
+        await fs.promises.access(targetPath, fs.constants.F_OK)
+        return { success: true, thumbnailPath: targetPath, cached: true }
+      } catch {
+        // 还没生成过
+      }
+
+      const image = await nativeImage.createThumbnailFromPath(absolutePath, { width, height })
+      if (!image || image.isEmpty()) {
+        return { success: false, error: '无法生成缩略图' }
+      }
+
+      await fs.promises.mkdir(cacheDir, { recursive: true })
+      await fs.promises.writeFile(targetPath, image.toJPEG(quality))
+      return { success: true, thumbnailPath: targetPath, cached: false }
+    } catch (error) {
+      console.warn('生成缩略图失败:', error)
       return { success: false, error: error.message }
     }
   })
@@ -415,12 +683,27 @@ function registerIpcHandlers(ipcMain, fileUtils, pathUtils) {
 
   // 计算资源指纹。kind 由界面按资源类型传入：names / pages / size。
   ipcMain.handle('compute-resource-fingerprint', async (event, filePath, kind) => {
-    return computeResourceFingerprint(filePath, kind)
+    return computeResourceFingerprintAsync(filePath, kind)
   })
 
   // 在原路径的父目录里找改名或同级移动后的新路径。
   ipcMain.handle('find-relocated-resource', async (event, oldPath, fingerprint, allowPageCountOnly) => {
-    return findRelocatedResource(oldPath, fingerprint, !!allowPageCountOnly)
+    return findRelocatedResourceAsync(oldPath, fingerprint, !!allowPageCountOnly)
+  })
+
+  // 在资源旁边写隐藏标记文件，记住它在本软件里的 ID。
+  ipcMain.handle('write-resource-marker', async (event, payload) => {
+    return writeResourceMarker(payload || {})
+  })
+
+  // 读取拖入资源旁边的标记，用于找回原来的记录。
+  ipcMain.handle('list-resource-markers', async (event, filePath) => {
+    return listMarkersNearPath(filePath)
+  })
+
+  // 按资源 ID 在旧路径附近找标记指向的新位置。
+  ipcMain.handle('find-resource-marker-location', async (event, resourceId, oldPath) => {
+    return findMarkerLocation(resourceId, oldPath)
   })
 }
 

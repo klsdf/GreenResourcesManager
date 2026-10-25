@@ -168,6 +168,28 @@
           <span class="nav-text">{{ $t('views.' + viewId + '.name') }}</span>
         </div>
       </div>
+
+      <!-- 左下角常驻：不用进设置页就能快速开关伪装模式 -->
+      <div class="sidebar-disguise" :class="{ 'sidebar-disguise--active': disguiseModeEnabled }">
+        <span class="sidebar-disguise__label">
+          <span class="sidebar-disguise__icon">🎭</span>
+          <span class="sidebar-disguise__text">
+            <span class="sidebar-disguise__title">{{ $lt('伪装模式') }}</span>
+            <span class="sidebar-disguise__state">{{ disguiseModeEnabled ? $lt('已开启') : $lt('已关闭') }}</span>
+          </span>
+        </span>
+        <button
+          type="button"
+          class="sidebar-disguise__switch"
+          :class="{ 'is-on': disguiseModeEnabled }"
+          :aria-label="disguiseModeEnabled ? $lt('关闭伪装模式') : $lt('开启伪装模式')"
+          :aria-pressed="disguiseModeEnabled"
+          :title="disguiseModeEnabled ? $lt('关闭伪装模式') : $lt('开启伪装模式')"
+          @click="toggleDisguiseMode"
+        >
+          <span class="sidebar-disguise__knob"></span>
+        </button>
+      </div>
     </nav>
 
     <!-- 侧边栏拖拽条 - 只在显示侧边栏时出现 -->
@@ -474,7 +496,11 @@ export default {
       sidebarWidth: 280,
       isSidebarResizing: false,
       sidebarResizeStartX: 0,
-      sidebarResizeStartWidth: 0
+      sidebarResizeStartWidth: 0,
+      /** 左下角快速开关和卡片共用的伪装模式状态 */
+      disguiseModeEnabled: false,
+      /** 设置页切换伪装模式时，用来同步左下角开关的显示 */
+      disguiseModeListener: null as ((event: Event) => void) | null
     }
   },
   computed: {
@@ -776,6 +802,46 @@ export default {
     
     isViewActive(viewId: string) {
       return this.$route.name === viewId || this.$route.matched.some(record => record.name === viewId)
+    },
+
+    /**
+     * 左下角的快速开关。
+     * 先更新内存和卡片，再写回设置；设置页开着时也会收到同一个事件同步开关。
+     */
+    async toggleDisguiseMode() {
+      const enabled = !this.disguiseModeEnabled
+      this.disguiseModeEnabled = enabled
+      setDisguiseModeEnabled(enabled)
+
+      try {
+        const disguiseManager = await import('./utils/DisguiseManager.js')
+        disguiseManager.default.clearCache()
+      } catch (error) {
+        console.warn('清除伪装图片缓存失败:', error)
+      }
+
+      try {
+        window.dispatchEvent(new CustomEvent('disguise-mode-changed', {
+          detail: { enabled }
+        }))
+      } catch (error) {
+        console.warn('触发伪装模式变化事件失败:', error)
+      }
+
+      try {
+        const settings = await saveManager.loadSettings()
+        if (settings) {
+          settings.disguiseMode = enabled
+          await saveManager.saveSettings(settings)
+        }
+      } catch (error) {
+        console.warn('保存伪装模式设置失败:', error)
+      }
+
+      notificationService.success(
+        this.$t('settings.general.disguiseModeUpdated'),
+        enabled ? this.$t('settings.general.disguiseModeEnabled') : this.$t('settings.general.disguiseModeDisabled')
+      )
     },
 
     navigateTo(viewId: string) {
@@ -1351,7 +1417,6 @@ export default {
           const targetTabId = activeTabId || result.activeTabId
           const activeTab = result.tabs.find(t => t.id === targetTabId)
           const isHome = activeTab ? (activeTab.isHome || false) : (targetTabId === 'home-tab')
-          console.log('检查活动标签页:', { targetTabId, activeTab, isHome, allTabs: result.tabs })
           this.activeTabIsHome = isHome
           // 更新 hasTabs：如果有非主页标签页，则为 true
           const nonHomeTabs = result.tabs.filter(t => !t.isHome)
@@ -1539,6 +1604,12 @@ export default {
     // 先挂上更新监听。后面的存档初始化可能超过 5 秒，检查结果要先接住。
     this.setupAppUpdateToast()
 
+    // 设置页里切换伪装模式时，左下角开关跟着变
+    this.disguiseModeListener = (event: Event) => {
+      this.disguiseModeEnabled = (event as CustomEvent<{ enabled?: boolean }>).detail?.enabled === true
+    }
+    window.addEventListener('disguise-mode-changed', this.disguiseModeListener)
+
     // 监听应用整体缩放变化（菜单、快捷键、Ctrl+滚轮），显示“缩放至 XX%”提示
     if (window.electronAPI && typeof window.electronAPI.onAppZoomChanged === 'function') {
       this.removeAppZoomChanged = window.electronAPI.onAppZoomChanged((data) => {
@@ -1707,6 +1778,7 @@ export default {
 
       // 伪装开关存在 SQLite 里。卡片挂载时只看内存，所以这里同步一次并通知已经渲染的卡片。
       const disguiseEnabled = settings?.disguiseMode === true
+      this.disguiseModeEnabled = disguiseEnabled
       setDisguiseModeEnabled(disguiseEnabled)
       window.dispatchEvent(new CustomEvent('disguise-mode-changed', {
         detail: { enabled: disguiseEnabled }
@@ -1877,6 +1949,11 @@ export default {
     if (this.handlePluginNavigationUpdate) {
       window.removeEventListener('plugin-navigation-updated', this.handlePluginNavigationUpdate)
     }
+
+    if (this.disguiseModeListener) {
+      window.removeEventListener('disguise-mode-changed', this.disguiseModeListener)
+      this.disguiseModeListener = null
+    }
     
     // 关闭插件视图
     this.closePluginView()
@@ -1928,6 +2005,7 @@ export default {
 .content-body {
   display: flex;
   flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -1937,10 +2015,19 @@ export default {
 
 .page-content {
   flex: 1;
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   position: relative;
+}
+
+.page-content > * {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
 }
 
 .page-content.has-background::before {
@@ -1996,6 +2083,96 @@ export default {
   background: rgba(255, 255, 255, 0.15);
 }
 
+/* 左下角常驻的伪装模式开关。粘在底部，导航项多了也不会被滚走。 */
+.sidebar-disguise {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--sidebar-bg-end);
+  backdrop-filter: blur(4px);
+}
+
+.sidebar-disguise__label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: var(--sidebar-text);
+}
+
+.sidebar-disguise__icon {
+  font-size: 1.2rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.sidebar-disguise__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sidebar-disguise__title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.sidebar-disguise__state {
+  font-size: 0.72rem;
+  opacity: 0.75;
+  white-space: nowrap;
+}
+
+.sidebar-disguise--active .sidebar-disguise__state {
+  opacity: 1;
+  color: #ffd166;
+}
+
+.sidebar-disguise__switch {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  padding: 0;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+  transition: background var(--transition-base) ease;
+}
+
+.sidebar-disguise__switch.is-on {
+  background: #ffd166;
+}
+
+.sidebar-disguise__knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform var(--transition-base) ease;
+}
+
+.sidebar-disguise__switch.is-on .sidebar-disguise__knob {
+  transform: translateX(16px);
+}
+
+.sidebar-disguise__switch:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.8);
+  outline-offset: 2px;
+}
+
 /* 侧边栏窄屏模式（< 200px）：只显示图标 */
 .sidebar.sidebar-narrow .sidebar-header h1,
 .sidebar.sidebar-narrow .sidebar-header p {
@@ -2024,14 +2201,25 @@ export default {
   justify-content: center;
   padding: 12px 8px;
 }
+.sidebar.sidebar-narrow .sidebar-disguise {
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 8px;
+}
+.sidebar.sidebar-narrow .sidebar-disguise__text {
+  display: none;
+}
 
 /* 筛选器侧边栏样式 */
 .filter-sidebar-container {
   display: flex;
   flex-direction: column;
   width: 250px;
+  height: 100%;
+  min-height: 0;
   background: var(--bg-secondary);
   border-right: 1px solid var(--border-color);
+  overflow-x: hidden;
   overflow-y: auto;
   transition: background-color 0.3s ease;
   flex-shrink: 0;

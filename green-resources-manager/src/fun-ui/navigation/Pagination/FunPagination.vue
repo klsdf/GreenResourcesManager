@@ -1,42 +1,46 @@
 <template>
-  <div class="fun-pagination" v-if="totalPages > 0 && totalItems > 0">
-    <div class="fun-pagination__info">
-      <span class="fun-pagination__info-text"> {{ $lt('第') }} {{ currentPage }} {{ $lt('页，共') }} {{ totalPages }} {{ $lt('页') }} </span>
-      <span class="fun-pagination__info-range"> {{ $lt('显示第') }} {{ currentPageStartIndex + 1 }} - {{ Math.min(currentPageStartIndex + pageSize, totalItems) }} {{ $lt('个，共') }} {{ totalItems }} {{ $lt('个') }}{{ itemType }}
-      </span>
-    </div>
-    <div class="fun-pagination__controls">
-      <fun-button 
+  <div
+    class="fun-pagination"
+    :class="{ 'fun-pagination--with-actions': hasActions }"
+    v-if="showPagination"
+  >
+    <span v-if="hasPageInfo" class="fun-pagination__summary">
+      {{ $lt('显示第') }} {{ currentPageStartIndex + 1 }} - {{ Math.min(currentPageStartIndex + pageSize, totalItems) }}
+      {{ $lt('个，共') }} {{ totalItems }} {{ $lt('个') }}{{ itemType }}
+    </span>
+    <div v-if="hasPageInfo" class="fun-pagination__controls">
+      <fun-button
         class="fun-pagination__button fun-pagination__button--prev"
         :disabled="currentPage <= 1"
         @click="handlePreviousPage"
       > {{ $lt('◀ 上一页') }} </fun-button>
-      <div class="fun-pagination__jump">
-        <input 
-          type="number" 
-          v-model.number="jumpToPageInput" 
-          :min="1" 
+      <div class="fun-pagination__jump" :title="$lt('输入页码后按回车跳转')">
+        <input
+          type="number"
+          v-model.number="jumpToPageInput"
+          :min="1"
           :max="totalPages"
           @keyup.enter="handleJumpToPage"
+          @blur="handleJumpToPage"
           class="fun-pagination__jump-input"
-          :placeholder="$lt('页码')"
+          :aria-label="$lt('页码')"
         >
-        <fun-button 
-          class="fun-pagination__jump-button"
-          @click="handleJumpToPage"
-        > {{ $lt('跳转') }} </fun-button>
+        <span class="fun-pagination__jump-total">{{ $lt('页') }} / {{ totalPages }} {{ $lt('页') }}</span>
       </div>
-      <fun-button 
+      <fun-button
         class="fun-pagination__button fun-pagination__button--next"
         :disabled="currentPage >= totalPages"
         @click="handleNextPage"
       > {{ $lt('下一页 ▶') }} </fun-button>
     </div>
+    <div v-if="hasActions" class="fun-pagination__actions">
+      <slot name="actions"></slot>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, useSlots } from 'vue'
 
 interface Props {
   /** 当前页码 */
@@ -58,6 +62,12 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   'page-change': [page: number]
 }>()
+
+const slots = useSlots()
+const hasPageInfo = computed(() => props.totalPages > 0 && props.totalItems > 0)
+const hasActions = computed(() => !!slots.actions)
+// 没有条目但右侧还有显示方式、排序时，这条也要留着
+const showPagination = computed(() => hasPageInfo.value || hasActions.value)
 
 const jumpToPageInput = ref(props.currentPage)
 
@@ -87,56 +97,72 @@ function handleNextPage() {
 
 // 跳转到指定页
 function handleJumpToPage() {
-  const pageNum = jumpToPageInput.value
+  const pageNum = Math.round(Number(jumpToPageInput.value))
   if (pageNum >= 1 && pageNum <= props.totalPages) {
-    emit('page-change', pageNum)
+    if (pageNum !== props.currentPage) {
+      emit('page-change', pageNum)
+    }
+    return
   }
+  // 输入超出范围或不是数字时回到当前页
+  jumpToPageInput.value = props.currentPage
 }
 </script>
 
 <style scoped lang="scss">
+/*
+ * 左范围、中间翻页、右显示设置，三栏等宽让翻页停在整条的正中间。
+ * 右侧没有内容时中间这一栏依然居中。
+ */
 .fun-pagination {
-  margin-bottom: var(--spacing-lg);
-  padding: var(--spacing-md);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+  padding: 8px var(--spacing-md);
   background: var(--bg-tertiary);
   border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
 }
 
-.fun-pagination__info {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--spacing-md);
+.fun-pagination__summary {
+  grid-column: 1;
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
-}
-
-.fun-pagination__info-text {
-  display: inline-block;
-}
-
-.fun-pagination__info-range {
-  color: var(--text-tertiary);
-  font-size: var(--font-size-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .fun-pagination__controls {
+  grid-column: 2;
   display: flex;
-  justify-content: center;
   align-items: center;
-  gap: var(--spacing-md);
+  gap: var(--spacing-sm);
+  flex-shrink: 0;
+}
+
+.fun-pagination__actions {
+  grid-column: 3;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+  min-width: 0;
 }
 
 .fun-pagination__button {
   background: var(--accent-color);
   color: var(--text-on-accent, #1a1a1a);
   font-weight: 500;
-  
+  padding: 6px 14px;
+  font-size: var(--font-size-sm);
+
   &:hover:not(:disabled) {
     background: var(--accent-hover);
   }
-  
+
   &:disabled {
     background: var(--bg-secondary);
     color: var(--text-secondary);
@@ -147,58 +173,58 @@ function handleJumpToPage() {
 .fun-pagination__jump {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
 }
 
 .fun-pagination__jump-input {
-  width: 80px;
+  width: 64px;
   box-sizing: border-box;
-  padding: 10px var(--spacing-sm);
+  padding: 6px var(--spacing-sm);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   background: var(--bg-secondary);
   color: var(--text-primary);
   text-align: center;
-  font-size: var(--font-size-base, 1rem);
+  font-size: var(--font-size-sm, 0.875rem);
   line-height: 1.2;
   outline: none;
   transition: border-color var(--transition-base);
-  
+
   &:focus {
     border-color: var(--accent-color);
   }
+
+  /* 去掉数字输入框右侧的上下箭头，这一行里只保留输入和总页数 */
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  -moz-appearance: textfield;
 }
 
-.fun-pagination__jump-button {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
+.fun-pagination__jump-total {
+  white-space: nowrap;
+}
 
-  
-  &:hover {
-    background: var(--accent-color);
-    color: var(--text-on-accent, #1a1a1a);
-    border-color: var(--accent-color);
+/* 窗口变窄时仍保持一行：隐藏范围文字，右侧设置贴着翻页排 */
+@media (max-width: 1100px) {
+  .fun-pagination__summary {
+    display: none;
   }
 }
 
-/* 响应式 */
-@media (max-width: 768px) {
-  .fun-pagination__info {
-    flex-direction: column;
-    gap: var(--spacing-xs);
-    text-align: center;
+@media (max-width: 1000px) {
+  .fun-pagination {
+    display: flex;
+    justify-content: space-between;
   }
-  
-  .fun-pagination__controls {
-    flex-wrap: wrap;
-    gap: var(--spacing-sm);
-  }
-  
-  .fun-pagination__jump {
-    order: -1;
-    width: 100%;
-    justify-content: center;
+
+  .fun-pagination:not(.fun-pagination--with-actions) .fun-pagination__controls {
+    margin: 0 auto;
   }
 }
 </style>

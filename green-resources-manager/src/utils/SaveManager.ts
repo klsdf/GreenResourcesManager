@@ -119,8 +119,18 @@ class SaveManager {
           websites: 100,
           audio: 100
         },
+        // 各页面的显示方式：grid 是网格，list 是列表
+        displayModes: {},
         // 各页面的标签筛选设置（按页面类型存储每个筛选器的选中/排除状态）
-        filterSettings: {}
+        filterSettings: {},
+        /** 导入资源时，哪些特征相同才算同一个资源。 */
+        sameResourceRule: {
+          version: 1,
+          mode: 'all',
+          criteria: ['fileName', 'parentFolder']
+        },
+        /** 在资源旁边写隐藏标记文件，移动或改名后仍能按资源 ID 找回。 */
+        resourceMarkerEnabled: true
       }
     }
   }
@@ -815,8 +825,20 @@ class SaveManager {
         return true
       }
 
+      let targetPath = String(filePath).replace(/\\/g, '/')
+      // 数据库里的封面是相对 SaveData 的路径，delete-file 按进程工作目录解析，
+      // 原样传过去会找不到文件却返回成功，旧图就一直留着。
+      if (!/^[A-Za-z]:\//.test(targetPath) && !targetPath.startsWith('/') && !targetPath.startsWith('//')) {
+        const base = String(this.dataDirectory || '').replace(/\\/g, '/').replace(/\/+$/, '')
+        if (!base) {
+          console.warn('数据目录未初始化，无法删除缩略图:', filePath)
+          return false
+        }
+        targetPath = `${base}/${targetPath.replace(/^\.?\/*/, '')}`
+      }
+
       if (window.electronAPI && window.electronAPI.deleteFile) {
-        const result = await window.electronAPI.deleteFile(filePath)
+        const result = await window.electronAPI.deleteFile(targetPath)
         return result.success
       } else {
         console.warn('Electron API 不可用，无法删除缩略图')
@@ -1917,6 +1939,43 @@ class SaveManager {
     } catch (error) {
       console.error(`获取${pageType}页面布局缩放失败:`, error)
       return 100
+    }
+  }
+
+  /**
+   * 保存页面显示方式
+   * @param {string} pageType - 页面 id，例如 games、images
+   * @param {'grid'|'list'} mode - 网格或列表
+   * @returns {Promise<boolean>} 保存是否成功
+   */
+  async saveDisplayModeSetting(pageType, mode) {
+    try {
+      const settings = await this.loadSettings()
+      if (!settings) return false
+      if (!settings.displayModes) {
+        settings.displayModes = {}
+      }
+      settings.displayModes[pageType] = mode
+      return await this.saveSettings(settings)
+    } catch (error) {
+      console.error(`保存${pageType}页面显示方式失败:`, error)
+      return false
+    }
+  }
+
+  /**
+   * 获取页面显示方式。没存过时默认网格。
+   * @param {string} pageType - 页面 id，例如 games、images
+   * @returns {Promise<'grid'|'list'>} 显示方式
+   */
+  async getDisplayModeSetting(pageType) {
+    try {
+      const settings = await this.loadSettings()
+      const mode = settings?.displayModes?.[pageType]
+      return mode === 'list' ? 'list' : 'grid'
+    } catch (error) {
+      console.error(`获取${pageType}页面显示方式失败:`, error)
+      return 'grid'
     }
   }
 

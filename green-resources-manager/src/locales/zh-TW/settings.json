@@ -117,6 +117,57 @@
     "openFolderButton": "開啟資料夾",
     "openedDetail": "已開啟備份資料夾: {path}"
   },
+  "sameResource": {
+    "title": "相同資源判定",
+    "description": "拖入資源或舊檔案遺失時，按下面勾選的特徵判斷是不是同一筆記錄。完整路徑相同永遠算同一個，不受這裡影響",
+    "presets": {
+      "label": "快速預設",
+      "loose": "寬鬆",
+      "standard": "標準",
+      "strict": "嚴格",
+      "precise": "精準",
+      "content": "按內容"
+    },
+    "criteria": {
+      "fileName": {
+        "name": "檔案名稱相同",
+        "desc": "比較路徑最後一段，預設包含副檔名"
+      },
+      "parentFolder": {
+        "name": "上一層資料夾相同",
+        "desc": "檔案看所在資料夾，資料夾看它的上一層"
+      },
+      "pathWithoutDrive": {
+        "name": "忽略磁碟機代號的路徑相同",
+        "desc": "D:\\Games\\Foo 和 E:\\Games\\Foo 算相同，目錄層級要一致"
+      },
+      "fileSize": {
+        "name": "檔案大小相同",
+        "desc": "位元組數和副檔名都相同，只對單一檔案有效"
+      },
+      "fingerprint": {
+        "name": "內容指紋相同",
+        "desc": "專案檔案清單、漫畫頁數或檔案大小對得上，改名後也能認回"
+      }
+    },
+    "mode": {
+      "label": "條件組合",
+      "all": "全部符合（推薦）",
+      "any": "任意符合（容易誤判）",
+      "joinAll": "，並且",
+      "joinAny": "，或者",
+      "anyWarning": "「任意符合」只要有一條對上就會判成同一筆記錄，容易把不同資源併掉。確定要這樣用再選。"
+    },
+    "summaryPrefix": "目前規則：",
+    "fingerprintHint": "勾選內容指紋後，首次匯入會掃描一次專案檔案；遊戲等大目錄會慢一些。",
+    "pathHint": "完整路徑相同永遠算同一筆，跨頁面也會接回。其餘條件只在本頁資源之間比較；勾選多個條件時，預設要求全部成立。",
+    "needOne": "至少要保留一個判定條件。"
+  },
+  "resourceMarker": {
+    "title": "寫入隱藏標記檔案",
+    "description": "在每個資源旁邊寫一個隱藏的標記檔案，記住它在軟體裡的資源編號。之後改名、移動或換磁碟機代號，再拖進來也能準確認出。關閉後只靠路徑和內容指紋，移動後可能認不回來。",
+    "disableConfirm": "關閉後，資源移動或改名後再匯入，可能無法準確辨識成原本的紀錄。磁碟上已有的標記檔案不會刪除，但軟體不再讀取。確定要關閉嗎？"
+  },
   "personalization": {
     "customAppTitle": "自訂軟體標題",
     "customAppTitleDesc": "設定軟體在側邊欄顯示的標題",

@@ -106,6 +106,7 @@ export class Manga extends BaseResources {
 			tags: Array.isArray(this.tags.value) ? [...this.tags.value] : [],
 			resourcePath: this.resourcePath.value || '',
 			coverPath: this.coverPath.value || '',
+			pagesCount: this.pagesCount.value || 0,
 			visitedSessions: Array.isArray(this.visitedSessions.value) ? [...this.visitedSessions.value] : [],
 			addedDate: this.addedDate.value || '',
 			rating: this.rating.value || 0,

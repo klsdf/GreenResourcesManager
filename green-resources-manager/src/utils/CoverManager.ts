@@ -39,7 +39,10 @@ function getResourceTypeDir(resourceType: string): string {
  */
 function shouldProcessCover(coverPath: string): boolean {
   if (!coverPath || typeof coverPath !== 'string') return false
-  
+
+  // 压缩包内图片由 archive 协议直接读取，不是磁盘上的独立文件，不能复制封面
+  if (coverPath.startsWith('archive://')) return false
+
   // 如果是相对路径（相对于 SaveData 目录），不需要处理
   if (!coverPath.includes(':') && !coverPath.startsWith('file://') && !coverPath.startsWith('archive://') && !coverPath.startsWith('http://') && !coverPath.startsWith('https://') && !coverPath.startsWith('data:')) {
     return false

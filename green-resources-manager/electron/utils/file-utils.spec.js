@@ -1,12 +1,12 @@
 // @vitest-environment node
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createRequire } from 'node:module'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const require = createRequire(import.meta.url)
-const { writeJsonFile, readJsonFile } = require('./file-utils.js')
+const { writeJsonFile, readJsonFile, searchMatchingFiles } = require('./file-utils.js')
 
 let dir
 
@@ -100,5 +100,83 @@ describe('JSON 存档文件读取', () => {
     const result = await readJsonFile(file)
     expect(result.success).toBe(false)
     expect(result.error).toBeTruthy()
+  })
+})
+
+describe('批量搜索文件', () => {
+  it('只返回勾选扩展名的文件', async () => {
+    mkdirSync(join(dir, 'game'), { recursive: true })
+    writeFileSync(join(dir, 'game', 'start.exe'), '')
+    writeFileSync(join(dir, 'game', 'run.bat'), '')
+    writeFileSync(join(dir, 'game', 'readme.txt'), '')
+
+    const result = await searchMatchingFiles(dir, ['.exe', '.bat'], { maxDepth: 2 })
+
+    expect(result.success).toBe(true)
+    expect(result.files.sort()).toEqual([
+      join('game', 'run.bat'),
+      join('game', 'start.exe')
+    ])
+  })
+
+  it('本层找到匹配后不再进入子文件夹，兄弟文件夹继续搜索', async () => {
+    mkdirSync(join(dir, 'GameA', 'bin'), { recursive: true })
+    mkdirSync(join(dir, 'GameB', 'sub'), { recursive: true })
+    writeFileSync(join(dir, 'GameA', 'game.exe'), '')
+    writeFileSync(join(dir, 'GameA', 'launcher.exe'), '')
+    writeFileSync(join(dir, 'GameA', 'bin', 'helper.exe'), '')
+    writeFileSync(join(dir, 'GameB', 'sub', 'game.exe'), '')
+
+    const result = await searchMatchingFiles(dir, ['.exe'], {
+      maxDepth: 5,
+      stopAtFirstMatch: true
+    })
+
+    expect(result.success).toBe(true)
+    // GameA 本层已经有两个程序，下面的 bin 不再进去；GameB 本层没有，继续往下找到 sub。
+    expect(result.files.sort()).toEqual([
+      join('GameA', 'game.exe'),
+      join('GameA', 'launcher.exe'),
+      join('GameB', 'sub', 'game.exe')
+    ])
+  })
+
+  it('不勾「本层找到后停止」时仍然递归列出子文件夹里的文件', async () => {
+    mkdirSync(join(dir, 'GameA', 'bin'), { recursive: true })
+    writeFileSync(join(dir, 'GameA', 'game.exe'), '')
+    writeFileSync(join(dir, 'GameA', 'bin', 'helper.exe'), '')
+
+    const result = await searchMatchingFiles(dir, ['.exe'], { maxDepth: 5 })
+
+    expect(result.files.sort()).toEqual([
+      join('GameA', 'bin', 'helper.exe'),
+      join('GameA', 'game.exe')
+    ])
+  })
+
+  it('folder: 只跳过文件夹，folder:= 只跳过同名文件夹', async () => {
+    mkdirSync(join(dir, 'Tool', 'loaders'), { recursive: true })
+    mkdirSync(join(dir, 'lib'), { recursive: true })
+    mkdirSync(join(dir, 'library'), { recursive: true })
+    mkdirSync(join(dir, 'Game'), { recursive: true })
+    writeFileSync(join(dir, 'Tool', 'loaders', 'pidfinder.exe'), '')
+    writeFileSync(join(dir, 'lib', 'python.exe'), '')
+    writeFileSync(join(dir, 'library', 'asset.exe'), '')
+    writeFileSync(join(dir, 'Game', 'Tool.exe'), '')
+    writeFileSync(join(dir, 'Game', 'main.exe'), '')
+
+    const result = await searchMatchingFiles(dir, ['.exe'], {
+      maxDepth: 5,
+      excludePatterns: ['folder:tool', 'folder:=lib']
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.files).toEqual(expect.arrayContaining([
+      join('Game', 'Tool.exe'),
+      join('Game', 'main.exe'),
+      join('library', 'asset.exe')
+    ]))
+    expect(result.files).not.toContain(join('Tool', 'loaders', 'pidfinder.exe'))
+    expect(result.files).not.toContain(join('lib', 'python.exe'))
   })
 })

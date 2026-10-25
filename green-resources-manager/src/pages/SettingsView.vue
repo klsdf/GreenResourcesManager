@@ -3,9 +3,6 @@
     <div class="settings-layout">
       <!-- 左侧导航栏 -->
       <div class="settings-sidebar">
-        <div class="sidebar-header">
-          <h3>{{ $t('settings.title') }}</h3>
-        </div>
         <nav class="settings-nav">
           <div 
             v-for="category in settingsCategories" 
@@ -269,6 +266,8 @@ export default {
       autoSaveTimer: null,
       /** 漫画页选好指定程序后，用来把路径写回当前设置。卸掉页面时要拿同一个函数取消监听。 */
       comicArchiveProgramListener: null as ((event: Event) => void) | null,
+      /** 左下角快速开关改了伪装模式时，同步这一页内存里的值，避免自动保存写回旧状态。 */
+      disguiseModeListener: null as ((event: Event) => void) | null,
       isAutoSaving: false,
       lastSaveTime: null,
       // 初始化标志，避免在初始化时触发watcher
@@ -976,6 +975,11 @@ export default {
       this.handleComicArchiveProgramSelected(event)
     }
     window.addEventListener('comic-archive-program-selected', this.comicArchiveProgramListener)
+    this.disguiseModeListener = (event: Event) => {
+      const enabled = (event as CustomEvent<{ enabled?: boolean }>).detail?.enabled === true
+      this.settings.disguiseMode = enabled
+    }
+    window.addEventListener('disguise-mode-changed', this.disguiseModeListener)
     try {
       // 先初始化存档设置的默认值，确保UI可以立即显示
       if (!this.settings.saveDataLocation) {
@@ -1234,6 +1238,10 @@ export default {
       window.removeEventListener('comic-archive-program-selected', this.comicArchiveProgramListener)
       this.comicArchiveProgramListener = null
     }
+    if (this.disguiseModeListener) {
+      window.removeEventListener('disguise-mode-changed', this.disguiseModeListener)
+      this.disguiseModeListener = null
+    }
     // 清理定时器
     if (this.autoSaveTimer) {
       clearTimeout(this.autoSaveTimer)
@@ -1262,18 +1270,6 @@ export default {
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-}
-
-.sidebar-header {
-  padding: 20px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.sidebar-header h3 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 18px;
-  font-weight: 600;
 }
 
 .settings-nav {

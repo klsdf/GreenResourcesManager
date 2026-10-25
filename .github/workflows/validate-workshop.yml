@@ -1,0 +1,31 @@
+name: Validate workshop registry
+
+on:
+  pull_request:
+    paths:
+      - 'green-resources-manager/workshop/community-mods.json'
+      - 'green-resources-manager/scripts/validate-workshop-registry.mjs'
+      - '.github/workflows/validate-workshop.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: green-resources-manager
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 校验索引和 latest Release
+        run: node scripts/validate-workshop-registry.mjs

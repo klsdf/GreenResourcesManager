@@ -19,13 +19,13 @@
  * 14. RPG Developer Bakin - 通过data文件夹 bakinplayer.exe 和 bakinplayer.exe.config 文件识别
  * 15. GameMaker Studio - 通过 data.win 或 options.ini 文件识别
  * 16. TyranoBuilder - 通过 *_tyrano_data.* 或 builder_config.json 识别
- * 17. TyranoScript - 通过 tyrano 引擎目录、tyrano.js 或 data/system/KeyConfig.js 识别
+ * 17. TyranoScript - 通过 tyrano 引擎目录、tyrano.js 或 data/system/KeyConfig.js 识别，打包进 app.asar 时也看包内
  * 18. Ren'Py - 通过 renpy 文件夹和 game 文件夹识别
  * 19. Construct - 通过 construct 相关文件或 data.js + main.js 识别
  * 20. Love2D - 通过 main.lua 文件识别
  * 21. Python/Pygame - 通过 .py 文件和 pygame 相关文件识别
  * 22. Java - 通过 .jar 文件识别
- * 23. Kirikiri Z - 通过 krkrz、plugin/win64、psbfile.dll，或程序里的 Kirikiri Z 字样识别；其余 xp3 才是 Kirikiri / 吉里吉里
+ * 23. Kirikiri Z - 主程序产品名含 TVP(KIRIKIRI) Z core，或文件名里有 krkrz；其余 xp3 才是 Kirikiri / 吉里吉里
  * 24. CatSystem2 - 通过 cs2.exe、.int 文件（scene.int/image.int）、startup.xml 或 .dat 文件识别
  * 25. Ethornell (BGI) - 通过 BGI.exe、.arc 文件或 BGI.gdb 文件识别
  * 26. Entis - 通过 .noa 文件、.eri 文件或 .mio 文件识别
@@ -381,16 +381,21 @@ function detectTyranoBuilder(context: DetectionContext): string | null {
 /**
  * 检测 TyranoScript。
  * 以前只认 TyranoBuilder 的 tyrano_data，普通脚本游戏只有 tyrano 目录和 KeyConfig.js，详情页就会显示识别不到。
- * 启动程序旁边、下一层 game/app，以及 Electron 解包后的 resources/app，都要看一眼。
+ * Electron 打包后引擎不在文件夹里，而在 resources/app.asar 里面，列目录时要连这个包一起看。
  */
 async function detectTyranoScript(context: DetectionContext): Promise<string | null> {
   const { gameDir, pathSeparator, fileNames } = context
-  /** 可能放着引擎的目录。先看启动程序旁边，再看常见的子目录。 */
+  /** 可能放着引擎的目录。先看启动程序旁边，再看常见的子目录和 asar 包。 */
   const candidateDirs: { dir: string, knownNames?: string[] }[] = [
     { dir: gameDir, knownNames: fileNames }
   ]
   if (fileNames.some(name => name === 'resources' || name === 'resources/')) {
-    candidateDirs.push({ dir: `${gameDir}${pathSeparator}resources${pathSeparator}app` })
+    const resourcesDir = `${gameDir}${pathSeparator}resources`
+    candidateDirs.push({ dir: `${resourcesDir}${pathSeparator}app` })
+    const resourceNames = await listLowerNames(resourcesDir)
+    if (resourceNames?.some(name => name === 'app.asar')) {
+      candidateDirs.push({ dir: `${resourcesDir}${pathSeparator}app.asar` })
+    }
   }
   for (const folderName of ['app', 'game', 'bin']) {
     if (fileNames.some(name => name === folderName || name === `${folderName}/`)) {
@@ -468,53 +473,27 @@ function detectJava(context: DetectionContext): string | null {
 }
 
 /**
- * 目录里有没有 Kirikiri Z 才有的文件。
- * 旧吉里吉里只有 32 位，没有 win64，也没有 psbfile.dll。
- * @param dirPath 插件目录或游戏根目录
- * @returns 找到 Z 的特征时为 true
- */
-async function directoryHasKrkrzFiles(dirPath: string, depth = 0): Promise<boolean> {
-  // 只往下看 plugin 和 win32/win64。再深就停，避免目录套目录时一直找下去。
-  if (depth > 3) return false
-  const names = await listLowerNames(dirPath)
-  if (!names) return false
-  if (names.some(name => name.includes('krkrz') || name === 'psbfile.dll' || name === 'win64' || name === 'win64/')) {
-    return true
-  }
-  if (names.some(name => name === 'win32' || name === 'win32/' || name === 'plugin' || name === 'plugin/')) {
-    for (const child of ['win32', 'win64', 'plugin']) {
-      if (!names.some(name => name === child || name === `${child}/`)) continue
-      const separator = dirPath.includes('\\') ? '\\' : '/'
-      if (await directoryHasKrkrzFiles(`${dirPath}${separator}${child}`, depth + 1)) {
-        return true
-      }
-    }
-  }
-  return false
-}
-
-/**
- * 启动程序里有没有 Kirikiri Z 的字样。
- * 很多游戏会把 krkrz.exe 改成作品名，文件名看不出来，只能看程序自己的内容。
+ * 主程序的产品名是不是 Kirikiri Z。
+ * 官方内核写在版本信息里的是 TVP(KIRIKIRI) Z core。作品把 exe 改名后，这行还在。
  * @param gamePath 游戏可执行文件路径
- * @returns 内容里出现 krkrz 或 Kirikiri Z 时为 true
+ * @returns 产品名里有这串字时为 true
  */
-async function executableLooksLikeKrkrz(gamePath: string): Promise<boolean> {
-  if (!gamePath || !window.electronAPI?.readTextFile) return false
+async function executableIsKirikiriZ(gamePath: string): Promise<boolean> {
+  if (!gamePath || !window.electronAPI?.getFileProductName) return false
   try {
-    const result = await window.electronAPI.readTextFile(gamePath)
-    const content = result?.content || ''
-    const lower = content.toLowerCase()
-    return lower.includes('krkrz') || lower.includes('kirikiri z')
+    const result = await window.electronAPI.getFileProductName(gamePath)
+    /** 版本信息里的产品名。空字符串表示这个程序没写产品名。 */
+    const productName = (result?.productName || '').toLowerCase()
+    return productName.includes('tvp(kirikiri) z core')
   } catch (error) {
-    console.warn('读取游戏程序以区分 Kirikiri Z 失败:', error)
+    console.warn('读取程序产品名以区分 Kirikiri Z 失败:', error)
     return false
   }
 }
 
 /**
  * 检测 Kirikiri。
- * xp3 两种引擎都有。krkrz.exe 里也含有 krkr，要先认出 Z，不能一看到 krkr 就当成旧吉里吉里。
+ * xp3 两种引擎都有。先看是不是 Z 的内核，对不上再算旧的吉里吉里。
  */
 async function detectKirikiri(context: DetectionContext): Promise<string | null> {
   const hasXp3Files = context.fileNames.some(name => name.endsWith('.xp3') || name === 'data.xp3')
@@ -525,12 +504,7 @@ async function detectKirikiri(context: DetectionContext): Promise<string | null>
   if (context.fileNames.some(name => name.includes('krkrz'))) {
     return 'Kirikiri Z'
   }
-  const { gameDir, pathSeparator } = context
-  // 根目录上的 plugin、win64、psbfile.dll 会一起看完，不用再单独进一次 plugin。
-  if (await directoryHasKrkrzFiles(gameDir)) {
-    return 'Kirikiri Z'
-  }
-  if (await executableLooksLikeKrkrz(context.gamePath)) {
+  if (await executableIsKirikiriZ(context.gamePath)) {
     return 'Kirikiri Z'
   }
   return 'Kirikiri / 吉里吉里'

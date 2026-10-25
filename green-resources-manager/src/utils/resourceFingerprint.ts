@@ -120,3 +120,15 @@ export function fingerprintPageCount(fingerprint: string): number {
   const count = Number(parts[2])
   return Number.isFinite(count) ? count : 0
 }
+
+/**
+ * 单文件指纹里记下的大小。不是大小指纹时返回 0。
+ * @param fingerprint 指纹字符串
+ * @returns 字节数
+ */
+export function fingerprintFileSize(fingerprint: string): number {
+  const parts = String(fingerprint || '').split('|')
+  if (parts[0] !== 'v1' || parts[1] !== 'size') return 0
+  const size = Number(parts[2])
+  return Number.isFinite(size) ? size : 0
+}

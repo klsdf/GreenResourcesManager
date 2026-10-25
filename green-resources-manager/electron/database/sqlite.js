@@ -14,6 +14,20 @@ const RESOURCE_TABLES = [
   'software', 'website', 'singleImage', 'other', 'videoFolder'
 ]
 
+/** 页面 id 到逻辑资源类型的映射，资源自身没带 resourceType 时用它推断。 */
+const PAGE_ID_TO_RESOURCE_TYPE = {
+  games: 'game',
+  software: 'software',
+  images: 'manga',
+  'single-image': 'singleImage',
+  videos: 'video',
+  'anime-series': 'videoFolder',
+  novels: 'novel',
+  websites: 'website',
+  audio: 'audio',
+  other: 'other'
+}
+
 /**
  * 获取真正的存档目录。位置只从项目根目录的记录里读。
  * @returns {string} SaveData 目录路径
@@ -213,8 +227,13 @@ function getResourcesFromJsonTable(db, tableName, conditions) {
  */
 function getResourcesByIds(db, tableName, ids) {
   if (!ids.length) return []
-  const placeholders = ids.map(() => '?').join(',')
-  const rows = db.prepare(`SELECT id, jsonData, timestamp, version FROM "${tableName}" WHERE id IN (${placeholders})`).all(...ids)
+  // 一页可能有几千条，分批查，别把 SQLite 的参数上限撑爆
+  const rows = []
+  for (let start = 0; start < ids.length; start += 500) {
+    const chunk = ids.slice(start, start + 500)
+    const placeholders = chunk.map(() => '?').join(',')
+    rows.push(...db.prepare(`SELECT id, jsonData, timestamp, version FROM "${tableName}" WHERE id IN (${placeholders})`).all(...chunk))
+  }
   return rows.map(row => {
     try {
       const parsed = JSON.parse(row.jsonData)
@@ -768,26 +787,40 @@ async function savePageResources(pageId, resources) {
     // 收集本批次发生标签变更的逻辑资源类型（用于事务后一次广播）
     const changedResourceTypes = new Set()
 
-    // 页面ID到资源类型的映射（用于推断资源类型）
-    const pageIdToResourceType = {
-      'games': 'game',
-      'software': 'software',
-      'images': 'manga',
-      'single-image': 'singleImage',
-      'videos': 'video',
-      'anime-series': 'videoFolder',
-      'novels': 'novel',
-      'websites': 'website',
-      'audio': 'audio',
-      'other': 'other'
-    }
-
     // 实际写入的资源数量（用于检测“全部被跳过”的情况）
     let insertedCount = 0
+    // 预编译语句缓存：同一个表在一次保存里只 prepare 一次
+    const insertStatements = new Map()
+    const selectStatements = new Map()
+    const getInsertStatement = tableName => {
+      if (!insertStatements.has(tableName)) {
+        insertStatements.set(
+          tableName,
+          db.prepare(`INSERT OR REPLACE INTO "${tableName}" (id, jsonData, timestamp, version) VALUES (?, ?, ?, ?)`)
+        )
+      }
+      return insertStatements.get(tableName)
+    }
+    const getSelectStatement = tableName => {
+      if (!selectStatements.has(tableName)) {
+        selectStatements.set(tableName, db.prepare(`SELECT jsonData FROM "${tableName}" WHERE id = ?`))
+      }
+      return selectStatements.get(tableName)
+    }
     // 开始事务
     const transaction = db.transaction(() => {
       // 存储每个资源对应的数据库表名（用于后续插入页面索引）
       const resourceTableMap = new Map()
+      /**
+       * 保存前这一页上的资源。
+       * 这次名单里没有的，就是被删掉的。只改页面名单不会动标签引用，使用数会一直停在删除前。
+       */
+      const pageIndexName = `${pageId.replace(/-/g, '_')}_page`
+      const pageIndexExists = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`).get(pageIndexName)
+      const previousPageRows = pageIndexExists
+        ? db.prepare(`SELECT resourceId, resourceType FROM "${pageIndexName}"`).all()
+        : []
+      const keptIds = new Set(resources.map(resource => resource && resource.id).filter(Boolean))
 
       // 1. 保存所有资源到对应的资源表（如果有资源的话）
       if (resources.length > 0) {
@@ -803,8 +836,7 @@ async function savePageResources(pageId, resources) {
 
           // 如果资源类型不存在，尝试从页面ID推断
           if (!resourceType) {
-            resourceType = pageIdToResourceType[pageId] || pageId
-            console.log(`[SQLite] 从页面ID推断资源类型: ${pageId} -> ${resourceType}`)
+            resourceType = PAGE_ID_TO_RESOURCE_TYPE[pageId] || pageId
           }
 
           // 映射到数据库表名
@@ -816,7 +848,7 @@ async function savePageResources(pageId, resources) {
           const logicalType = tagIndex.TABLE_TO_TYPE[tableName]
           let oldTagObj = null
           if (logicalType) {
-            const oldRow = db.prepare(`SELECT jsonData FROM "${tableName}" WHERE id = ?`).get(resource.id)
+            const oldRow = getSelectStatement(tableName).get(resource.id)
             if (oldRow) {
               try { oldTagObj = JSON.parse(oldRow.jsonData) } catch { oldTagObj = null }
             }
@@ -824,8 +856,7 @@ async function savePageResources(pageId, resources) {
 
           const timestamp = resource.timestamp != null ? resource.timestamp : new Date().toISOString()
           const version = resource.version != null ? resource.version : null
-          const insertStmt = db.prepare(`INSERT OR REPLACE INTO "${tableName}" (id, jsonData, timestamp, version) VALUES (?, ?, ?, ?)`)
-          insertStmt.run(resource.id, JSON.stringify(resource), timestamp, version)
+          getInsertStatement(tableName).run(resource.id, JSON.stringify(resource), timestamp, version)
           insertedCount++
 
           // 标签索引：同一事务内增量同步
@@ -856,6 +887,10 @@ async function savePageResources(pageId, resources) {
 
       // 3. 重新插入页面索引（使用之前保存的映射关系，如果有资源的话）
       if (resources.length > 0) {
+        const insertPageStmt = db.prepare(`
+          INSERT INTO ${quotedTableName} (id, resourceType, resourceId) 
+          VALUES (?, ?, ?)
+        `)
         for (let i = 0; i < resources.length; i++) {
           const resource = resources[i]
           if (!resource.id) {
@@ -876,11 +911,42 @@ async function savePageResources(pageId, resources) {
           const id = `${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}`
 
           // 插入页面索引
-          const insertPageStmt = db.prepare(`
-            INSERT INTO ${quotedTableName} (id, resourceType, resourceId) 
-            VALUES (?, ?, ?)
-          `)
           insertPageStmt.run(id, dbTableName, resourceId)
+        }
+      }
+
+      // 从这一页拿掉、别的页面也不再指向的资源，连同标签引用一起删掉。
+      // 还有页面用着同一条记录时不动它，避免把另一页的标签数量也减掉。
+      // 先把所有页索引里还在使用的资源收成一个集合，避免对每条资源都查一遍所有页表。
+      const pageTables = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%_page'`).all()
+      const stillUsedIds = new Set()
+      for (const pageTable of pageTables) {
+        const rows = db.prepare(`SELECT resourceId FROM "${pageTable.name}"`).all()
+        for (const row of rows) {
+          if (row.resourceId) stillUsedIds.add(row.resourceId)
+        }
+      }
+      const tableExistsStatements = new Map()
+      const getTableExistsStatement = tableName => {
+        if (!tableExistsStatements.has(tableName)) {
+          tableExistsStatements.set(
+            tableName,
+            db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`)
+          )
+        }
+        return tableExistsStatements.get(tableName)
+      }
+      for (const previous of previousPageRows) {
+        if (!previous.resourceId || keptIds.has(previous.resourceId)) continue
+        if (stillUsedIds.has(previous.resourceId)) continue
+        const physicalTable = mapResourceTypeToTableName(previous.resourceType)
+        const logicalType = tagIndex.TABLE_TO_TYPE[physicalTable]
+        if (getTableExistsStatement(physicalTable).get(physicalTable)) {
+          db.prepare(`DELETE FROM "${physicalTable}" WHERE id = ?`).run(previous.resourceId)
+        }
+        if (logicalType) {
+          const removed = tagIndex.removeAllRefsInTx(db, logicalType, previous.resourceId)
+          if (removed.length > 0) changedResourceTypes.add(logicalType)
         }
       }
     })
@@ -908,6 +974,101 @@ async function savePageResources(pageId, resources) {
     return { ok: true }
   } catch (err) {
     console.error(`[SQLite] 保存页面 ${pageId} 资源失败:`, err.message)
+    return { ok: false, message: err.message }
+  }
+}
+
+/**
+ * 增量保存资源正文，不修改页面索引。
+ * 适合改星级、收藏、页数、访问记录这类不改变页面成员的更新，
+ * 避免为了一个字段重写整页。
+ * @param {string} pageId 页面 id
+ * @param {object[]} resources 资源 JSON 数组
+ * @returns {Promise<{ ok: boolean, updated?: number, message?: string }>}
+ */
+async function upsertPageResources(pageId, resources) {
+  try {
+    if (!resources || !Array.isArray(resources)) {
+      return { ok: false, message: '未收到任何资源数据' }
+    }
+    if (resources.length === 0) {
+      return { ok: true, updated: 0 }
+    }
+
+    const Database = require('better-sqlite3')
+    const db = new Database(getDatabasePath())
+    ensureResourceTablesExist(db)
+    tagIndex.ensureTagTables(db)
+
+    const changedResourceTypes = new Set()
+    const insertStatements = new Map()
+    const selectStatements = new Map()
+    let updatedCount = 0
+
+    const getInsertStatement = tableName => {
+      if (!insertStatements.has(tableName)) {
+        insertStatements.set(
+          tableName,
+          db.prepare(`INSERT OR REPLACE INTO "${tableName}" (id, jsonData, timestamp, version) VALUES (?, ?, ?, ?)`)
+        )
+      }
+      return insertStatements.get(tableName)
+    }
+    const getSelectStatement = tableName => {
+      if (!selectStatements.has(tableName)) {
+        selectStatements.set(tableName, db.prepare(`SELECT jsonData FROM "${tableName}" WHERE id = ?`))
+      }
+      return selectStatements.get(tableName)
+    }
+
+    const transaction = db.transaction(() => {
+      for (const resource of resources) {
+        if (!resource || !resource.id) continue
+
+        let resourceType = resource.resourceType || resource.resource_type
+        if (!resourceType) {
+          resourceType = PAGE_ID_TO_RESOURCE_TYPE[pageId] || pageId
+        }
+        const tableName = mapResourceTypeToTableName(resourceType)
+        const logicalType = tagIndex.TABLE_TO_TYPE[tableName]
+
+        let oldTagObj = null
+        if (logicalType) {
+          const oldRow = getSelectStatement(tableName).get(resource.id)
+          if (oldRow) {
+            try { oldTagObj = JSON.parse(oldRow.jsonData) } catch { oldTagObj = null }
+          }
+        }
+
+        const timestamp = resource.timestamp != null ? resource.timestamp : new Date().toISOString()
+        const version = resource.version != null ? resource.version : null
+        getInsertStatement(tableName).run(resource.id, JSON.stringify(resource), timestamp, version)
+        updatedCount++
+
+        if (logicalType) {
+          const tagChanges = tagIndex.syncTagRefsInTx(db, logicalType, resource.id, oldTagObj, resource)
+          if (tagChanges.adds.length > 0 || tagChanges.removes.length > 0) {
+            changedResourceTypes.add(logicalType)
+          }
+        }
+      }
+    })
+
+    transaction()
+    db.close()
+
+    if (changedResourceTypes.size > 0) {
+      tagIndex.broadcast('tags:changed', {
+        resourceType: null,
+        resourceTypes: [...changedResourceTypes],
+        adds: [],
+        removes: []
+      })
+    }
+
+    return { ok: true, updated: updatedCount }
+  } catch (err) {
+    console.error(`[SQLite] 增量保存页面 ${pageId} 资源失败:`, err.message)
     return { ok: false, message: err.message }
   }
 }
@@ -1419,6 +1580,44 @@ async function findResourceByPath(filePath) {
 }
 
 /**
+ * 在所有资源正文表里按资源 ID 查找。
+ * 资源可能挂在别的页面，导入时只有按 ID 找到原记录，才能把路径改到新位置。
+ * @param {string} resourceId 资源 ID
+ * @returns {Promise<{ ok: boolean, resource?: any, tableName?: string, message?: string }>}
+ */
+async function findResourceById(resourceId) {
+  const id = typeof resourceId === 'string' ? resourceId.trim() : ''
+  if (!id) return { ok: true, resource: null }
+
+  try {
+    const Database = require('better-sqlite3')
+    const db = new Database(getDatabasePath())
+    ensureResourceTablesExist(db)
+    try {
+      for (const tableName of RESOURCE_TABLES) {
+        const exists = db.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`).get(tableName)
+        if (!exists) continue
+        const row = db.prepare(`SELECT id, jsonData FROM "${tableName}" WHERE id = ?`).get(id)
+        if (!row) continue
+        let data = {}
+        try {
+          data = JSON.parse(row.jsonData) || {}
+        } catch {
+          data = {}
+        }
+        return { ok: true, tableName, resource: { ...data, id: row.id } }
+      }
+      return { ok: true, resource: null }
+    } finally {
+      db.close()
+    }
+  } catch (err) {
+    console.error('[SQLite] 按 ID 查找资源失败:', err.message)
+    return { ok: false, message: err.message }
+  }
+}
+
+/**
  * 删掉页面的名单表。
  * 资源正文留在原来的表里。别的页面还指着它就继续用；之后把同一个文件拖进新页面，会接回这一条。
  * @param {string} pageId - 页面 ID
@@ -1468,4 +1667,4 @@ async function deletePageData(pageId) {
   }
 }
 
-module.exports = { getAllTablesData, getPageData, getTableResources, getResourceById, getSaveDataDirectory, getDatabasePath, saveResourceToTable, addResourceToPage, savePageResources, deleteResourceFromTable, deletePageData, findResourceByPath, migrateOldSqlToJsonFormat, migrateAchievementsFromJson, migrateSettingsFromJson, getSettingsFromSqlite, saveSettingsToSqlite, migrateUserFromJson, getUserFromSqlite, saveUserToSqlite }
+module.exports = { getAllTablesData, getPageData, getTableResources, getResourceById, getSaveDataDirectory, getDatabasePath, saveResourceToTable, addResourceToPage, savePageResources, upsertPageResources, deleteResourceFromTable, deletePageData, findResourceByPath, findResourceById, migrateOldSqlToJsonFormat, migrateAchievementsFromJson, migrateSettingsFromJson, getSettingsFromSqlite, saveSettingsToSqlite, migrateUserFromJson, getUserFromSqlite, saveUserToSqlite }

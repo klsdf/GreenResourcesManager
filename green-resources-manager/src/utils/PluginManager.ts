@@ -325,6 +325,9 @@ class PluginManager {
         console.log(`✅ 插件 ${pluginId} 加载成功（无 onLoad 方法）`)
       }
 
+      // 有 styles.css 就注入到页面，卸载时再移除
+      await this.loadPluginStyles(plugin)
+
       // 保存插件实例
       this.loadedPlugins.set(pluginId, instance)
 
@@ -365,6 +368,8 @@ class PluginManager {
         console.warn(`清理插件 ${pluginId} 的导航项失败:`, error)
       }
 
+      this.removePluginStyles(pluginId)
+
       // 从已加载列表中移除
       this.loadedPlugins.delete(pluginId)
 
@@ -372,6 +377,50 @@ class PluginManager {
     } catch (error) {
       console.error(`卸载插件 ${pluginId} 失败:`, error)
       return false
+    }
+  }
+
+  /**
+   * 把插件目录里的 styles.css 注入页面。
+   * 样式用插件 id 作为元素 id，重复加载时直接替换内容。
+   */
+  private async loadPluginStyles(plugin: PluginInfo): Promise<void> {
+    try {
+      const stylePath = `${plugin.path}/styles.css`
+
+      if (window.electronAPI && window.electronAPI.checkFileExists) {
+        const existsResult = await window.electronAPI.checkFileExists(stylePath)
+        if (!existsResult || !existsResult.success || existsResult.exists === false) {
+          return
+        }
+      }
+
+      if (!window.electronAPI || !window.electronAPI.readTextFile) {
+        return
+      }
+
+      const result = await window.electronAPI.readTextFile(stylePath)
+      if (!result || !result.success || !result.content) {
+        return
+      }
+
+      const styleId = `plugin-style-${plugin.id}`
+      let styleElement = document.getElementById(styleId) as HTMLStyleElement | null
+      if (!styleElement) {
+        styleElement = document.createElement('style')
+        styleElement.id = styleId
+        document.head.appendChild(styleElement)
+      }
+      styleElement.textContent = result.content
+    } catch (error) {
+      console.warn(`加载插件 ${plugin.id} 的样式失败:`, error)
+    }
+  }
+
+  private removePluginStyles(pluginId: string): void {
+    const styleElement = document.getElementById(`plugin-style-${pluginId}`)
+    if (styleElement) {
+      styleElement.remove()
     }
   }
 

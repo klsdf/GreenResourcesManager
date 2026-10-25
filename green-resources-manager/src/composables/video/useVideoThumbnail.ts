@@ -12,6 +12,14 @@ export interface VideoThumbnailOptions {
   thumbnailUrlCache?: Ref<Map<string, string>> | Map<string, string>
 }
 
+export interface GenerateThumbnailOptions {
+  /**
+   * 只把截到的帧作为 dataURL 返回，不写进存档目录。
+   * 编辑中的随机封面反复生成时用这个，等用户确认保存再落盘一张。
+   */
+  skipPersist?: boolean
+}
+
 /**
  * 视频缩略图处理 composable
  */
@@ -396,7 +404,8 @@ export function useVideoThumbnail(options: VideoThumbnailOptions = {}) {
     filePath: string,
     videoName: string | null = null,
     existingThumbnail: string | null = null,
-    buildFileUrlFn?: (path: string) => string
+    buildFileUrlFn?: (path: string) => string,
+    options: GenerateThumbnailOptions = {}
   ): Promise<string | null> => {
     return new Promise(async (resolve) => {
       try {
@@ -520,19 +529,25 @@ export function useVideoThumbnail(options: VideoThumbnailOptions = {}) {
             
             // 保存为本地文件
             const saveThumbnailFile = async () => {
+              // 只预览不落盘：编辑中的表单拿 dataURL，保存时再复制成存档里唯一的一张
+              if (options.skipPersist) {
+                console.log('✅ 随机封面只返回 dataURL，暂不写入存档')
+                cleanup()
+                resolve(dataUrl)
+                return
+              }
               try {
                 // 生成新的缩略图文件名
                 const filename = await generateThumbnailFilename(videoName, filePath)
-                
-                // 删除旧的缩略图文件
-                if (existingThumbnail && existingThumbnail.trim()) {
-                  await deleteOldThumbnail(existingThumbnail)
-                }
                
                 const savedPath = await saveManager.saveThumbnail('videos', filename, dataUrl)
                 
                 if (savedPath) {
                   console.log('✅ 缩略图保存为本地文件:', savedPath)
+                  // 新图落盘之后再删旧图。生成或保存失败时，正在用的封面还能留着。
+                  if (existingThumbnail && existingThumbnail.trim()) {
+                    await deleteOldThumbnail(existingThumbnail)
+                  }
                   cleanup()
                   resolve(savedPath)
                 } else {

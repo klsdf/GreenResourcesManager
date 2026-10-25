@@ -15,7 +15,7 @@
         <h3>{{ $lt(filter.title) }}</h3>
         <button 
           class="btn-clear-filter" 
-          @click="clearFilter(filter.key)" 
+          @click="clearFilter(filter)" 
           v-if="(filter.selected && filter.selected.length > 0) || (filter.excluded && filter.excluded.length > 0)"
         >
           ✕ {{ $lt('清除筛选') }}
@@ -24,14 +24,14 @@
       <div class="filter-list">
         <div 
           v-for="item in filter.items" 
-          :key="item.name"
+          :key="(item.filterKey || filter.key) + ':' + item.name"
           class="filter-item"
           :class="{ 
             active: filter.selected && filter.selected.includes(item.name),
             excluded: filter.excluded && filter.excluded.includes(item.name)
           }"
-          @click="selectFilter(filter.key, item.name)"
-          @contextmenu.prevent="excludeFilter(filter.key, item.name)"
+          @click="selectFilter(item.filterKey || filter.key, item.name)"
+          @contextmenu.prevent="excludeFilter(item.filterKey || filter.key, item.name)"
         >
           <span v-if="filter.selected && filter.selected.includes(item.name)" class="include-indicator">✓</span>
           <span v-if="filter.excluded && filter.excluded.includes(item.name)" class="exclude-indicator">∅</span>
@@ -98,8 +98,16 @@ export default {
       console.log('FilterSidebar excludeFilter:', filterKey, itemName)
       this.$emit('filter-exclude', { filterKey, itemName })
     },
-    clearFilter(filterKey) {
-      this.$emit('filter-clear', filterKey)
+    /**
+     * 清掉这一组里勾过的条件。
+     * 其他筛选里可能同时放着正在使用和丢失的资源，它们各自记状态，要一起清。
+     * @param {object} filter 当前这一组
+     */
+    clearFilter(filter) {
+      const keys = Array.isArray(filter.clearKeys) && filter.clearKeys.length > 0
+        ? filter.clearKeys
+        : [filter.key || filter]
+      keys.forEach((key) => this.$emit('filter-clear', key))
     },
     /**
      * 获取显示名称（支持伪装模式）
@@ -187,12 +195,11 @@ export default {
 
 <style scoped>
 .filter-sidebar {
-  width: 250px;
+  width: 100%;
   background: var(--bg-secondary);
-  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
+  overflow: visible;
   transition: background-color 0.3s ease;
 }
 
@@ -241,10 +248,7 @@ export default {
 
 .filter-list {
   padding: 0;
-  max-height: 800px; /* 限制最大高度 */
-  overflow-y: auto; /* 添加独立滚动条 */
-  overflow-x: hidden;
-  /* 美化滚动条样式已移至全局 reset.scss */
+  overflow: visible;
 }
 
 .filter-item {

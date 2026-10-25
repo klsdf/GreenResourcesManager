@@ -117,6 +117,57 @@
     "openFolderButton": "打开文件夹",
     "openedDetail": "已打开备份文件夹: {path}"
   },
+  "sameResource": {
+    "title": "相同资源判定",
+    "description": "拖入资源或旧文件丢失时，按下面勾选的特征判断是不是同一条记录。完整路径相同永远算同一个，不受这里影响",
+    "presets": {
+      "label": "快速预设",
+      "loose": "宽松",
+      "standard": "标准",
+      "strict": "严格",
+      "precise": "精准",
+      "content": "按内容"
+    },
+    "criteria": {
+      "fileName": {
+        "name": "文件名相同",
+        "desc": "比较路径最后一段，默认包含扩展名"
+      },
+      "parentFolder": {
+        "name": "上一级文件夹相同",
+        "desc": "文件看所在文件夹，文件夹看它的上一层"
+      },
+      "pathWithoutDrive": {
+        "name": "忽略盘符的路径相同",
+        "desc": "D:\\Games\\Foo 和 E:\\Games\\Foo 算相同，目录层级要一致"
+      },
+      "fileSize": {
+        "name": "文件大小相同",
+        "desc": "字节数和扩展名都相同，只对单个文件有效"
+      },
+      "fingerprint": {
+        "name": "内容指纹相同",
+        "desc": "项目文件清单、漫画页数或文件大小对得上，改名后也能认回"
+      }
+    },
+    "mode": {
+      "label": "条件组合",
+      "all": "全部满足（推荐）",
+      "any": "任意满足（容易误判）",
+      "joinAll": "，并且",
+      "joinAny": "，或者",
+      "anyWarning": "「任意满足」只要有一条对上就会判成同一条记录，容易把不同资源并掉。确定要这样用再选。"
+    },
+    "summaryPrefix": "当前规则：",
+    "fingerprintHint": "勾选内容指纹后，首次导入会扫描一次项目文件；游戏等大目录会慢一些。",
+    "pathHint": "完整路径相同永远算同一条，跨页面也会接回。其余条件只在本页资源之间比较；勾选多个条件时，默认要求全部成立。",
+    "needOne": "至少要保留一个判定条件。"
+  },
+  "resourceMarker": {
+    "title": "写入隐藏标记文件",
+    "description": "在每个资源旁边写一个隐藏的标记文件，记住它在软件里的资源编号。以后改名、移动或换盘符，再拖进来也能准确认出。关闭后只靠路径和内容指纹，移动后可能认不回来。",
+    "disableConfirm": "关闭后，资源移动或改名后再导入，可能无法准确识别成原来的记录。磁盘上已有的标记文件不会删除，但软件不再读取。确定要关闭吗？"
+  },
   "personalization": {
     "customAppTitle": "自定义软件标题",
     "customAppTitleDesc": "设置软件在侧边栏显示的标题",

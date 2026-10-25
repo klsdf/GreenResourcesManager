@@ -5,29 +5,26 @@
             <!-- 工具栏 -->
         <GameToolbar ref="toolbar" 
                 :search-query="searchQuery" 
-                :sort-by="sortBy"
                 :items="toolbarConfig.items"
                 :add-button-text="toolbarConfig.addButtonText" 
                 :add-folder-button-text="toolbarConfig.addFolderButtonText"
                 :import-bookmark-button-text="toolbarConfig.importBookmarkButtonText"
                 :search-placeholder="toolbarConfig.searchPlaceholder"
-                :sort-options="toolbarConfig.sortOptions" 
                 :page-type="toolbarConfig.pageType"
                 :scale="scale"
                 :show-layout-control="showLayoutControl"
                 :is-multi-select-mode="isMultiSelectMode"
+                :display-mode="displayMode"
                 @add-item="handleAddItem"
                 @add-folder="handleAddFolder"
                 @import-bookmark="handleImportBookmark"
                 @button-click="handleButtonClick"
                 @search="handleSearch"
                 @update:searchQuery="handleSearchQueryUpdate"
-                @update:sortBy="handleSortByUpdate"
-                @sort-changed="handleSortChanged"
                 @update:scale="$emit('update:scale', $event)"
                 @toggle-multi-select="$emit('toggle-multi-select')" />
 
-            <!-- 分页导航 -->
+            <!-- 分页条：中间是翻页，右侧是显示方式和排序 -->
             <fun-pagination 
                 :current-page="paginationConfig.currentPage" 
                 :total-pages="paginationConfig.totalPages"
@@ -35,7 +32,21 @@
                 :total-items="paginationConfig.totalItems"
                 :item-type="paginationConfig.itemType" 
                 @page-change="handlePageChange" 
-            />
+            >
+                <template #actions>
+                    <display-controls
+                        :display-mode="displayMode"
+                        :show-view-mode="showDisplayModeControl"
+                        :sort-by="sortBy"
+                        :sort-options="toolbarConfig.sortOptions"
+                        :page-type="toolbarConfig.pageType"
+                        @update:displayMode="$emit('update:displayMode', $event)"
+                        @display-mode-changed="$emit('display-mode-changed', $event)"
+                        @update:sortBy="handleSortByUpdate"
+                        @sort-changed="handleSortChanged"
+                    />
+                </template>
+            </fun-pagination>
 
             <!-- 内容区域包装器，确保空状态始终在内容区域内 -->
             <div class="content-wrapper">
@@ -62,11 +73,13 @@
 
 <script>
 import GameToolbar from './Toolbar.vue'
+import DisplayControls from './DisplayControls.vue'
 
 export default {
     name: 'BaseView',
     components: {
-        GameToolbar
+        GameToolbar,
+        DisplayControls
     },
     props: {
         // 空状态相关属性
@@ -141,6 +154,16 @@ export default {
         isMultiSelectMode: {
             type: Boolean,
             default: false
+        },
+        /** 当前显示方式：grid 是网格，list 是列表 */
+        displayMode: {
+            type: String,
+            default: 'grid'
+        },
+        /** 是否显示网格 / 列表切换按钮 */
+        showDisplayModeControl: {
+            type: Boolean,
+            default: true
         }
     },
     emits: [
@@ -156,7 +179,9 @@ export default {
         'update:scale',
         'button-click',
         'search',
-        'toggle-multi-select'
+        'toggle-multi-select',
+        'update:displayMode',
+        'display-mode-changed'
     ],
     computed: {
         currentEmptyState() {

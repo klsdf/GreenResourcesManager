@@ -33,6 +33,7 @@
 
 const fs = require('fs')
 const path = require('path')
+const { spawn } = require('child_process')
 const { MAX_BACKUP_FILES } = require('./constants')
 
 /**
@@ -461,17 +462,16 @@ async function ensureDirectory(dirPath) {
  */
 async function listFiles(dirPath) {
   try {
-    // 检查目录是否存在
-    if (!fs.existsSync(dirPath)) {
-      console.warn('目录不存在:', dirPath)
-      return { success: false, error: '目录不存在', files: [] }
+    // 异步读取，避免大目录阻塞主进程
+    const stats = await fs.promises.stat(dirPath)
+    if (!stats.isDirectory()) {
+      return { success: false, error: '路径不是文件夹', files: [] }
     }
-    
-    // 读取目录内容
-    const files = fs.readdirSync(dirPath)
-    return { success: true, files: files }
+
+    const files = await fs.promises.readdir(dirPath)
+    return { success: true, files }
   } catch (error) {
-    console.error('列出目录文件失败:', error)
+    console.warn('目录不存在或无法读取:', dirPath)
     return { success: false, error: error.message, files: [] }
   }
 }
@@ -486,14 +486,13 @@ async function getFileStats(filePath) {
     if (!filePath) {
       return { success: false, error: '文件路径不能为空' }
     }
-    
-    // 检查文件是否存在
-    if (!fs.existsSync(filePath)) {
+
+    let stats
+    try {
+      stats = await fs.promises.stat(filePath)
+    } catch {
       return { success: false, error: '文件不存在' }
     }
-    
-    // 获取文件统计信息
-    const stats = fs.statSync(filePath)
     
     return {
       success: true,
@@ -685,92 +684,138 @@ async function countNovelWords(filePath) {
 }
 
 /**
- * 递归搜索目录，找到匹配扩展名的文件
- * 搜索规则：
- * - 根目录：遍历所有内容
- *   - 如果是文件：检查扩展名，匹配则加入结果
- *   - 如果是文件夹：递归搜索，一旦找到匹配文件则停止该文件夹的搜索
- * @param {string} rootDir - 根目录路径
- * @param {string[]} extensions - 要匹配的扩展名数组（如 ['.exe', '.zip']）
- * @returns {Promise<Object>} { success: boolean, files?: string[], error?: string }
+ * 在选定目录里找出扩展名符合的文件。
+ * 同一层里符合的文件都会列出来，交给导入窗口勾选，不再碰到第一个就停。
+ * 名字命中排除名单的文件不收录，同名文件夹也不再进去，用来跳过 Unity 的崩溃处理程序这类附属 exe。
+ * 符号链接不跟进去，避免「不限制层数」时在目录环里转圈。
+ * @param {string} rootDir 要搜索的根目录
+ * @param {string[]} extensions 要匹配的扩展名，例如 ['.exe', '.zip']
+ * @param {{ maxDepth?: number | null, excludePatterns?: string[], stopAtFirstMatch?: boolean }} [options]
+ *   maxDepth 是往下进入的子文件夹层数，0 只看根目录，null 表示不限制。
+ *   stopAtFirstMatch 为 true 时，某个文件夹本层找到符合的文件后就不再进入它的子文件夹；
+ *   同一层的文件仍会全部列出，比如 game.exe 和同目录的启动器都在。
+ * @returns {Promise<{ success: boolean, files?: string[], error?: string }>} 相对根目录的路径
  */
-async function searchMatchingFiles(rootDir, extensions) {
+async function searchMatchingFiles(rootDir, extensions, options = {}) {
   try {
-    if (!fs.existsSync(rootDir)) {
+    if (!rootDir || !fs.existsSync(rootDir)) {
       return { success: false, error: '目录不存在' }
     }
 
+    /** 符合条件的相对路径。导入时再拼回根目录。 */
     const matchedFiles = []
-    const lowerExtensions = extensions.map(ext => ext.toLowerCase())
+    /** 小写扩展名，比较时不再重复转换。 */
+    const lowerExtensions = (Array.isArray(extensions) ? extensions : [])
+      .map(ext => String(ext).toLowerCase())
+      .filter(Boolean)
+    /** 不限制时为 null。非法数字按 3 层，和窗口里的默认值一致。 */
+    const rawDepth = options.maxDepth
+    /** 允许进入的最深子文件夹层数。根目录本身不算一层。 */
+    const maxDepth = rawDepth == null || rawDepth === ''
+      ? null
+      : (Number.isFinite(Number(rawDepth)) ? Math.max(0, Math.floor(Number(rawDepth))) : 3)
+    /**
+     * 排除片段。默认按「文件或文件夹名里包含这段」跳过。
+     * 写成 folder:xxx 只匹配文件夹；folder:=xxx 只匹配名字完全等于 xxx 的文件夹。
+     */
+    const excludePatterns = (Array.isArray(options.excludePatterns) ? options.excludePatterns : [])
+      .map(item => String(item).trim().toLowerCase())
+      .filter(Boolean)
+    /** 本层找到匹配后是否还进子文件夹。默认继续往下找。 */
+    const stopAtFirstMatch = options.stopAtFirstMatch === true
+    /** 已经走进去的真实路径，用来挡住目录联接造成的环。 */
+    const seenDirs = new Set()
+    /** 已查看的目录数。每隔一段让出主线程，大目录搜索时窗口还能动。 */
+    let visitedDirs = 0
 
-    // 辅助函数：递归搜索文件夹（广度优先）
-    const searchFolder = (dirPath) => {
-      const items = fs.readdirSync(dirPath)
-      
-      // 第一遍：先检查当前文件夹下的所有文件
-      for (const item of items) {
-        const itemPath = path.join(dirPath, item)
-        const stats = fs.statSync(itemPath)
-
-        if (stats.isFile()) {
-          // 检查文件扩展名
-          const lowerItem = item.toLowerCase()
-          const matches = lowerExtensions.some(ext => lowerItem.endsWith(ext))
-          if (matches) {
-            // 找到匹配文件，返回相对于根目录的路径
-            const relativePath = path.relative(rootDir, itemPath)
-            matchedFiles.push(relativePath)
-            return true // 找到匹配文件，停止该文件夹的搜索
-          }
-        }
+    /**
+     * 单个名字是否命中一条排除规则。
+     * @param {string} name 文件或文件夹名
+     * @param {boolean} isDirectory 是不是文件夹
+     * @param {string} pattern 已经转成小写的排除片段
+     * @returns {boolean} 命中时为 true
+     */
+    const matchesExcludePattern = (name, isDirectory, pattern) => {
+      if (!pattern.startsWith('folder:')) {
+        return name.includes(pattern)
       }
-      
-      // 第二遍：如果没有找到匹配文件，才递归搜索子文件夹
-      for (const item of items) {
-        const itemPath = path.join(dirPath, item)
-        const stats = fs.statSync(itemPath)
+      if (!isDirectory) return false
 
-        if (stats.isDirectory()) {
-          // 递归搜索子文件夹
-          const found = searchFolder(itemPath)
-          if (found) {
-            return true // 子文件夹找到匹配文件，停止当前文件夹搜索
-          }
-        }
+      const folderPattern = pattern.slice('folder:'.length)
+      if (folderPattern.startsWith('=')) {
+        const exactName = folderPattern.slice(1)
+        return !!exactName && name === exactName
       }
-      
-      return false // 该文件夹没有找到匹配文件
+      return !!folderPattern && name.includes(folderPattern)
     }
 
-    // 遍历根目录
-    const rootItems = fs.readdirSync(rootDir)
-    
-    // 根目录第一遍：先检查所有文件
-    for (const item of rootItems) {
-      const itemPath = path.join(rootDir, item)
-      const stats = fs.statSync(itemPath)
-
-      if (stats.isFile()) {
-        // 根目录的文件：直接检查扩展名
-        const lowerItem = item.toLowerCase()
-        const matches = lowerExtensions.some(ext => lowerItem.endsWith(ext))
-        if (matches) {
-          matchedFiles.push(item)
-        }
-      }
-    }
-    
-    // 根目录第二遍：处理子文件夹
-    for (const item of rootItems) {
-      const itemPath = path.join(rootDir, item)
-      const stats = fs.statSync(itemPath)
-
-      if (stats.isDirectory()) {
-        // 根目录的子文件夹：递归搜索
-        searchFolder(itemPath)
-      }
+    /**
+     * 名字是否命中排除名单。
+     * @param {string} name 文件或文件夹名
+     * @param {boolean} isDirectory 是不是文件夹
+     * @returns {boolean} 应该跳过时为 true
+     */
+    const isExcluded = (name, isDirectory) => {
+      const lower = name.toLowerCase()
+      return excludePatterns.some(pattern => matchesExcludePattern(lower, isDirectory, pattern))
     }
 
+    /**
+     * 从某一层开始收集文件。
+     * @param {string} dirPath 当前目录
+     * @param {number} depth 已经往下走了几层。根目录是 0
+     */
+    const walk = async (dirPath, depth) => {
+      if (maxDepth != null && depth > maxDepth) return
+      /** 解析后的真实路径。解析失败时用原路径，避免一个坏链接中断整次搜索。 */
+      let realPath = dirPath
+      try {
+        realPath = fs.realpathSync(dirPath)
+      } catch (error) {
+        realPath = dirPath
+      }
+      const seenKey = realPath.toLowerCase()
+      if (seenDirs.has(seenKey)) return
+      seenDirs.add(seenKey)
+
+      /** 当前目录的子项。读不到就跳过这一层，例如没有权限的文件夹。 */
+      let entries = []
+      try {
+        entries = fs.readdirSync(dirPath, { withFileTypes: true })
+      } catch (error) {
+        return
+      }
+
+      visitedDirs += 1
+      if (visitedDirs % 80 === 0) {
+        await new Promise(resolve => setImmediate(resolve))
+      }
+
+      // 先收本层的文件，再看要不要进子文件夹。
+      // 勾了「找到后不再往下」时，本层已经有结果就不再展开这一支，
+      // 避免游戏目录里 bin、tool 里的附属 exe 也被当成一个资源。
+      let matchedInThisDir = false
+      for (const entry of entries) {
+        if (entry.isSymbolicLink()) continue
+        if (isExcluded(entry.name, entry.isDirectory())) continue
+        if (!entry.isFile()) continue
+        const lowerName = entry.name.toLowerCase()
+        if (!lowerExtensions.some(ext => lowerName.endsWith(ext))) continue
+        matchedFiles.push(path.relative(rootDir, path.join(dirPath, entry.name)))
+        matchedInThisDir = true
+      }
+
+      if (stopAtFirstMatch && matchedInThisDir) return
+      if (maxDepth != null && depth >= maxDepth) return
+
+      for (const entry of entries) {
+        if (entry.isSymbolicLink() || !entry.isDirectory()) continue
+        if (isExcluded(entry.name, true)) continue
+        await walk(path.join(dirPath, entry.name), depth + 1)
+      }
+    }
+
+    await walk(rootDir, 0)
     return { success: true, files: matchedFiles }
   } catch (error) {
     console.error('搜索匹配文件失败:', error)
@@ -890,6 +935,52 @@ async function saveCoverFromDataUrl(dataUrl, saveDataDir, resourceType, resource
   }
 }
 
+/**
+ * 读取 Windows 程序的产品名。
+ * 版本信息里的 ProductName 是程序自己写的，不随 exe 改名而变。Kirikiri Z 的内核固定写着 TVP(KIRIKIRI) Z core。
+ * @param {string} filePath 可执行文件路径
+ * @returns {Promise<{ success: boolean, productName?: string, error?: string }>}
+ */
+function getFileProductName(filePath) {
+  return new Promise((resolve) => {
+    if (process.platform !== 'win32') {
+      resolve({ success: false, error: '仅 Windows 可以读取程序产品名' })
+      return
+    }
+    if (!filePath || !fs.existsSync(filePath)) {
+      resolve({ success: false, error: '文件不存在' })
+      return
+    }
+    const escapedPath = String(filePath).replace(/'/g, "''")
+    const powershell = spawn('powershell', [
+      '-NoProfile',
+      '-Command',
+      `(Get-Item -LiteralPath '${escapedPath}').VersionInfo.ProductName`
+    ])
+    const timeout = setTimeout(() => {
+      if (!powershell.killed) powershell.kill()
+      resolve({ success: false, error: '读取产品名超时' })
+    }, 8000)
+    let output = ''
+    powershell.stdout.on('data', (data) => {
+      output += data.toString()
+    })
+    powershell.on('error', (error) => {
+      clearTimeout(timeout)
+      resolve({ success: false, error: error.message })
+    })
+    powershell.on('close', () => {
+      clearTimeout(timeout)
+      const productName = output.replace(/\r/g, '').trim()
+      if (!productName) {
+        resolve({ success: false, error: '没有产品名' })
+        return
+      }
+      resolve({ success: true, productName })
+    })
+  })
+}
+
 module.exports = {
   writeJsonFile,
   readJsonFile,
@@ -899,6 +990,7 @@ module.exports = {
   deleteDirectory,
   ensureDirectory,
   listFiles,
+  getFileProductName,
   getFileStats,
   readTextFile,
   countNovelWords,

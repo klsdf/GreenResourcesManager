@@ -367,7 +367,72 @@ async function captureWindowNativeImage(sourceId) {
 }
 
 /**
+ * 给一个不会自己结束的操作加截止时间。
+ * 吉里吉里的窗口捕获经常一直等第一帧，截止之后把迟到的结果丢掉，避免它以后再冒出来。
+ * @param {Promise<T>} promise 原来的操作
+ * @param {number} ms 最多等多久
+ * @param {string} message 超时后的错误说明
+ * @returns {Promise<T>}
+ * @template T
+ */
+function withTimeout(promise, ms, message) {
+  return new Promise((resolve, reject) => {
+    /** 已经用超时或原结果结束过，后面再来的回调不再处理。 */
+    let settled = false
+    const timer = setTimeout(() => {
+      if (settled) return
+      settled = true
+      reject(new Error(message))
+    }, ms)
+    promise.then((value) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve(value)
+    }, (error) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      reject(error)
+    })
+  })
+}
+
+/**
+ * 这张图是不是整幅接近纯黑。
+ * 窗口捕获失败时经常交回一张全黑图。真正的暗画面里像素还会有差别，纯黑图没有。
+ * @param {Electron.NativeImage} image 待检查的图
+ * @returns {boolean} 接近纯黑时为 true
+ */
+function imageLooksBlank(image) {
+  const size = image.getSize()
+  if (!size.width || !size.height) return true
+  /** 缩成小图再抽样，不必把整张 1080p 都扫一遍。 */
+  const sample = image.resize({ width: 24, height: 24 })
+  const bitmap = sample.toBitmap()
+  if (!bitmap || bitmap.length < 4) return true
+  /** 像素个数。toBitmap 是 BGRA，每 4 个字节一像素。 */
+  const pixels = bitmap.length / 4
+  /** 亮度总和，用来算平均亮度。 */
+  let sum = 0
+  /** 亮度平方和，用来看画面有没有变化。 */
+  let sumSq = 0
+  /** 接近黑色的像素数。 */
+  let dark = 0
+  for (let i = 0; i < bitmap.length; i += 4) {
+    const luma = bitmap[i + 2] * 0.299 + bitmap[i + 1] * 0.587 + bitmap[i] * 0.114
+    sum += luma
+    sumSq += luma * luma
+    if (luma < 8) dark++
+  }
+  const mean = sum / pixels
+  const variance = sumSq / pixels - mean * mean
+  return dark / pixels > 0.98 && variance < 4
+}
+
+/**
  * 实际抓取一帧。失败时关掉隐藏窗口，下次重新建，避免卡在一个坏页面上。
+ * 窗口捕获最多等 2.5 秒。吉里吉里等不到帧，不能一直挂到游戏退出。
  * @param {string} sourceId 窗口源 id
  * @returns {Promise<Electron.NativeImage>}
  */
@@ -375,7 +440,7 @@ async function captureWindowNativeImageNow(sourceId) {
   const win = await ensureCaptureWindow()
   const startedAt = Date.now()
   try {
-    const dataUrl = await win.webContents.executeJavaScript(`
+    const dataUrl = await withTimeout(win.webContents.executeJavaScript(`
       (async () => {
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: false,
@@ -390,8 +455,15 @@ async function captureWindowNativeImageNow(sourceId) {
         video.srcObject = stream
         video.muted = true
         await new Promise((resolve, reject) => {
-          video.onloadedmetadata = () => resolve()
-          video.onerror = () => reject(new Error('窗口画面加载失败'))
+          const timer = setTimeout(() => reject(new Error('窗口画面加载超时')), 2000)
+          video.onloadedmetadata = () => {
+            clearTimeout(timer)
+            resolve()
+          }
+          video.onerror = () => {
+            clearTimeout(timer)
+            reject(new Error('窗口画面加载失败'))
+          }
         })
         await video.play()
         await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
@@ -402,30 +474,38 @@ async function captureWindowNativeImageNow(sourceId) {
         stream.getTracks().forEach((track) => track.stop())
         return canvas.toDataURL('image/png')
       })()
-    `, true)
+    `, true), 2500, '窗口画面超时')
     const image = nativeImage.createFromDataURL(dataUrl)
-    if (image.isEmpty()) {
-      throw new Error('截到的画面是空的')
+    if (image.isEmpty() || imageLooksBlank(image)) {
+      throw new Error('窗口捕获没有拿到画面')
     }
     console.log('[截图] 单窗口捕获耗时', Date.now() - startedAt, 'ms，尺寸', image.getSize())
     return image
   } catch (error) {
-    console.warn('[截图] 单窗口捕获失败，改回整表缩略图:', error.message)
+    console.warn('[截图] 单窗口捕获失败:', error.message)
     if (captureWindow && !captureWindow.isDestroyed()) {
       captureWindow.destroy()
       captureWindow = null
     }
-    const sources = await desktopCapturer.getSources({
-      types: ['window'],
-      thumbnailSize: { width: 1920, height: 1080 },
-      fetchWindowIcons: false
-    })
-    const matched = sources.find((source) => source.id === sourceId)
-    if (!matched || matched.thumbnail.isEmpty()) {
-      throw error
-    }
-    return matched.thumbnail
+    throw error
   }
+}
+
+/**
+ * 窗口捕获失败时，改从屏幕上把这个进程的窗口区域拷下来。
+ * @param {number} pid 游戏进程号
+ * @returns {Promise<Electron.NativeImage>}
+ */
+async function captureVisibleWindowByPid(pid) {
+  const png = await windowsUtils.captureWindowImageByPid(pid)
+  if (!png) {
+    throw new Error('找不到游戏窗口，无法从屏幕截取')
+  }
+  const image = nativeImage.createFromBuffer(png)
+  if (image.isEmpty() || imageLooksBlank(image)) {
+    throw new Error('屏幕上的游戏窗口也是黑的，没有保存这张截图')
+  }
+  return image
 }
 
 /**
@@ -737,7 +817,14 @@ async function takeScreenshot(customDirectory, format = 'png', quality = 90, run
     const windowName = targetSource.name
     // 获取游戏ID（唯一标识符）
     const gameId = targetGameWindow.gameId || gameData.id || 'unknown'
-    const thumbnail = await captureWindowNativeImage(targetSource.id)
+    /** 先试窗口捕获。吉里吉里这类引擎抓不到内部画面时，再截屏幕上的窗口区域，并且不把纯黑图存下来。 */
+    let thumbnail
+    try {
+      thumbnail = await captureWindowNativeImage(targetSource.id)
+    } catch (captureError) {
+      console.warn('[截图] 改为截屏幕上的窗口区域:', captureError.message)
+      thumbnail = await captureVisibleWindowByPid(gameData.pid)
+    }
 
     console.log('------------------------------')
     console.log('最终选择截图窗口:')

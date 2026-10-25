@@ -32,6 +32,7 @@
           :alt="'Page ' + (currentPageStartIndex + idx + 1)" 
           @error="handleImageError"
           loading="lazy"
+          decoding="async"
           class="preview-thumbnail"
         >
         <div class="page-index">{{ currentPageStartIndex + idx + 1 }}</div>

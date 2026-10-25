@@ -3,21 +3,21 @@ import saveManager from '../../utils/SaveManager.ts'
 import notify from '../../utils/NotificationService.ts'
 
 /**
- * 获取游戏截图文件夹路径（查找以ID开头的文件夹，找不到则返回期望路径）
- * 这是一个独立的工具函数，可以在任何地方使用
- * @param gameId - 游戏ID
- * @param gameName - 游戏名称
- * @param isElectronEnvironment - 是否为 Electron 环境
- * @returns 截图文件夹路径
+ * 截图根目录和目录列表都缓存一小段时间。
+ * 以前每张游戏卡片各读一次设置、各列一次根目录，几百个游戏时全堵在这上面。
  */
-export async function getGameScreenshotFolderPath(
-  gameId: string,
-  gameName: string,
-  isElectronEnvironment: boolean = typeof window !== 'undefined' && !!(window as any).electronAPI
-): Promise<string> {
+const BASE_PATH_CACHE_TTL = 5_000
+const FOLDER_LIST_CACHE_TTL = 5_000
+let cachedBasePath: { path: string; expiresAt: number } | null = null
+let cachedFolderList: { basePath: string; folders: string[]; expiresAt: number } | null = null
+let pendingFolderList: { basePath: string; promise: Promise<string[]> } | null = null
+
+async function resolveBaseScreenshotsPath(): Promise<string> {
+  if (cachedBasePath && cachedBasePath.expiresAt > Date.now()) {
+    return cachedBasePath.path
+  }
   const settings = await saveManager.loadSettings()
 
-  // 确定基础截图路径
   let baseScreenshotsPath = ''
   if (settings.screenshotLocation === 'default') {
     baseScreenshotsPath = `${saveManager.dataDirectory}/Game/Screenshots`
@@ -30,6 +30,52 @@ export async function getGameScreenshotFolderPath(
   if (!baseScreenshotsPath || baseScreenshotsPath.trim() === '') {
     baseScreenshotsPath = `${saveManager.dataDirectory}/Game/Screenshots`
   }
+  cachedBasePath = { path: baseScreenshotsPath, expiresAt: Date.now() + BASE_PATH_CACHE_TTL }
+  return baseScreenshotsPath
+}
+
+async function listScreenshotFolders(baseScreenshotsPath: string): Promise<string[]> {
+  if (cachedFolderList?.basePath === baseScreenshotsPath && cachedFolderList.expiresAt > Date.now()) {
+    return cachedFolderList.folders
+  }
+  if (pendingFolderList?.basePath === baseScreenshotsPath) {
+    return pendingFolderList.promise
+  }
+  const promise = (async () => {
+    try {
+      const filesResult = await window.electronAPI.listFiles(baseScreenshotsPath)
+      const folders = filesResult?.success && Array.isArray(filesResult.files) ? filesResult.files : []
+      cachedFolderList = {
+        basePath: baseScreenshotsPath,
+        folders,
+        expiresAt: Date.now() + FOLDER_LIST_CACHE_TTL
+      }
+      return folders
+    } catch (error) {
+      console.warn('查找截图文件夹失败:', error)
+      return []
+    } finally {
+      pendingFolderList = null
+    }
+  })()
+  pendingFolderList = { basePath: baseScreenshotsPath, promise }
+  return promise
+}
+
+/**
+ * 获取游戏截图文件夹路径（查找以ID开头的文件夹，找不到则返回期望路径）
+ * 这是一个独立的工具函数，可以在任何地方使用
+ * @param gameId - 游戏ID
+ * @param gameName - 游戏名称
+ * @param isElectronEnvironment - 是否为 Electron 环境
+ * @returns 截图文件夹路径
+ */
+export async function getGameScreenshotFolderPath(
+  gameId: string,
+  gameName: string,
+  isElectronEnvironment: boolean = typeof window !== 'undefined' && !!(window as any).electronAPI
+): Promise<string> {
+  const baseScreenshotsPath = await resolveBaseScreenshotsPath()
 
   // 永远寻找以ID开头的文件夹，找不到则创建新的
   const cleanGameId = gameId.replace(/[<>:"/\\|?*]/g, '_').trim()
@@ -39,50 +85,30 @@ export async function getGameScreenshotFolderPath(
 
   // 查找以 gameId_ 开头的文件夹
   if (isElectronEnvironment && window.electronAPI && window.electronAPI.listFiles) {
-    try {
-      const filesResult = await window.electronAPI.listFiles(baseScreenshotsPath)
-      if (filesResult.success && filesResult.files) {
-        // 查找所有以 gameId_ 开头的文件夹
-        const matchingFolder = filesResult.files.find((folder: string) => {
-          return folder.startsWith(`${cleanGameId}_`)
-        })
-        
-        if (matchingFolder) {
-          const existingFolderPath = `${baseScreenshotsPath}/${matchingFolder}`
-          console.log(`找到以ID开头的截图文件夹: ${matchingFolder}`)
-          
-          // 如果找到的文件夹名称与期望的不一致，直接重命名它
-          if (matchingFolder !== expectedFolderName) {
-            if (window.electronAPI && window.electronAPI.renameFolder) {
-              try {
-                const renameResult = await window.electronAPI.renameFolder(existingFolderPath, gameScreenshotPath)
-                if (renameResult.success) {
-                  console.log(`✅ 已重命名截图文件夹: "${matchingFolder}" -> "${expectedFolderName}"`)
-                  gameScreenshotPath = `${baseScreenshotsPath}/${expectedFolderName}`
-                } else {
-                  console.warn(`⚠️ 重命名截图文件夹失败:`, renameResult.error)
-                  // 重命名失败，使用现有文件夹
-                  gameScreenshotPath = existingFolderPath
-                }
-              } catch (error) {
-                console.warn('重命名截图文件夹异常:', error)
-                // 重命名失败，使用现有文件夹
-                gameScreenshotPath = existingFolderPath
-              }
-            } else {
-              // 如果没有重命名 API，使用现有文件夹
-              gameScreenshotPath = existingFolderPath
-              console.log(`ℹ️ 检测到文件夹名称不匹配: "${matchingFolder}" != "${expectedFolderName}"，但无法重命名（API不可用）`)
-            }
+    const folders = await listScreenshotFolders(baseScreenshotsPath)
+    const matchingFolder = folders.find((folder: string) => folder.startsWith(`${cleanGameId}_`))
+
+    if (matchingFolder) {
+      const existingFolderPath = `${baseScreenshotsPath}/${matchingFolder}`
+
+      // 如果找到的文件夹名称与期望的不一致，直接重命名它
+      if (matchingFolder !== expectedFolderName && window.electronAPI.renameFolder) {
+        try {
+          const renameResult = await window.electronAPI.renameFolder(existingFolderPath, gameScreenshotPath)
+          if (renameResult.success) {
+            // 目录列表变了，下一次重新列
+            cachedFolderList = null
           } else {
+            console.warn(`⚠️ 重命名截图文件夹失败:`, renameResult.error)
             gameScreenshotPath = existingFolderPath
           }
-        } else {
-          console.log(`未找到现有文件夹，将使用: ${expectedFolderName}`)
+        } catch (error) {
+          console.warn('重命名截图文件夹异常:', error)
+          gameScreenshotPath = existingFolderPath
         }
+      } else if (matchingFolder !== expectedFolderName) {
+        gameScreenshotPath = existingFolderPath
       }
-    } catch (error) {
-      console.warn('查找截图文件夹失败:', error)
     }
   }
 

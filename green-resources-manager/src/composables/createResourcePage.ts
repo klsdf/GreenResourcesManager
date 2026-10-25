@@ -117,7 +117,9 @@ export function createResourcePage<T>(options: ResourcePageOptions<T>) {
   if (toolbar && 'items' in toolbar && toolbar.items) {
     // 使用灵活工具栏配置
     toolbarConfig = {
-      ...toolbar
+      ...toolbar,
+      // 页面配置里的工具栏通常不写 pageType，布局和显示方式要按页面 id 存
+      pageType: toolbar.pageType || pageType
     }
   } else {
     // 使用旧版工具栏配置 - 提供默认值防止报错

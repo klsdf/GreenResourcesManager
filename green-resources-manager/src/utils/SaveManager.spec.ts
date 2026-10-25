@@ -400,6 +400,33 @@ describe('SaveManager 存档保护', () => {
     })
   })
 
+  describe('缩略图文件', () => {
+    it('删除数据库里的相对封面路径时先拼上存档目录', async () => {
+      manager = await createManager()
+      manager.setDataDirectory('D:/GreenSaveData')
+
+      expect(await manager.deleteThumbnail('videos/covers/123_1.jpg')).toBe(true)
+
+      expect(ctx.api.deleteFile).toHaveBeenCalledWith('D:/GreenSaveData/videos/covers/123_1.jpg')
+    })
+
+    it('绝对路径保持原样交给 Electron 删除', async () => {
+      manager = await createManager()
+      manager.setDataDirectory('D:/GreenSaveData')
+
+      await manager.deleteThumbnail('D:/GreenSaveData/Video/Covers/a_cover_1.jpg')
+
+      expect(ctx.api.deleteFile).toHaveBeenCalledWith('D:/GreenSaveData/Video/Covers/a_cover_1.jpg')
+    })
+
+    it('dataURL 不当成文件删除', async () => {
+      manager = await createManager()
+
+      expect(await manager.deleteThumbnail('data:image/jpeg;base64,AAAA')).toBe(true)
+      expect(ctx.api.deleteFile).not.toHaveBeenCalled()
+    })
+  })
+
   describe('整目录备份', () => {
     it('把备份参数和结果原样传递给 Electron', async () => {
       manager = await createManager()

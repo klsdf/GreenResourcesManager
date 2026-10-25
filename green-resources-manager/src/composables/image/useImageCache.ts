@@ -53,6 +53,30 @@ interface CacheEntry {
 }
 
 /**
+ * 所有图片网格共用一条缩略图队列。
+ * 一页几十张图同时让主进程解码，磁盘和 CPU 会一起抢资源，反而更慢。
+ */
+const THUMBNAIL_CONCURRENCY = 3
+let thumbnailActive = 0
+const thumbnailQueue: Array<() => void> = []
+const thumbnailPending = new Set<string>()
+
+function runThumbnailTask<T>(task: () => Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const start = () => {
+      thumbnailActive++
+      task().then(resolve, reject).finally(() => {
+        thumbnailActive--
+        const next = thumbnailQueue.shift()
+        if (next) next()
+      })
+    }
+    if (thumbnailActive < THUMBNAIL_CONCURRENCY) start()
+    else thumbnailQueue.push(start)
+  })
+}
+
+/**
  * 图片缓存管理 composable
  */
 export function useImageCache(options: ImageCacheOptions = {}) {
@@ -181,12 +205,12 @@ export function useImageCache(options: ImageCacheOptions = {}) {
    * 使用 Canvas 创建缩略图
    */
   async function createCanvasThumbnail(imagePath: string, maxWidth: number, maxHeight: number): Promise<string> {
-    // 优先使用 Electron API 生成缩略图
-    if (window.electronAPI && (window.electronAPI as any).generateThumbnail) {
+    // 优先使用 Electron API 在主进程生成缩略图，并缓存在磁盘上
+    if (window.electronAPI?.generateThumbnail) {
       try {
-        const result = await (window.electronAPI as any).generateThumbnail(imagePath, maxWidth, maxHeight)
-        if (result && result.success && result.dataUrl) {
-          return result.dataUrl
+        const result = await window.electronAPI.generateThumbnail(imagePath, maxWidth, maxHeight)
+        if (result?.success && result.thumbnailPath) {
+          return buildFileUrl(result.thumbnailPath)
         }
       } catch (error) {
         console.warn('Electron 缩略图生成失败，使用 Canvas:', error)
@@ -252,13 +276,14 @@ export function useImageCache(options: ImageCacheOptions = {}) {
       return cached.url
     }
     
-    // 尝试生成 Canvas 缩略图
+    // 生成缩略图，同一时间只让少量任务碰磁盘
     try {
-      const thumbnailDataUrl = await createCanvasThumbnail(normalizedPath, thumbnailSize, thumbnailSize)
-      if (thumbnailDataUrl) {
-        // 缓存缩略图 DataURL
-        addToCache(thumbnailKey, thumbnailDataUrl, thumbnailDataUrl.length * 2)
-        return thumbnailDataUrl
+      const thumbnailUrl = await runThumbnailTask(() =>
+        createCanvasThumbnail(normalizedPath, thumbnailSize, thumbnailSize)
+      )
+      if (thumbnailUrl) {
+        addToCache(thumbnailKey, thumbnailUrl, thumbnailUrl.length * 2)
+        return thumbnailUrl
       }
     } catch (error) {
       console.warn('生成缩略图失败，使用原图:', error)
@@ -282,15 +307,23 @@ export function useImageCache(options: ImageCacheOptions = {}) {
     
     // 如果启用了缩略图模式，异步生成真正的缩略图
     if (enableThumbnails) {
-      const normalizedPath = normalizePath(imagePath)
-      generateThumbnail(imagePath, normalizedPath).then(thumbnailUrl => {
-        // 更新缓存为缩略图
-        addToCache(imagePath, thumbnailUrl, thumbnailUrl.length * 2)
-        // 注意：如果需要强制更新，可以在组件中手动调用 $forceUpdate
-        // 由于 Vue 3 的响应式系统，缓存更新会自动触发重新渲染
-      }).catch(error => {
-        console.warn('缩略图生成失败，继续使用原图:', error)
-      })
+      const thumbnailKey = `thumb_${imagePath}`
+      const cachedThumbnail = imageCache.value.get(thumbnailKey)
+      if (cachedThumbnail?.url) {
+        cachedThumbnail.lastAccessed = Date.now()
+        return cachedThumbnail.url
+      }
+
+      // 同一张图在生成完成前会被多次渲染，只排一次队
+      if (!thumbnailPending.has(imagePath)) {
+        thumbnailPending.add(imagePath)
+        const normalizedPath = normalizePath(imagePath)
+        generateThumbnail(imagePath, normalizedPath).catch(error => {
+          console.warn('缩略图生成失败，继续使用原图:', error)
+        }).finally(() => {
+          thumbnailPending.delete(imagePath)
+        })
+      }
     }
     
     return fileUrl

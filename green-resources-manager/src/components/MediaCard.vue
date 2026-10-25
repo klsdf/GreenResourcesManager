@@ -15,6 +15,7 @@
         :src="resolveImage(coverImagePath)" 
         :alt="itemName"
         loading="lazy"
+        decoding="async"
         @error="handleImageError"
       >
       <!-- 多选框 -->
@@ -302,6 +303,13 @@ function getFirstAvailableField(item, fields) {
   return null
 }
 
+/**
+ * 游戏截图封面缓存。分页来回切时同一款游戏不必反复扫截图文件夹。
+ * 键是截图文件夹路径，值里带上过期时间，新截图最多 10 秒后就能看到。
+ */
+const screenshotCoverCache = new Map()
+const SCREENSHOT_COVER_CACHE_TTL = 10_000
+
 export default {
   name: 'MediaCard',
   props: {
@@ -353,7 +361,8 @@ export default {
       gameRunningStore: null, // 游戏运行状态 store
       sessionUpdateTimer: null, // 会话时长更新定时器
       updateTrigger: 0, // 用于触发响应式更新的时间戳
-      screenshotCoverPath: null // 从截图文件夹读取的第一张图片路径（仅用于游戏类型）
+      screenshotCoverPath: null, // 从截图文件夹读取的第一张图片路径（仅用于游戏类型）
+      screenshotCoverObserver: null,
     }
   },
   computed: {
@@ -1079,8 +1088,8 @@ export default {
       if (typeof imagePath === 'string' && (imagePath.startsWith('http://') || imagePath.startsWith('https://'))) {
         return imagePath
       }
-      // 已是 data: 或 file: 直接返回
-      if (typeof imagePath === 'string' && (imagePath.startsWith('data:') || imagePath.startsWith('file:'))) {
+      // 已是 data:、file: 或压缩包协议，直接返回
+      if (typeof imagePath === 'string' && (imagePath.startsWith('data:') || imagePath.startsWith('file:') || imagePath.startsWith('archive://'))) {
         return imagePath
       }
       // 命中缓存
@@ -1109,74 +1118,50 @@ export default {
       // 初次返回默认图，待异步完成后会自动刷新
       return this.imageCache[imagePath] || this.getDefaultImage()
     },
+    setCachedImage(cacheKey, url) {
+      if (this.$set) this.$set(this.imageCache, cacheKey, url)
+      else this.imageCache[cacheKey] = url
+    },
     processImageUrl(coverUrl, cacheKey) {
-      // 网络资源直接返回
-      if (coverUrl.startsWith('http://') || coverUrl.startsWith('https://')) {
-        this.$set ? this.$set(this.imageCache, cacheKey, coverUrl) : (this.imageCache[cacheKey] = coverUrl)
+      if (!coverUrl || typeof coverUrl !== 'string') {
+        this.setCachedImage(cacheKey, this.getDefaultImage())
         return
       }
       
-      // 已是 data: 或 file: 直接返回
-      if (coverUrl.startsWith('data:') || coverUrl.startsWith('file:')) {
-        this.$set ? this.$set(this.imageCache, cacheKey, coverUrl) : (this.imageCache[cacheKey] = coverUrl)
+      // 网络资源、data:、file: 或压缩包协议直接使用
+      if (coverUrl.startsWith('http://') || coverUrl.startsWith('https://') ||
+          coverUrl.startsWith('data:') || coverUrl.startsWith('file:') || coverUrl.startsWith('archive://')) {
+        this.setCachedImage(cacheKey, coverUrl)
         return
       }
       
-      // 对于视频和音频，使用专门的缩略图处理方法
-      if (this.type === 'video' || this.type === 'audio') {
-        // 使用 Electron API 处理缩略图
-        if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.readFileAsDataUrl) {
-          window.electronAPI.readFileAsDataUrl(coverUrl).then((dataUrl) => {
-            if (dataUrl) {
-              this.$set ? this.$set(this.imageCache, cacheKey, dataUrl) : (this.imageCache[cacheKey] = dataUrl)
-            } else {
-              const defaultImage = this.getDefaultImage()
-              this.$set ? this.$set(this.imageCache, cacheKey, defaultImage) : (this.imageCache[cacheKey] = defaultImage)
-            }
-          }).catch(() => {
-            const defaultImage = this.getDefaultImage()
-            this.$set ? this.$set(this.imageCache, cacheKey, defaultImage) : (this.imageCache[cacheKey] = defaultImage)
-          })
-        } else if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.getFileUrl) {
-          // 使用 getFileUrl API
-          window.electronAPI.getFileUrl(coverUrl).then((result) => {
-            if (result && result.success) {
-              this.$set ? this.$set(this.imageCache, cacheKey, result.url) : (this.imageCache[cacheKey] = result.url)
-            } else {
-              const defaultImage = this.getDefaultImage()
-              this.$set ? this.$set(this.imageCache, cacheKey, defaultImage) : (this.imageCache[cacheKey] = defaultImage)
-            }
-          }).catch(() => {
-            const defaultImage = this.getDefaultImage()
-            this.$set ? this.$set(this.imageCache, cacheKey, defaultImage) : (this.imageCache[cacheKey] = defaultImage)
-          })
-        } else {
-          // 降级处理：构建 file:// URL
-          const normalizedPath = String(coverUrl).replace(/\\/g, '/')
-          const fileUrl = `file:///${normalizedPath}`
-          this.$set ? this.$set(this.imageCache, cacheKey, fileUrl) : (this.imageCache[cacheKey] = fileUrl)
-        }
-      } else {
-        // 其他类型的媒体使用原有逻辑
-        if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.readFileAsDataUrl) {
-          window.electronAPI.readFileAsDataUrl(coverUrl).then((dataUrl) => {
-            if (dataUrl) {
-              this.$set ? this.$set(this.imageCache, cacheKey, dataUrl) : (this.imageCache[cacheKey] = dataUrl)
-            } else {
-              const defaultImage = this.getDefaultImage()
-              this.$set ? this.$set(this.imageCache, cacheKey, defaultImage) : (this.imageCache[cacheKey] = defaultImage)
-            }
-          }).catch(() => {
-            const defaultImage = this.getDefaultImage()
-            this.$set ? this.$set(this.imageCache, cacheKey, defaultImage) : (this.imageCache[cacheKey] = defaultImage)
-          })
-        } else {
-          // 回退：尝试 file://
-          const normalizedPath = String(coverUrl).replace(/\\/g, '/')
-          const fileUrl = `file:///${normalizedPath}`
-          this.$set ? this.$set(this.imageCache, cacheKey, fileUrl) : (this.imageCache[cacheKey] = fileUrl)
-        }
+      // 内部页面允许 file://，直接给地址，不再把整张图读成 base64
+      if (this.isElectronEnvironment && window.electronAPI?.getFileUrl) {
+        window.electronAPI.getFileUrl(coverUrl).then((result) => {
+          if (result?.success && result.url) {
+            this.setCachedImage(cacheKey, result.url)
+          } else {
+            this.readLocalImageAsDataUrl(coverUrl, cacheKey)
+          }
+        }).catch(() => {
+          this.readLocalImageAsDataUrl(coverUrl, cacheKey)
+        })
+        return
       }
+      
+      this.readLocalImageAsDataUrl(coverUrl, cacheKey)
+    },
+    readLocalImageAsDataUrl(coverUrl, cacheKey) {
+      if (this.isElectronEnvironment && window.electronAPI?.readFileAsDataUrl) {
+        window.electronAPI.readFileAsDataUrl(coverUrl).then((dataUrl) => {
+          this.setCachedImage(cacheKey, dataUrl || this.getDefaultImage())
+        }).catch(() => {
+          this.setCachedImage(cacheKey, this.getDefaultImage())
+        })
+        return
+      }
+      const normalizedPath = String(coverUrl).replace(/\\/g, '/')
+      this.setCachedImage(cacheKey, `file:///${normalizedPath}`)
     },
     getDefaultImage() {
       // 使用资源类的配置，如果没有配置则使用基类的默认值
@@ -1301,6 +1286,29 @@ export default {
     },
     
     /**
+     * 等卡片滚到附近再读截图。
+     * 一页显示几百上千张卡时，没必要让所有卡片同时去扫截图文件夹。
+     */
+    scheduleScreenshotCoverLoad() {
+      if (this.screenshotCoverObserver) {
+        this.screenshotCoverObserver.disconnect()
+        this.screenshotCoverObserver = null
+      }
+      const target = this.$el
+      if (!target || typeof IntersectionObserver === 'undefined') {
+        setTimeout(() => this.loadScreenshotAsCover(), 100 + Math.random() * 300)
+        return
+      }
+      this.screenshotCoverObserver = new IntersectionObserver((entries) => {
+        if (!entries.some(entry => entry.isIntersecting)) return
+        this.screenshotCoverObserver?.disconnect()
+        this.screenshotCoverObserver = null
+        this.loadScreenshotAsCover()
+      }, { rootMargin: '300px' })
+      this.screenshotCoverObserver.observe(target)
+    },
+
+    /**
      * 从截图文件夹读取第一张图片作为封面
      * 仅用于游戏类型，且没有 coverPath 时
      */
@@ -1330,18 +1338,21 @@ export default {
           itemName,
           this.isElectronEnvironment
         )
+
+        const cached = screenshotCoverCache.get(screenshotFolderPath)
+        if (cached && cached.expiresAt > Date.now()) {
+          this.screenshotCoverPath = cached.path
+          return
+        }
         
         // 列出截图文件夹中的图片文件
         const result = await window.electronAPI.listImageFiles(screenshotFolderPath)
-        
-        if (result.success && result.files && result.files.length > 0) {
-          // 使用第一张图片作为封面
-          const firstImage = result.files[0]
-          this.screenshotCoverPath = firstImage
-        } else {
-          // 截图文件夹不存在或为空，使用默认图片（screenshotCoverPath 保持为 null）
-          this.screenshotCoverPath = null
-        }
+        const firstImage = result.success && result.files && result.files.length > 0 ? result.files[0] : null
+        this.screenshotCoverPath = firstImage
+        screenshotCoverCache.set(screenshotFolderPath, {
+          path: firstImage,
+          expiresAt: Date.now() + SCREENSHOT_COVER_CACHE_TTL
+        })
       } catch (error) {
         console.warn('[MediaCard] 读取截图文件夹失败:', error)
         this.screenshotCoverPath = null
@@ -1389,13 +1400,14 @@ export default {
     
     // 如果游戏没有封面，尝试从截图文件夹读取第一张图片（保持向后兼容）
     if (this.type === 'game' && !getFieldValue(this.item.coverPath)) {
-      // 延迟加载，避免阻塞渲染
-      setTimeout(() => {
-        this.loadScreenshotAsCover()
-      }, 100)
+      this.scheduleScreenshotCoverLoad()
     }
   },
   beforeUnmount() {
+    if (this.screenshotCoverObserver) {
+      this.screenshotCoverObserver.disconnect()
+      this.screenshotCoverObserver = null
+    }
     // 清理事件监听器
     window.removeEventListener('storage', this.handleStorageChange)
     window.removeEventListener('disguise-mode-changed', this.updateDisguiseModeState)
@@ -1427,14 +1439,11 @@ export default {
     // 监听 item 变化，重新加载截图封面
     item: {
       handler(newItem) {
-        if (this.type === 'game' && newItem && !newItem.coverPath) {
+        if (this.type === 'game' && newItem && !getFieldValue(newItem.coverPath)) {
           // 重置截图封面路径
           this.screenshotCoverPath = null
-          // 延迟加载，避免阻塞
-          setTimeout(() => {
-            this.loadScreenshotAsCover()
-          }, 100)
-        } else if (this.type === 'game' && newItem && newItem.coverPath) {
+          this.scheduleScreenshotCoverLoad()
+        } else if (this.type === 'game' && newItem && getFieldValue(newItem.coverPath)) {
           // 如果有封面了，清除截图封面
           this.screenshotCoverPath = null
         }

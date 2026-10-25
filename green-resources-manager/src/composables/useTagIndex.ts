@@ -97,10 +97,9 @@ function applyRemoves(resourceType: string, removes: Array<{ field: string; tag:
     if (!list) continue
     const idx = list.findIndex(i => i.norm === change.norm)
     if (idx === -1) continue
-    list[idx].count -= 1
-    if (list[idx].count <= 0) {
-      list.splice(idx, 1)
-    }
+    /** 减完后的使用数。到 0 也留在列表里，不把标签名字拿掉。 */
+    const nextCount = list[idx].count - 1
+    list[idx].count = nextCount > 0 ? nextCount : 0
   }
 }
 

@@ -36,6 +36,18 @@ describe('页面字段留在资源记录上', () => {
     expect(saved.voiceActor).toEqual(['甲'])
   })
 
+  it('拖拽音频带进来的 playCount 不会写回只读派生属性', () => {
+    const audio = Audio.fromJSON({
+      id: 'a1',
+      name: '示例音频',
+      resourceType: 'audio',
+      resourcePath: 'D:/music/a.mp3',
+      playCount: 0
+    })
+    expect(audio.playCount).toBe(0)
+    expect(audio.retainedFields.playCount).toBeUndefined()
+  })
+
   it('写入新字段时不覆盖记录里已有的另一项', () => {
     const audio = Audio.fromJSON({
       id: 'a1',

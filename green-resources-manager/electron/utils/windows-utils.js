@@ -22,6 +22,7 @@
  * - getParentProcessID()         获取进程的父进程 ID
  * - minimizeWindowByPID()        通过 PID 最小化窗口
  * - getDiskType()                获取磁盘类型信息（SSD/HDD）
+ * - captureWindowImageByPid()   按进程号从屏幕上拷下窗口区域
  * 
  * 注意：所有函数仅支持 Windows 平台
  * 
@@ -537,6 +538,120 @@ if (-not $disk) { Write-Output 'NO_PHYSICAL'; exit 0 }
   }
 }
 
+/**
+ * 按进程号把这个程序在屏幕上占的那一块拷下来。
+ * 吉里吉里这类老引擎画在 DirectDraw 上，窗口捕获接口等不到帧，关掉游戏才返回一张黑图。
+ * 屏幕上的像素是已经画出来的，按窗口矩形从屏幕拷，才能拿到真正的画面。
+ * @param {number} pid 游戏进程号
+ * @returns {Promise<Buffer|null>} PNG 数据。找不到够大的可见窗口时返回 null
+ */
+function captureWindowImageByPid(pid) {
+  return new Promise((resolve, reject) => {
+    if (!isWindows()) {
+      resolve(null)
+      return
+    }
+    /** 只接受正整数，避免拼进脚本。 */
+    const safePid = Number(pid)
+    if (!Number.isInteger(safePid) || safePid <= 0) {
+      resolve(null)
+      return
+    }
+    /** 临时图片。读完就删，不留在截图目录里。 */
+    const outPath = path.join(os.tmpdir(), `grm-window-shot-${Date.now()}.png`)
+    const escapedOut = outPath.replace(/'/g, "''")
+    const psScript = `Add-Type -AssemblyName System.Drawing
+Add-Type -TypeDefinition @"
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+public class GrmWindowShot {
+    public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
+    public delegate bool EnumProc(IntPtr hWnd, IntPtr lParam);
+    [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
+    [DllImport("shcore.dll")] public static extern int SetProcessDpiAwareness(int awareness);
+    [DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc lpEnumFunc, IntPtr lParam);
+    [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+    [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+    public static uint TargetPid;
+    public static int BestLeft;
+    public static int BestTop;
+    public static int BestWidth;
+    public static int BestHeight;
+    static EnumProc keepAlive;
+    public static bool Callback(IntPtr hWnd, IntPtr lParam) {
+        uint windowPid;
+        GetWindowThreadProcessId(hWnd, out windowPid);
+        if (windowPid != TargetPid || !IsWindowVisible(hWnd) || IsIconic(hWnd)) return true;
+        RECT rect;
+        if (!GetWindowRect(hWnd, out rect)) return true;
+        int width = rect.Right - rect.Left;
+        int height = rect.Bottom - rect.Top;
+        if (width < 80 || height < 80) return true;
+        if (width * height <= BestWidth * BestHeight) return true;
+        BestLeft = rect.Left;
+        BestTop = rect.Top;
+        BestWidth = width;
+        BestHeight = height;
+        return true;
+    }
+    public static void FindLargest() {
+        keepAlive = Callback;
+        EnumWindows(keepAlive, IntPtr.Zero);
+    }
+}
+"@
+try { [GrmWindowShot]::SetProcessDpiAwareness(2) | Out-Null } catch { [GrmWindowShot]::SetProcessDPIAware() | Out-Null }
+[GrmWindowShot]::TargetPid = ${safePid}
+[GrmWindowShot]::FindLargest()
+if ([GrmWindowShot]::BestWidth -lt 80) { Write-Output 'NOWINDOW'; exit 0 }
+$bitmap = New-Object System.Drawing.Bitmap ([GrmWindowShot]::BestWidth), ([GrmWindowShot]::BestHeight)
+$graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+$graphics.CopyFromScreen([GrmWindowShot]::BestLeft, [GrmWindowShot]::BestTop, 0, 0, $bitmap.Size)
+$graphics.Dispose()
+$bitmap.Save('${escapedOut}', [System.Drawing.Imaging.ImageFormat]::Png)
+$bitmap.Dispose()
+Write-Output 'OK'`
+    const tempScriptPath = path.join(os.tmpdir(), `grm-window-shot-${Date.now()}.ps1`)
+    try {
+      fs.writeFileSync(tempScriptPath, psScript, 'utf8')
+    } catch (writeError) {
+      reject(writeError)
+      return
+    }
+    exec(`chcp 65001 >nul & powershell -NoProfile -ExecutionPolicy Bypass -File "${tempScriptPath}"`, { encoding: 'utf8', timeout: 8000 }, (error, stdout) => {
+      try {
+        if (fs.existsSync(tempScriptPath)) fs.unlinkSync(tempScriptPath)
+      } catch (cleanupError) {
+        // 临时脚本删不掉不影响截图
+      }
+      if (error) {
+        try {
+          if (fs.existsSync(outPath)) fs.unlinkSync(outPath)
+        } catch (cleanupError) {
+          // 截图临时文件删不掉时留下，下次开机会被系统清掉
+        }
+        reject(error)
+        return
+      }
+      const output = String(stdout || '').replace(/^\uFEFF/, '').trim()
+      if (!output.includes('OK') || !fs.existsSync(outPath)) {
+        resolve(null)
+        return
+      }
+      try {
+        const png = fs.readFileSync(outPath)
+        fs.unlinkSync(outPath)
+        resolve(png)
+      } catch (readError) {
+        reject(readError)
+      }
+    })
+  })
+}
+
 module.exports = {
   isWindows,
   getActiveWindowPID,
@@ -545,6 +660,7 @@ module.exports = {
   getAllWindowTitlesByPID,
   getParentProcessID,
   minimizeWindowByPID,
-  getDiskType
+  getDiskType,
+  captureWindowImageByPid
 }
 

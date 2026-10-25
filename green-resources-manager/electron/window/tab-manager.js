@@ -161,7 +161,9 @@ class TabManager {
       url: targetUrl,
       title: title,
       isHome: false, // 普通标签页
-      external // 外部网站标签，导航时继续限制为网页地址
+      external, // 外部网站标签，导航时继续限制为网页地址
+      audioPlayer: false, // 是否为音乐播放器标签页
+      audioTrackId: null // 音乐播放器当前打开的音频 ID
     }
     this.tabs.set(tabId, tabInfo)
 
@@ -169,6 +171,42 @@ class TabManager {
     this.setActiveTab(tabId)
 
     console.log('✅ 创建新标签页:', tabId, targetUrl)
+    return tabId
+  }
+
+  /**
+   * 打开或复用音乐播放器标签页。
+   * 播放器只保留一个：换歌时更新已有标签，避免每首歌都开一个新标签。
+   * @param {string} url - 播放器页面地址
+   * @param {string} title - 标签页标题
+   * @param {string} trackId - 要播放的音频 ID
+   * @returns {string} 标签页 ID
+   */
+  openAudioPlayerTab(url, title, trackId) {
+    const existing = Array.from(this.tabs.values()).find(
+      (tab) => tab.audioPlayer && tab.view && !tab.view.webContents.isDestroyed()
+    )
+
+    if (existing) {
+      // 同一首歌只切回播放器；换歌才重新加载页面
+      if (existing.audioTrackId !== trackId) {
+        existing.audioTrackId = trackId
+        existing.url = url
+        existing.title = title
+        existing.view.webContents.loadURL(url).catch((err) => {
+          console.error('加载音乐播放器失败:', err)
+        })
+      }
+      this.setActiveTab(existing.id)
+      return existing.id
+    }
+
+    const tabId = this.createTab(url, title)
+    const tabInfo = this.tabs.get(tabId)
+    if (tabInfo) {
+      tabInfo.audioPlayer = true
+      tabInfo.audioTrackId = trackId
+    }
     return tabId
   }
 

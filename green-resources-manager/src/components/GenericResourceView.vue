@@ -13,7 +13,9 @@
       :scale="scale" 
       :show-layout-control="true"
       :is-multi-select-mode="isMultiSelectMode"
+      :display-mode="displayMode"
       @update:scale="updateScale"
+      @update:displayMode="updateDisplayMode"
       @empty-state-action="handleEmptyStateAction" 
       @add-item="showAddDialogHandler" 
       @button-click="handleButtonClick"
@@ -36,7 +38,7 @@
     >
       <!-- 使用 FunGrid 组件进行布局 -->
       <FunGrid
-        v-if="paginatedItems.length > 0"
+        v-if="displayMode !== 'list' && paginatedItems.length > 0"
         mode="auto-fill"
         :scale="scale"
         :baseWidth="displayLayoutBaseWidth"
@@ -65,6 +67,19 @@
           @toggle-select="() => toggleSelectItem(item)"
         />
       </FunGrid>
+      <ResourceListView
+        v-else-if="displayMode === 'list' && paginatedItems.length > 0"
+        :items="paginatedItems"
+        :type-for-item="(item: any) => cardTypeForResource(item, (resourceType || 'game').toLowerCase())"
+        :is-running-item="isResourceRunning"
+        :file-exists-for="getFileExists"
+        :is-multi-select-mode="isMultiSelectMode"
+        :is-item-selected="isItemSelected"
+        @click="(item: any) => (this as any).showDetail(item)"
+        @contextmenu="handleContextMenu"
+        @action="handleResourceAction"
+        @toggle-select="toggleSelectItem"
+      />
       <div v-else class="empty-grid" :class="{ 'is-dragging': isDragOver }"></div>
     </div>
     </BaseView>
@@ -89,7 +104,7 @@
           :currentPage="detailCurrentPage"
           :pageSize="detailPageSize"
           :totalPages="detailTotalPages"
-          :resolveImage="resolveImage"
+          :resolveImage="resolveThumbnailImage"
           :handleImageError="handleImageError"
           @page-click="handleDetailPageClick"
           @page-change="handleDetailPageChange"
@@ -97,7 +112,7 @@
         <!-- 番剧/文件夹视频列表（Anime 类型，用于替换视频页） -->
         <FolderVideosGrid
           v-else-if="isAnimeWithFolderVideos"
-          :videos="selectedItem?.folderVideos || []"
+          :videos="detailFolderVideos"
           :get-thumbnail-url="getThumbnailUrlForFolderVideo"
           :handle-thumbnail-error="handleFolderVideoThumbnailError"
           @play-video="playFolderVideo"
@@ -321,7 +336,12 @@
     :visible="showBatchImportDialog"
     :files="batchImportFiles"
     :folder-path="batchImportFolderPath"
+    :searching="batchImportSearching"
+    :importing="batchImportImporting"
+    :import-progress="batchImportProgress"
+    :available-extensions="batchImportSearchExtensions"
     @close="closeBatchImportDialog"
+    @search="runBatchImportSearch"
     @confirm="handleBatchImportConfirm"
   />
   
@@ -337,6 +357,7 @@
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted, onBeforeUnmount, watch, toRefs } from 'vue'
 import BaseView from './BaseView.vue'
+import ResourceListView from './ResourceListView.vue'
 import MediaCard from './MediaCard.vue'
 import DetailPanel from './DetailPanel.vue'
 import AlbumPagesGrid from './image/AlbumPagesGrid.vue'
@@ -372,7 +393,7 @@ import { useGameRunningStore } from '../stores/game-running'
 import { BaseResources } from '@resources/base/ResourcesDataBase.ts'
 import notify from '../utils/NotificationService.ts'
 import saveManager from '../utils/SaveManager.ts'
-import { calculateAndUpdateResourceSize, calculateResourceSizesBatch } from '../utils/ResourceSizeService.ts'
+import { calculateAndUpdateResourceSize, calculateResourceSizesBatch, type FolderSizeCache } from '../utils/ResourceSizeService.ts'
 import { detectGameEngine } from '../utils/GameEngineDetector.ts'
 import { getGameScreenshotFolderPath, useGameScreenshot } from '../composables/game/useGameScreenshot'
 import { useResourceFilter } from '../composables/useResourceFilter'
@@ -389,8 +410,16 @@ import ArchiveStatDialog from './ArchiveStatDialog.vue'
 import ScraperUpdateDialog from './ScraperUpdateDialog.vue'
 import type { FilterItem } from '../types/filter'
 import coverManager from '../utils/CoverManager.ts'
-import { fingerprintKindForResource, fingerprintPageCount, isSameFingerprintIdentity, readFingerprint, writeFingerprint } from '../utils/resourceFingerprint.ts'
+import { fingerprintFileSize, fingerprintKindForResource, fingerprintPageCount, isSameFingerprintIdentity, readFingerprint, writeFingerprint } from '../utils/resourceFingerprint.ts'
 import { cardTypeForResource, classForKind, collectFieldCatalog, defaultAcceptedKindIds, extensionsForSearch, findBasicKind, getResourceClassBySavedType, matchAcceptedKind, savedTypeOfClass } from '../configs/resources/resourceKindCatalog'
+import {
+  buildSameResourceDescriptor,
+  matchesSameResource,
+  normalizeSameResourceRule,
+  type SameResourceDescriptor,
+  type SameResourceRule
+} from '../utils/sameResourceRule'
+import { decideMarkerImport, type MarkerImportCandidate } from '../utils/resourceMarkerImport'
 import { defsForPage } from '../configs/pages/pageFieldSchema'
 
 // 刮削数据专有字段，不写入主存档
@@ -452,6 +481,7 @@ export default defineComponent({
   name: 'GenericResourceView',
   components: {
     BaseView,
+    ResourceListView,
     MediaCard,
     DetailPanel,
     AlbumPagesGrid,
@@ -511,7 +541,9 @@ export default defineComponent({
         toolbarConfig: {},
         contextMenuItems: [],
         paginationConfig: {},
-        isElectronEnvironment: ref(false)
+        isElectronEnvironment: ref(false),
+        displayMode: ref('grid'),
+        updateDisplayMode: () => {}
       }
     }
 
@@ -574,6 +606,8 @@ export default defineComponent({
       }
       return defaultAcceptedKindIds(legacyResourceTypes.value)
     })
+    /** 批量导入时能搜到的扩展名，跟着这一页接受的资源类型走 */
+    const batchImportSearchExtensions = computed(() => extensionsForSearch(acceptedKindIds.value))
     /** 页面编辑时要显示的字段。没配过就不过滤，沿用资源类上的全部字段 */
     const pageFieldKeys = computed((): string[] | null => {
       const fields = pageConfig.value?.pageFields
@@ -660,8 +694,16 @@ export default defineComponent({
     
     // 批量导入对话框相关
     const showBatchImportDialog = ref(false)
+    /** 最近一次搜索列出的相对路径。窗口下面的勾选列表用这份。 */
     const batchImportFiles = ref<string[]>([])
+    /** 这份结果是从哪个文件夹搜出来的。确认导入时用它拼完整路径。 */
     const batchImportFolderPath = ref<string>('')
+    /** 主进程还在扫目录时为 true，避免连点把两次结果搅在一起。 */
+    const batchImportSearching = ref(false)
+    /** 正在把勾选的文件写进资源库。窗口要一直开着，让人能看到进度。 */
+    const batchImportImporting = ref(false)
+    /** 写入进度。file 是当前正在处理的相对路径。 */
+    const batchImportProgress = ref<{ current: number; total: number; file?: string }>({ current: 0, total: 0 })
     const batchImportDialogRef = ref<any>(null)
 
     // 书签导入对话框相关
@@ -766,11 +808,16 @@ export default defineComponent({
         
         let addedCount = 0
         let linkedCount = 0
+        let relocatedCount = 0
         let failedCount = 0
         let typeMismatchCount = 0
-        /** 这次拖入里，第一个「同名但原文件已丢失」的文件，留给路径更新对话框 */
-        let pendingPathUpdate: { existingItem: any; newPath: string; newFileName: string } | null = null
-        
+        let duplicateCount = 0
+        let ambiguousCount = 0
+        const duplicateNames: string[] = []
+        const claimedResourceIds = new Set<string>()
+        const markerLookupCache = new Map<string, { resource: any; tableName: string } | null>()
+        const sameResourceRule = await loadSameResourceRule()
+
         for (const file of files) {
           const filePath = (file as any).path || file.name
             const fileName = file.name.toLowerCase()
@@ -802,21 +849,11 @@ export default defineComponent({
             
             if (pageAlreadyHas(filePath)) {
               console.log(`[GenericResourceView] 资源已在当前页面: ${file.name}`)
-              failedCount++
+              duplicateCount++
+              duplicateNames.push(file.name)
               continue
             }
 
-            // 换了文件夹再拖进来时，完整路径变了，但文件名还是原来的。旧文件已经丢失就改地址，不另建一条。
-            const relocatedItem = await findMissingResourceByFileName(filePath) || await findMissingResourceByFingerprint(filePath)
-            if (relocatedItem) {
-              pendingPathUpdate = {
-                existingItem: relocatedItem,
-                newPath: filePath,
-                newFileName: file.name
-              }
-              break
-            }
-            
             const matchedKind = matchAcceptedKind(fileExt, isFolder, acceptedKindIds.value)
             const MatchedResourceClass = matchedKind
               ? classForKind(matchedKind.id, legacyResourceTypes.value)
@@ -831,14 +868,87 @@ export default defineComponent({
             // 别的页面，或之前从页面里拿掉的同一份文件，接回原来的记录。
             const linked = await attachExistingResource(filePath)
             if (linked) {
+              await writeResourceMarkerForItem(linked, filePath, { onlyIfMissing: true })
               addedCount++
               linkedCount++
+              continue
+            }
+
+            const incomingSavedType = savedTypeOfClass(MatchedResourceClass).toLowerCase()
+
+            // 资源旁边有标记时，标记里的资源 ID 比路径和文件名都可靠。
+            let adoptedResourceId = ''
+            const markerMatch = await findMarkerImportMatch(filePath, incomingSavedType, markerLookupCache)
+            if (markerMatch.action === 'duplicate') {
+              duplicateCount++
+              duplicateNames.push(markerMatch.item ? sameResourceName(markerMatch.item) : '已有资源')
+              continue
+            }
+            if (markerMatch.action === 'ambiguous') {
+              ambiguousCount++
+              continue
+            }
+            if (markerMatch.action === 'adopt') {
+              if (claimedResourceIds.has(markerMatch.resourceId)) {
+                duplicateCount++
+                continue
+              }
+              adoptedResourceId = markerMatch.resourceId
+            }
+            if (markerMatch.action === 'relocate') {
+              if (claimedResourceIds.has(markerMatch.resourceId)) {
+                duplicateCount++
+                continue
+              }
+              const existingItem = attachSavedResource(markerMatch.saved)
+              if (await relocateImportedItem(existingItem, filePath, claimedResourceIds)) {
+                relocatedCount++
+              } else {
+                duplicateCount++
+              }
+              continue
+            }
+
+            // 按设置里的规则判断是不是已经有一条相同的资源。
+            const sameMatch = await findSameResourceForImport(
+              filePath,
+              incomingSavedType,
+              sameResourceRule,
+              fingerprintKindForResource(incomingSavedType)
+            )
+            if (sameMatch.action === 'duplicate') {
+              duplicateCount++
+              duplicateNames.push(sameResourceName(sameMatch.item))
+              continue
+            }
+            if (sameMatch.action === 'ambiguous') {
+              notifySameResourceAmbiguous(sameMatch.items.length)
+              ambiguousCount++
+              continue
+            }
+            if (sameMatch.action === 'relocate') {
+              if (await relocateImportedItem(sameMatch.item, filePath, claimedResourceIds)) {
+                relocatedCount++
+              } else {
+                duplicateCount++
+              }
+              continue
+            }
+
+            // 规则没对上时再用内容指纹兜底。改名又搬家，但项目文件或页数还能认出来的，仍然算同一条。
+            const relocatedItem = await findMissingResourceByFingerprint(filePath, sameMatch.incoming.fingerprint)
+            if (relocatedItem) {
+              if (await relocateImportedItem(relocatedItem, filePath, claimedResourceIds)) {
+                relocatedCount++
+              } else {
+                duplicateCount++
+              }
               continue
             }
             
             // 创建匹配到的资源类型
             const resourceData: any = {
-              id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              id: adoptedResourceId || `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
               resourceType: savedTypeOfClass(MatchedResourceClass),
               name: extractNameFromPath(file.name),
               description: '',
@@ -854,7 +964,9 @@ export default defineComponent({
             }
             
             // 自动扫描图片并设置封面（仅针对图片/漫画类型）
-            if (matchedKind.id === 'imageFolder' && isElectronEnvironment.value && window.electronAPI) {
+            // 压缩包在漫画页里沿用漫画类，也要像图片文件夹一样取第一张图当封面
+            const isMangaArchive = matchedKind.id === 'archive' && savedTypeOfClass(MatchedResourceClass) === 'manga'
+            if ((matchedKind.id === 'imageFolder' || isMangaArchive) && isElectronEnvironment.value && window.electronAPI) {
               console.log('[GenericResourceView] 开始扫描图片并设置封面:', filePath)
               
               // 检查是否为压缩包
@@ -872,7 +984,8 @@ export default defineComponent({
                       return fileName.includes('cover') || fileName.includes('front') || fileName.includes('thumb')
                     })
                     const targetImage = coverImage || resp.files[0]
-                    const coverPath = `archive://${encodeURIComponent(filePath)}!/${targetImage}`
+                    const base = `archive:///${filePath.replace(/\\/g, '/')}`
+                    const coverPath = `${base}#${encodeURIComponent(targetImage)}`
                     resourceData.coverPath = coverPath
                     console.log('[GenericResourceView] 压缩包封面设置为:', coverPath)
                     console.log('[GenericResourceView] 使用的图片:', coverImage ? 'cover图片' : '第一张图片')
@@ -909,12 +1022,33 @@ export default defineComponent({
                 if (duration > 0) {
                   resourceData.duration = duration
                 }
-                const thumb = await videoThumbnailComposable.generateThumbnail(filePath, resourceData.name)
+                const thumb = await videoThumbnailComposable.generateThumbnail(
+                  filePath,
+                  resourceData.name,
+                  null,
+                  undefined,
+                  { skipPersist: true }
+                )
                 if (thumb) {
                   resourceData.thumbnail = thumb
                 }
               } catch (error) {
                 console.warn('[GenericResourceView] 拖拽电影时生成封面失败:', error)
+              }
+            }
+
+            // 视频文件夹里的每一集也截一帧。只给单个视频截的话，文件夹详情里会一直是占位图。
+            if (matchedKind.id === 'videoFolder' && isFolder) {
+              try {
+                const filled = await fillFolderVideoCovers(filePath, resourceData.name, {})
+                if (Object.keys(filled.map).length > 0) {
+                  resourceData.videoThumbnails = filled.map
+                }
+                if (filled.firstThumb) {
+                  resourceData.thumbnail = filled.firstThumb
+                }
+              } catch (error) {
+                console.warn('[GenericResourceView] 拖拽视频文件夹时生成封面失败:', error)
               }
             }
             
@@ -945,19 +1079,37 @@ export default defineComponent({
               if (processed) Object.assign(resource, processed)
             }
 
-            await attachFingerprint(resource, filePath)
+            await attachFingerprint(resource, filePath, sameMatch.incoming.fingerprint)
+            await writeResourceMarkerForItem(resource, filePath)
             
             // 添加到列表
           items.value.push(resource)
+          if (adoptedResourceId) claimedResourceIds.add(adoptedResourceId)
           addedCount++
         }
         
-        if (addedCount > 0) {
+        if (addedCount > 0 || relocatedCount > 0) {
           await saveData()
+          const parts = [
+            addedCount > 0 ? `成功添加 ${addedCount} 个资源` : '',
+            linkedCount > 0 ? `其中 ${linkedCount} 个接上了已有记录` : '',
+            relocatedCount > 0 ? `更新 ${relocatedCount} 条资源路径` : '',
+            ambiguousCount > 0 ? `${ambiguousCount} 个无法唯一确定` : '',
+            duplicateCount > 0 ? `${duplicateCount} 个已存在` : '',
+            failedCount > 0 ? `${failedCount} 个失败` : '',
+            typeMismatchCount > 0 ? `${typeMismatchCount} 个类型不匹配` : ''
+          ].filter(Boolean)
           notify.toast(
             'success',
-            '添加成功',
-            `成功添加 ${addedCount} 个资源${linkedCount > 0 ? `，其中 ${linkedCount} 个接上了已有记录` : ''}${failedCount > 0 ? `，${failedCount} 个失败` : ''}${typeMismatchCount > 0 ? `，${typeMismatchCount} 个类型不匹配` : ''}`
+            addedCount > 0 ? '添加成功' : '路径已更新',
+            parts.join('，')
+          )
+        } else if (duplicateCount > 0) {
+          const preview = duplicateNames.slice(0, 3).join('、')
+          notify.toast(
+            'warning',
+            '已存在相同资源',
+            `${duplicateCount} 个文件符合当前的相同资源规则，已跳过${preview ? `：${preview}` : ''}`
           )
         } else if (typeMismatchCount > 0) {
           notify.toast(
@@ -965,16 +1117,18 @@ export default defineComponent({
             '资源类型不匹配',
             `${typeMismatchCount} 个文件的类型不匹配当前页面的配置`
           )
+        } else if (ambiguousCount > 0) {
+          notify.toast(
+            'warning',
+            '无法唯一确定',
+            `${ambiguousCount} 个文件对上了多条旧记录，已跳过`
+          )
         } else if (failedCount > 0) {
           notify.toast(
             'error',
             '添加失败',
             `${failedCount} 个文件添加失败（可能已存在）`
           )
-        }
-
-        if (pendingPathUpdate) {
-          resourcePage.showPathUpdateDialogHandler(pendingPathUpdate)
         }
       } catch (error: any) {
         console.error('[GenericResourceView] 处理拖拽失败:', error)
@@ -1028,6 +1182,71 @@ export default defineComponent({
       return true
     }
 
+    /**
+     * 只保存指定资源的正文，不重写页面索引。
+     * 星级、收藏、页数、访问记录这类修改不需要动页面成员，避免整页序列化和整表重写。
+     * @param targets 一个或多个资源实例
+     */
+    const saveResourcesDelta = async (targets: any | any[]) => {
+      const pageId = pageConfig.value?.id
+      if (!pageId) {
+        throw new Error('无法保存数据：pageId 不存在')
+      }
+      if (!isElectronEnvironment.value || !window.electronAPI || !window.electronAPI.sqliteUpsertPageResources) {
+        throw new Error('不在 Electron 环境或数据库 API 不可用，无法保存')
+      }
+
+      const list = (Array.isArray(targets) ? targets : [targets]).filter(Boolean)
+      if (list.length === 0) return true
+
+      const saveableData = list.map(item => BaseResources.composeSaveData(item, (item as any).getSaveData()))
+      const plainData = JSON.parse(JSON.stringify(saveableData))
+      const result = await window.electronAPI.sqliteUpsertPageResources(pageId, plainData)
+      if (!result || !result.ok) {
+        throw new Error(result?.message || '增量保存资源失败')
+      }
+      return true
+    }
+
+    /**
+     * 延迟合并保存。访问记录这类不需要立刻落盘的修改先攒着，
+     * 一次 IPC 写多条，避免连点几次就整页保存几次。
+     */
+    let scheduledResourceSaveTimer: ReturnType<typeof setTimeout> | null = null
+    const scheduledResourceSaveItems = new Map<string, any>()
+
+    const resourceIdOf = (item: any) =>
+      BaseResources.extractPrimitiveValue(item?.id?.value ?? item?.id)
+
+    const scheduleResourceSave = (item: any, delay = 800) => {
+      const id = resourceIdOf(item)
+      if (!id) return
+      scheduledResourceSaveItems.set(id, item)
+      if (scheduledResourceSaveTimer) return
+      scheduledResourceSaveTimer = setTimeout(() => {
+        scheduledResourceSaveTimer = null
+        flushScheduledResourceSaves().catch(error => {
+          console.warn('[GenericResourceView] 延迟保存资源失败:', error)
+        })
+      }, delay)
+    }
+
+    const cancelScheduledResourceSave = (item: any) => {
+      const id = resourceIdOf(item)
+      if (id) scheduledResourceSaveItems.delete(id)
+    }
+
+    const flushScheduledResourceSaves = async () => {
+      if (scheduledResourceSaveTimer) {
+        clearTimeout(scheduledResourceSaveTimer)
+        scheduledResourceSaveTimer = null
+      }
+      if (scheduledResourceSaveItems.size === 0) return
+      const snapshot = Array.from(scheduledResourceSaveItems.values())
+      scheduledResourceSaveItems.clear()
+      await saveResourcesDelta(snapshot)
+    }
+
     // 游戏截图功能（仅 Game 类型且 Electron 环境）
     const gameScreenshotComposable =
       resourceType.value === 'Game' && isElectronEnvironment.value
@@ -1047,7 +1266,7 @@ export default defineComponent({
               } else {
                 (item as any).coverPath = result.filepath
               }
-              await saveData()
+              await saveResourcesDelta(item)
               const name = item.name?.value ?? item.name
               notify.toast('success', '封面已更新', `已自动将截图设置为 "${name}" 的封面图`)
             }
@@ -1062,6 +1281,13 @@ export default defineComponent({
     
     // 详情页图片预览相关状态（用于 Image/Manga 资源类型）
     const detailPages = ref<string[]>([])
+    /**
+     * 详情下面正在显示的视频。
+     * 不挂在资源类上。类实例后来才多出来的字段，界面不一定会跟着刷新，数量有了列表却不出现。
+     */
+    const detailFolderVideos = ref<any[]>([])
+    /** 这次打开的详情已经扫过文件夹。没扫完不画出列表，避免先闪一行「没有视频」。 */
+    const detailFolderVideosReady = ref(false)
     const showDetailModal = ref(false) // 用于 imageCacheComposable（完全复刻 ImageView.vue）
     
     // 使用详情页图片分页 composable（完全复刻 ImageView.vue）
@@ -1169,6 +1395,7 @@ export default defineComponent({
 
       let successCount = 0
       let failCount = 0
+      const touched: any[] = []
 
       for (const itemId of selectedItems.value) {
         const item = items.value.find((i: any) => (i.id?.value || i.id) === itemId)
@@ -1182,6 +1409,7 @@ export default defineComponent({
             } else {
               item.tags = newTags
             }
+            touched.push(item)
             successCount++
           } catch (error) {
             console.error(`[GenericResourceView] 批量增加tag失败: ${itemId}`, error)
@@ -1191,7 +1419,7 @@ export default defineComponent({
       }
 
       if (successCount > 0) {
-        await saveData()
+        await saveResourcesDelta(touched)
         notify.toast('success', '批量增加tag', `成功为 ${successCount} 个项目添加标签${failCount > 0 ? `，${failCount} 个失败` : ''}`)
       } else {
         notify.toast('error', '批量增加tag', '添加失败')
@@ -1220,6 +1448,7 @@ export default defineComponent({
 
       let successCount = 0
       let failCount = 0
+      const touched: any[] = []
 
       for (const itemId of selectedItems.value) {
         const item = items.value.find((i: any) => (i.id?.value || i.id) === itemId)
@@ -1233,6 +1462,7 @@ export default defineComponent({
             } else {
               item.tags = newTags
             }
+            touched.push(item)
             successCount++
           } catch (error) {
             console.error(`[GenericResourceView] 批量删除tag失败: ${itemId}`, error)
@@ -1242,7 +1472,7 @@ export default defineComponent({
       }
 
       if (successCount > 0) {
-        await saveData()
+        await saveResourcesDelta(touched)
         notify.toast('success', '批量删除tag', `成功从 ${successCount} 个项目删除标签${failCount > 0 ? `，${failCount} 个失败` : ''}`)
       } else {
         notify.toast('error', '批量删除tag', '删除失败')
@@ -1450,7 +1680,7 @@ export default defineComponent({
           
           // 持久化到数据库
           try {
-            await saveData()
+            await saveResourcesDelta(resource)
           } catch (err: any) {
             console.error('[GenericResourceView] 游戏时长保存到数据库失败:', err)
             notify.toast('error', '保存失败', `游戏时长未能写入数据库: ${err.message}`)
@@ -1472,6 +1702,7 @@ export default defineComponent({
       // 构建 handler 上下文
       const context: ActionHandlerContext = {
         isElectronEnvironment: isElectronEnvironment.value,
+        pageId: pageConfig.value?.id,
         updateResource: async (id: string, updates: any) => {
           const idStr = String(id ?? '')
           const item = items.value.find((i: any) => String(i.id?.value ?? i.id ?? '') === idStr)
@@ -1483,7 +1714,8 @@ export default defineComponent({
                 item[key] = updates[key]
               }
             })
-            await saveData()
+            cancelScheduledResourceSave(item)
+            await saveResourcesDelta(item)
           }
         },
         isResourceRunning: (resource: any) => {
@@ -1552,7 +1784,7 @@ export default defineComponent({
           } else {
             item.visitedSessions = [now]
           }
-          await saveData()
+          scheduleResourceSave(item)
         },
         loadAlbumPages: async () => {
           // 加载专辑的图片文件列表（也支持单图：路径为单个图片文件时直接作为一页）
@@ -1668,7 +1900,7 @@ export default defineComponent({
           const arr = Array.isArray(item.visitedSessions.value) ? [...item.visitedSessions.value] : []
           arr.push(now)
           item.visitedSessions.value = arr
-          await saveData()
+          scheduleResourceSave(item)
         }
       }
 
@@ -1965,7 +2197,7 @@ export default defineComponent({
               '更新成功',
               `"${itemName}" 文件夹大小已更新\n旧大小: ${oldSizeMB} MB\n新大小: ${newSizeMB} MB`
             )
-            await saveData()
+            await saveResourcesDelta(item)
           } else {
             const errorMsg = `无法获取 "${itemName}" 的文件夹大小`
             console.log('[GenericResourceView] 文件夹大小计算失败:', errorMsg)
@@ -1998,43 +2230,10 @@ export default defineComponent({
         console.log(`旧路径: ${oldPath}`)
         console.log(`新路径: ${newPath}`)
 
-        // 更新资源路径
-        if (existingItem.resourcePath && typeof existingItem.resourcePath === 'object' && 'value' in existingItem.resourcePath) {
-          existingItem.resourcePath.value = newPath
-        } else if (existingItem.executablePath && typeof existingItem.executablePath === 'object' && 'value' in existingItem.executablePath) {
-          existingItem.executablePath.value = newPath
-        } else {
-          existingItem.resourcePath = newPath
-          existingItem.executablePath = newPath
-        }
-        
-        if (existingItem.fileExists && typeof existingItem.fileExists === 'object' && 'value' in existingItem.fileExists) {
-          existingItem.fileExists.value = true
-        } else {
-          existingItem.fileExists = true
-        }
-
-        // 重新计算文件夹大小（如果资源类型支持）
-        if (isElectronEnvironment.value && window.electronAPI && window.electronAPI.getFolderSize) {
-          try {
-            const result = await window.electronAPI.getFolderSize(newPath)
-            if (result.success) {
-              if (existingItem.folderSize && typeof existingItem.folderSize === 'object' && 'value' in existingItem.folderSize) {
-                existingItem.folderSize.value = result.size
-              } else {
-                existingItem.folderSize = result.size
-              }
-              console.log(`[GenericResourceView] 资源 ${itemName} 文件夹大小: ${result.size} 字节`)
-            }
-          } catch (error) {
-            console.error('[GenericResourceView] 获取文件夹大小失败:', error)
-          }
-        }
-
-        await attachFingerprint(existingItem, newPath)
+        await applyRelocatedPath(existingItem, newPath)
 
         // 保存更新后的数据
-        await saveData()
+        await saveResourcesDelta(existingItem)
 
         // 关闭对话框
         resourcePage.closePathUpdateDialog()
@@ -2083,7 +2282,7 @@ export default defineComponent({
 
     const pathUpdateDialogDescription = computed(() => {
       const itemType = pageConfig.value?.name || '资源'
-      return `发现同名但路径不同的${itemType}文件：`
+      return `发现符合相同资源规则、但路径不同的${itemType}记录：`
     })
 
     const pathUpdateItemNameLabel = computed(() => {
@@ -2196,6 +2395,7 @@ export default defineComponent({
         onUpdate: async (id: string, updates: any) => {
           const item = items.value.find((i: any) => (i.id?.value || i.id) === id)
           if (item) {
+            const previousCover = coverManager.extractCoverFromResource(item)
             // 更新 ResourceField 的值（而不是直接覆盖对象）
             Object.keys(updates).forEach(key => {
               // 类上有的字段改 value。这一页新加的字段留在记录上，不因为当前类不认识就丢掉。
@@ -2236,8 +2436,13 @@ export default defineComponent({
               }
             }
             
-            // 保存数据
-            await saveData()
+            // 只写这一条资源，不重写整页
+            cancelScheduledResourceSave(item)
+            await saveResourcesDelta(item)
+            if (hasCoverUpdate && previousCover && pageTypeOfResource(item) === 'Video') {
+              const nextCover = coverManager.extractCoverFromResource(item)
+              await deleteReplacedCover(previousCover.value, nextCover?.value || '')
+            }
             // 星级、完成状态写在资源上，侧栏数量要按保存后的数据立刻重算。
             refreshFilterSidebar()
           }
@@ -2336,34 +2541,367 @@ export default defineComponent({
     }
 
     /**
-     * 按文件名找出可以改地址的旧资源。
-     * 只认「文件名一样、旧路径已经打不开」的那条。路径完全相同的不算，文件还在原处的也不算，避免两部同名电影被并成一条。
-     * @param filePath 这次上传的新路径
-     * @returns 旧资源；没有可合并的记录时返回 null
+     * 读取设置里的相同资源规则。读不到时用默认的「文件名 + 上一级文件夹」。
      */
-    const findMissingResourceByFileName = async (filePath: string): Promise<any | null> => {
-      const newFileName = filePath.split(/[\\/]/).pop()?.toLowerCase() || ''
-      if (!newFileName) return null
+    const loadSameResourceRule = async (): Promise<SameResourceRule> => {
+      try {
+        const settings = await saveManager.loadSettings()
+        return normalizeSameResourceRule(settings?.sameResourceRule)
+      } catch (error) {
+        console.warn('[GenericResourceView] 读取相同资源规则失败，使用默认规则:', error)
+        return normalizeSameResourceRule(null)
+      }
+    }
+
+    /**
+     * 标记文件开关。旧存档没有这个字段时按开启处理。
+     */
+    const loadResourceMarkerEnabled = async (): Promise<boolean> => {
+      try {
+        const settings = await saveManager.loadSettings()
+        return settings?.resourceMarkerEnabled !== false
+      } catch (error) {
+        console.warn('[GenericResourceView] 读取标记文件设置失败，按开启处理:', error)
+        return true
+      }
+    }
+
+    /** 网站地址和压缩包内部虚拟路径没有实体位置，不写标记。 */
+    const canUseResourceMarker = (filePath: string): boolean => {
+      return !!filePath && !/^[a-z]+:\/\//i.test(filePath)
+    }
+
+    const getResourceId = (item: any): string => {
+      return String(BaseResources.extractPrimitiveValue(item?.id?.value ?? item?.id) || '')
+    }
+
+    /**
+     * 给资源写标记。补写时传 onlyIfMissing，避免每次进页面都重写一遍。
+     */
+    const writeResourceMarkerForItem = async (
+      item: any,
+      filePath: string,
+      options: { onlyIfMissing?: boolean; previousPath?: string } = {}
+    ): Promise<boolean> => {
+      if (!canUseResourceMarker(filePath)) return false
+      if (!isElectronEnvironment.value || !window.electronAPI?.writeResourceMarker) return false
+      const resourceId = getResourceId(item)
+      if (!resourceId) return false
+      if (!(await loadResourceMarkerEnabled())) return false
+      try {
+        const result = await window.electronAPI.writeResourceMarker({
+          resourcePath: filePath,
+          resourceId,
+          resourceType: savedTypeOfResource(item),
+          resourceName: sameResourceName(item),
+          previousPath: options.previousPath,
+          onlyIfMissing: options.onlyIfMissing
+        })
+        return !!result?.success
+      } catch (error) {
+        console.warn('[GenericResourceView] 写入资源标记失败:', filePath, error)
+        return false
+      }
+    }
+
+    type MarkerImportMatch =
+      | { action: 'none' }
+      | { action: 'adopt'; resourceId: string }
+      | { action: 'duplicate'; resourceId: string; item?: any }
+      | { action: 'relocate'; resourceId: string; item: any; saved: any }
+      | { action: 'ambiguous'; count: number }
+
+    /** 资源表名对应的存档类型，用来在记录没写 resourceType 时判断类型。 */
+    const SAVED_TYPES_BY_TABLE: Record<string, string[]> = {
+      games: ['game'],
+      software: ['software'],
+      manga: ['manga', 'image'],
+      singleImage: ['single-image', 'singleimage'],
+      video: ['movie', 'video'],
+      videoFolder: ['animation', 'videofolder', 'anime'],
+      novel: ['novel'],
+      website: ['website'],
+      audio: ['audio'],
+      other: ['other']
+    }
+
+    /**
+     * 按资源 ID 在所有资源表里找记录。一次导入里重复查同一个 ID 时走缓存。
+     */
+    const findResourceRecordById = async (
+      resourceId: string,
+      cache?: Map<string, { resource: any; tableName: string } | null>
+    ): Promise<{ resource: any; tableName: string } | null> => {
+      if (!resourceId) return null
+      if (cache?.has(resourceId)) return cache.get(resourceId) || null
+      if (!isElectronEnvironment.value || !window.electronAPI?.sqliteFindResourceById) return null
+
+      try {
+        const result = await window.electronAPI.sqliteFindResourceById(resourceId)
+        const found = result?.ok && result.resource
+          ? { resource: result.resource, tableName: String(result.tableName || '') }
+          : null
+        cache?.set(resourceId, found)
+        return found
+      } catch (error) {
+        console.warn('[GenericResourceView] 按资源 ID 查找失败:', resourceId, error)
+        return null
+      }
+    }
+
+    const markerRecordTypeMatches = (saved: any, tableName: string, incomingType: string): boolean => {
+      if (!incomingType) return true
+      const declaredType = typeof saved?.resourceType === 'string'
+        ? saved.resourceType.trim().toLowerCase()
+        : ''
+      if (declaredType) return declaredType === incomingType
+      return (SAVED_TYPES_BY_TABLE[String(tableName || '')] || []).includes(incomingType)
+    }
+
+    const checkResourcePathExists = async (filePath: string): Promise<boolean> => {
+      if (!filePath || !isElectronEnvironment.value || !window.electronAPI?.checkFileExists) return false
+      try {
+        const result = await window.electronAPI.checkFileExists(filePath)
+        return !!result?.exists
+      } catch (error) {
+        console.warn('[GenericResourceView] 检查旧路径是否存在失败:', filePath, error)
+        return false
+      }
+    }
+
+    /** 把已经在数据库里的记录接进当前页；已经在了就直接复用。 */
+    const attachSavedResource = (saved: any): any => {
+      const resourceId = String(saved?.id || '')
+      if (resourceId) {
+        const existing = items.value.find((item: any) => getResourceId(item) === resourceId)
+        if (existing) return existing
+      }
+      const resource = instantiateSavedResource(saved)
+      items.value.push(resource)
+      return resource
+    }
+
+    /**
+     * 导入的资源旁边有标记时，按标记里的资源 ID 找全局旧记录。
+     * 旧路径还在说明这只是一份拷贝，按重复处理；旧路径没了才把记录改到新位置。
+     */
+    const findMarkerImportMatch = async (
+      filePath: string,
+      savedType: string,
+      lookupCache?: Map<string, { resource: any; tableName: string } | null>
+    ): Promise<MarkerImportMatch> => {
+      if (!isElectronEnvironment.value || !window.electronAPI?.listResourceMarkers) return { action: 'none' }
+      if (!(await loadResourceMarkerEnabled())) return { action: 'none' }
+
+      let markers: ResourceMarkerInfo[] = []
+      try {
+        const result = await window.electronAPI.listResourceMarkers(filePath)
+        if (!result?.success || !result.markers?.length) return { action: 'none' }
+        markers = result.markers
+      } catch (error) {
+        console.warn('[GenericResourceView] 读取资源标记失败:', filePath, error)
+        return { action: 'none' }
+      }
+
+      const baseName = filePath.split(/[\\/]/).pop()?.toLowerCase() || ''
+      const isExactMarker = (marker: ResourceMarkerInfo): boolean =>
+        marker.targetType === 'folder' || (marker.targetFileName || '').toLowerCase() === baseName
+      // 同名侧车优先级最高；改过名的文件才用目录里剩下的标记。
+      const ordered = [...markers].sort(
+        (left, right) => Number(isExactMarker(right)) - Number(isExactMarker(left))
+      )
+
+      const candidates: MarkerImportCandidate[] = []
+      const records = new Map<string, { saved: any; item: any }>()
+      const seenIds = new Set<string>()
+
+      for (const marker of ordered) {
+        const resourceId = String(marker.resourceId || '')
+        if (!resourceId || seenIds.has(resourceId)) continue
+        seenIds.add(resourceId)
+
+        const exact = isExactMarker(marker)
+        const found = await findResourceRecordById(resourceId, lookupCache)
+        if (!found) {
+          candidates.push({ resourceId, exact, known: false, oldPathExists: false, typeMatches: true })
+          continue
+        }
+
+        const item = instantiateSavedResource(found.resource)
+        const oldPath = getResourceFilePath(item) || ''
+        const oldPathExists = oldPath ? await checkResourcePathExists(oldPath) : false
+        candidates.push({
+          resourceId,
+          exact,
+          known: true,
+          oldPathExists,
+          typeMatches: markerRecordTypeMatches(found.resource, found.tableName, savedType)
+        })
+        records.set(resourceId, { saved: found.resource, item })
+      }
+
+      const decision = decideMarkerImport(candidates)
+      if (decision.action === 'adopt') return { action: 'adopt', resourceId: decision.resourceId }
+      if (decision.action === 'ambiguous') return { action: 'ambiguous', count: decision.count }
+      if (decision.action === 'duplicate') {
+        return { action: 'duplicate', resourceId: decision.resourceId, item: records.get(decision.resourceId)?.item }
+      }
+      if (decision.action === 'relocate') {
+        const record = records.get(decision.resourceId)
+        if (!record) return { action: 'none' }
+        return { action: 'relocate', resourceId: decision.resourceId, item: record.item, saved: record.saved }
+      }
+      return { action: 'none' }
+    }
+
+    /**
+     * 计算传入路径的指纹。只有规则勾了内容指纹，或需要指纹兜底时才调用。
+     */
+    const computeIncomingFingerprint = async (
+      filePath: string,
+      kind: ReturnType<typeof fingerprintKindForResource>
+    ): Promise<string> => {
+      if (!kind || !filePath || !window.electronAPI?.computeResourceFingerprint) return ''
+      try {
+        const result = await window.electronAPI.computeResourceFingerprint(filePath, kind)
+        return result?.success && result.fingerprint ? result.fingerprint : ''
+      } catch (error) {
+        console.warn('[GenericResourceView] 计算资源指纹失败:', filePath, error)
+        return ''
+      }
+    }
+
+    /**
+     * 这次拖入或导入的文件，整理成规则比较用的信息。
+     */
+    const describeIncomingResource = async (
+      filePath: string,
+      rule: SameResourceRule,
+      kind: ReturnType<typeof fingerprintKindForResource>
+    ): Promise<SameResourceDescriptor> => {
+      const fingerprint = rule.criteria.includes('fingerprint')
+        ? await computeIncomingFingerprint(filePath, kind)
+        : ''
+      let fileSize: number | null = null
+
+      if (rule.criteria.includes('fileSize') && window.electronAPI?.getFileStats) {
+        try {
+          const stats = await window.electronAPI.getFileStats(filePath)
+          if (stats?.success && stats.isFile && Number(stats.size) > 0) {
+            fileSize = Number(stats.size)
+          }
+        } catch (error) {
+          console.warn('[GenericResourceView] 读取文件大小失败:', filePath, error)
+        }
+      }
+
+      if (fileSize === null) {
+        const fingerprintSize = fingerprintFileSize(fingerprint)
+        if (fingerprintSize > 0) fileSize = fingerprintSize
+      }
+
+      return buildSameResourceDescriptor({ path: filePath, fileSize, fingerprint })
+    }
+
+    /**
+     * 现有资源整理成规则比较用的信息。单文件大小从指纹里取，文件夹不参与大小比较。
+     */
+    const describeResourceForSameRule = (item: any): SameResourceDescriptor => {
+      const path = getResourceFilePath(item) || ''
+      const fingerprint = readFingerprint(item)
+      const fingerprintSize = fingerprintFileSize(fingerprint)
+      return buildSameResourceDescriptor({
+        path,
+        fingerprint,
+        fileSize: fingerprintSize > 0 ? fingerprintSize : null
+      })
+    }
+
+    /**
+     * 资源的存档类型。游戏不会和漫画、视频互相比较。
+     */
+    const savedTypeOfResource = (item: any): string => {
+      const value = BaseResources.extractPrimitiveValue(item?.resourceType?.value ?? item?.resourceType)
+      if (typeof value === 'string' && value) return value.trim().toLowerCase()
+      return savedTypeOfClass(item?.constructor).trim().toLowerCase()
+    }
+
+    /** 通知里显示的资源名。 */
+    const sameResourceName = (item: any): string => {
+      const name = BaseResources.extractPrimitiveValue(item?.name?.value ?? item?.name)
+      return String(name || getResourceFilePath(item) || '未命名资源')
+    }
+
+    const notifySameResourceAmbiguous = (count: number): void => {
+      notify.toast(
+        'warning',
+        '无法确定要找回哪一条',
+        `有 ${count} 条旧记录符合当前的相同资源规则。为避免改错，本次没有导入；可以在设置里收紧规则后重试。`
+      )
+    }
+
+    type SameResourceImportMatch =
+      | { action: 'none'; incoming: SameResourceDescriptor }
+      | { action: 'duplicate'; item: any; incoming: SameResourceDescriptor }
+      | { action: 'relocate'; item: any; incoming: SameResourceDescriptor }
+      | { action: 'ambiguous'; items: any[]; incoming: SameResourceDescriptor }
+
+    /**
+     * 按设置里的规则找当前页面是否有同一条资源。
+     * 对方文件还在算重复；只有一条丢失记录才算搬家；多条丢失记录不猜。
+     */
+    const findSameResourceForImport = async (
+      filePath: string,
+      savedType: string,
+      rule: SameResourceRule,
+      kind: ReturnType<typeof fingerprintKindForResource>
+    ): Promise<SameResourceImportMatch> => {
+      const incoming = await describeIncomingResource(filePath, rule, kind)
+      const matched: any[] = []
 
       for (const item of items.value) {
-        const itemPath = getResourceFilePath(item)
-        if (!itemPath || itemPath === filePath) continue
-        const itemFileName = String(itemPath).split(/[\\/]/).pop()?.toLowerCase() || ''
-        if (itemFileName !== newFileName) continue
+        const itemPath = getResourceFilePath(item) || ''
+        if (!itemPath || isSameResourcePath(itemPath, filePath)) continue
+        const itemType = savedTypeOfResource(item)
+        if (savedType && itemType && itemType !== savedType) continue
+        if (!matchesSameResource(incoming, describeResourceForSameRule(item), rule)) continue
+        matched.push(item)
+      }
 
-        let missing = !getFileExists(item)
-        if (!missing && isElectronEnvironment.value && window.electronAPI?.checkFileExists) {
+      if (matched.length === 0) return { action: 'none', incoming }
+
+      const existing: any[] = []
+      const missing: any[] = []
+      for (const item of matched) {
+        const itemPath = getResourceFilePath(item) || ''
+        let isMissing = !getFileExists(item)
+        if (!isMissing && isElectronEnvironment.value && window.electronAPI?.checkFileExists) {
           try {
             const result = await window.electronAPI.checkFileExists(itemPath)
-            missing = !result?.exists
-            if (missing) setFileExists(item, false)
+            isMissing = !result?.exists
+            if (isMissing) setFileExists(item, false)
           } catch (error) {
             console.warn('[GenericResourceView] 检查旧路径是否存在失败:', itemPath, error)
           }
         }
-        if (missing) return item
+        if (isMissing) missing.push(item)
+        else existing.push(item)
       }
-      return null
+
+      if (existing.length > 0) return { action: 'duplicate', item: existing[0], incoming }
+      if (missing.length === 1) return { action: 'relocate', item: missing[0], incoming }
+
+      // 多条旧记录都丢了时，如果指纹只能对上一条，就用它，免得还要用户手动挑。
+      if (incoming.fingerprint) {
+        const fingerprintMatches = missing.filter(item =>
+          isSameFingerprintIdentity(readFingerprint(item), incoming.fingerprint || '')
+        )
+        if (fingerprintMatches.length === 1) {
+          return { action: 'relocate', item: fingerprintMatches[0], incoming }
+        }
+      }
+
+      return { action: 'ambiguous', items: missing, incoming }
     }
 
     /**
@@ -2397,21 +2935,64 @@ export default defineComponent({
     }
 
     /**
+     * 把已有记录的路径改到新位置，并刷新大小、指纹和标记。
+     * 旧路径和新路径相同时不动，避免批量导入里重复处理同一条记录。
+     * @param item 已有资源
+     * @param newPath 新路径
+     * @returns 是否真的改了路径
+     */
+    const applyRelocatedPath = async (item: any, newPath: string): Promise<boolean> => {
+      const oldPath = getResourceFilePath(item) || ''
+      if (!oldPath || isSameResourcePath(oldPath, newPath)) return false
+
+      setResourceFilePath(item, oldPath, newPath)
+      setFileExists(item, true)
+
+      if (isElectronEnvironment.value && window.electronAPI?.getFolderSize) {
+        try {
+          const result = await window.electronAPI.getFolderSize(newPath)
+          if (result.success && typeof result.size === 'number') {
+            if (item.folderSize && typeof item.folderSize === 'object' && 'value' in item.folderSize) {
+              item.folderSize.value = result.size
+            } else {
+              item.folderSize = result.size
+            }
+          }
+        } catch (error) {
+          console.warn('[GenericResourceView] 获取文件夹大小失败:', newPath, error)
+        }
+      }
+
+      await attachFingerprint(item, newPath)
+      await writeResourceMarkerForItem(item, newPath, { previousPath: oldPath })
+      return true
+    }
+
+    /**
+     * 导入时把一条旧记录挪到新路径。同一批次里同一条记录只处理一次。
+     * @returns 是否更新了路径
+     */
+    const relocateImportedItem = async (
+      item: any,
+      newPath: string,
+      claimedResourceIds: Set<string>
+    ): Promise<boolean> => {
+      const resourceId = getResourceId(item)
+      if (resourceId && claimedResourceIds.has(resourceId)) return false
+      if (!(await applyRelocatedPath(item, newPath))) return false
+      if (resourceId) claimedResourceIds.add(resourceId)
+      return true
+    }
+
+    /**
      * 给一条资源补上指纹。文件还在的时候记下来，之后改名才能认出来。
      * @param item 资源
      * @param filePath 当前真实路径
      */
-    const attachFingerprint = async (item: any, filePath: string): Promise<void> => {
+    const attachFingerprint = async (item: any, filePath: string, knownFingerprint = ''): Promise<void> => {
       const kind = fingerprintKindForResource(item?.constructor?.name || resourceType.value)
-      if (!kind || !filePath || !window.electronAPI?.computeResourceFingerprint) return
-      try {
-        const result = await window.electronAPI.computeResourceFingerprint(filePath, kind)
-        if (result?.success && result.fingerprint) {
-          writeFingerprint(item, result.fingerprint)
-        }
-      } catch (error) {
-        console.warn('[GenericResourceView] 计算资源指纹失败:', filePath, error)
-      }
+      const fingerprint = knownFingerprint || await computeIncomingFingerprint(filePath, kind)
+      if (fingerprint) writeFingerprint(item, fingerprint)
     }
 
     /**
@@ -2421,18 +3002,11 @@ export default defineComponent({
      * @param filePath 这次上传的新路径
      * @returns 旧资源；没有唯一匹配时返回 null
      */
-    const findMissingResourceByFingerprint = async (filePath: string): Promise<any | null> => {
+    const findMissingResourceByFingerprint = async (filePath: string, knownFingerprint = ''): Promise<any | null> => {
       const kind = fingerprintKindForResource(resourceType.value)
-      if (!kind || !window.electronAPI?.computeResourceFingerprint) return null
+      if (!kind) return null
 
-      let incoming = ''
-      try {
-        const result = await window.electronAPI.computeResourceFingerprint(filePath, kind)
-        incoming = result?.fingerprint || ''
-      } catch (error) {
-        console.warn('[GenericResourceView] 计算上传文件指纹失败:', filePath, error)
-        return null
-      }
+      const incoming = knownFingerprint || await computeIncomingFingerprint(filePath, kind)
       if (!incoming) return null
 
       const matches: any[] = []
@@ -2475,7 +3049,8 @@ export default defineComponent({
       Object.keys(updates).forEach((key) => {
         BaseResources.assignSavedValue(item, key, updates[key])
       })
-      await saveData()
+      cancelScheduledResourceSave(item)
+      await saveResourcesDelta(item)
       refreshFilterSidebar()
       closeArchiveDialog()
       notify.toast('success', '已保存', '记录已更新')
@@ -2630,7 +3205,8 @@ export default defineComponent({
               }
             }
           }
-          await saveData()
+          cancelScheduledResourceSave(item)
+          await saveResourcesDelta(item)
           notify.toast('success', '刮削', '补全成功')
         } else {
           notify.toast('error', '刮削', res?.message || '更新失败')
@@ -2661,8 +3237,17 @@ export default defineComponent({
     contextMenuHandlers.batchDeleteTag = () => handleBatchDeleteTag()
     contextMenuHandlers.batchDelete = () => handleBatchDelete()
 
+    /**
+     * 正在检查文件是否还在。
+     * 同一次进入里如果又被叫到，直接跳过，避免同一批结果弹两次。
+     */
+    let fileExistenceCheckRunning = false
+
     // 通用的文件存在性检查函数
     const checkFileExistence = async (): Promise<void> => {
+      if (fileExistenceCheckRunning) return
+      fileExistenceCheckRunning = true
+      try {
       if (!isElectronEnvironment.value || !window.electronAPI || !window.electronAPI.checkFileExists) {
         // 如果API不可用，默认设置为存在
         items.value.forEach((item: any) => {
@@ -2678,31 +3263,39 @@ export default defineComponent({
         }
         return
       }
-      
-      for (const item of items.value) {
-        // 获取文件路径
-        const filePath = getResourceFilePath(item)
-        
-        // 如果没有找到路径，标记为不存在
-        if (!filePath) {
-          setFileExists(item, false)
-          continue
-        }
-        
-        try {
-          const result = await window.electronAPI.checkFileExists(filePath)
-          const exists = result.exists || false
-          
-          // 更新 fileExists 字段
-          setFileExists(item, exists)
-        } catch (error) {
-          const itemName = BaseResources.extractPrimitiveValue(item.name?.value || item.name) || '未知资源'
-          console.error(`[GenericResourceView] ❌ 检测文件存在性失败: ${itemName}`, error)
-          
-          // 出错时标记为不存在
-          setFileExists(item, false)
+
+      const markerEnabled = await loadResourceMarkerEnabled()
+
+      // 一次 IPC 批量查完，几千条资源也不用挨个等主进程回话
+      const uniquePaths = Array.from(new Set(
+        items.value
+          .map((item: any) => getResourceFilePath(item))
+          .filter((path: any): path is string => typeof path === 'string' && path.trim() !== '')
+      ))
+      const pathExists = new Map<string, boolean>()
+      if (window.electronAPI?.checkFileExistsBatch) {
+        const response = await window.electronAPI.checkFileExistsBatch(uniquePaths)
+        const results = Array.isArray(response?.results) ? response.results : []
+        uniquePaths.forEach((path, index) => pathExists.set(path, results[index] === true))
+      } else {
+        for (const path of uniquePaths) {
+          try {
+            const result = await window.electronAPI.checkFileExists(path)
+            pathExists.set(path, result?.exists === true)
+          } catch (error) {
+            console.warn('[GenericResourceView] 检测文件存在性失败:', path, error)
+            pathExists.set(path, false)
+          }
         }
       }
+
+      for (const item of items.value) {
+        const filePath = getResourceFilePath(item)
+        setFileExists(item, !!filePath && pathExists.get(filePath) === true)
+      }
+
+      /** 指纹或路径被补写过的资源，最后只保存这几条 */
+      const dirtyItems = new Set<any>()
 
       // 文件还在、但还没记过指纹的，补记一次。以后改名或在同级目录移动，就能认出还是这一条。
       let fingerprintDirty = false
@@ -2712,7 +3305,61 @@ export default defineComponent({
         if (!filePath) continue
         const before = readFingerprint(item)
         await attachFingerprint(item, filePath)
-        if (readFingerprint(item) && readFingerprint(item) !== before) fingerprintDirty = true
+        if (readFingerprint(item) && readFingerprint(item) !== before) {
+          fingerprintDirty = true
+          dirtyItems.add(item)
+        }
+      }
+
+      // 文件还在、但还没写过标记的，补写一次。
+      if (markerEnabled) {
+        for (const item of items.value) {
+          if (!getFileExists(item)) continue
+          const filePath = getResourceFilePath(item)
+          if (!filePath) continue
+          await writeResourceMarkerForItem(item, filePath, { onlyIfMissing: true })
+        }
+      }
+
+      // 旧路径打不开，但附近还有这个资源 ID 的标记时，标记指向的就是新位置。
+      let markerRelinkedCount = 0
+      if (markerEnabled && window.electronAPI?.findResourceMarkerLocation) {
+        const markerClaims = new Map<string, Array<{ item: any, oldPath: string, newPath: string }>>()
+        for (const item of items.value) {
+          if (getFileExists(item)) continue
+          const oldPath = getResourceFilePath(item)
+          const resourceId = getResourceId(item)
+          if (!oldPath || !resourceId) continue
+          try {
+            const found = await window.electronAPI.findResourceMarkerLocation(resourceId, oldPath)
+            if (!found?.success || found.ambiguous || !found.newPath) continue
+            if (isSameResourcePath(found.newPath, oldPath)) continue
+            const key = found.newPath.replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase()
+            const owners = markerClaims.get(key) || []
+            owners.push({ item, oldPath, newPath: found.newPath })
+            markerClaims.set(key, owners)
+          } catch (error) {
+            console.warn('[GenericResourceView] 按标记查找新路径失败:', oldPath, error)
+          }
+        }
+
+        for (const owners of markerClaims.values()) {
+          if (owners.length !== 1) continue
+          const { item, oldPath, newPath } = owners[0]
+          const taken = items.value.some((other: any) => {
+            if (other === item) return false
+            const otherPath = getResourceFilePath(other)
+            return !!otherPath && isSameResourcePath(otherPath, newPath)
+          })
+          if (taken) continue
+          setResourceFilePath(item, oldPath, newPath)
+          setFileExists(item, true)
+          await attachFingerprint(item, newPath)
+          await writeResourceMarkerForItem(item, newPath, { previousPath: oldPath })
+          markerRelinkedCount++
+          fingerprintDirty = true
+          dirtyItems.add(item)
+        }
       }
 
       // 路径打不开时，只在原来的父目录里找指纹相同的新位置。搬去别的磁盘不会在这里全盘搜索。
@@ -2744,7 +3391,7 @@ export default defineComponent({
         }
       }
 
-      let relinkedCount = 0
+      let relinkedCount = markerRelinkedCount
       for (const owners of claimed.values()) {
         if (owners.length !== 1) continue
         const { item, oldPath, newPath } = owners[0]
@@ -2759,11 +3406,12 @@ export default defineComponent({
         await attachFingerprint(item, newPath)
         relinkedCount++
         fingerprintDirty = true
+        dirtyItems.add(item)
       }
 
-      if (fingerprintDirty) {
+      if (fingerprintDirty && dirtyItems.size > 0) {
         try {
-          await saveData()
+          await saveResourcesDelta(Array.from(dirtyItems))
         } catch (error) {
           console.warn('[GenericResourceView] 保存资源指纹失败:', error)
         }
@@ -2786,6 +3434,9 @@ export default defineComponent({
           const filterData = filterComposable.getFilterData()
           emit('filter-data-updated', filterData)
         }, 100)
+      }
+      } finally {
+        fileExistenceCheckRunning = false
       }
     }
 
@@ -2823,16 +3474,16 @@ export default defineComponent({
         return typeof resourcePath === 'string' && resourcePath.trim() !== ''
       })
       if (pending.length === 0) return
-      let updatedCount = 0
+      const changed: any[] = []
       for (const item of pending) {
         const resourcePath = BaseResources.extractPrimitiveValue(item.resourcePath?.value || item.resourcePath)
         const before = BaseResources.extractPrimitiveValue(item.engine.value)
         await assignDetectedGameEngine(item, String(resourcePath))
         const after = BaseResources.extractPrimitiveValue(item.engine.value)
-        if (after && after !== before) updatedCount++
+        if (after && after !== before) changed.push(item)
       }
-      if (updatedCount > 0) {
-        await saveData()
+      if (changed.length > 0) {
+        await saveResourcesDelta(changed)
       }
     }
 
@@ -2866,17 +3517,60 @@ export default defineComponent({
         return
       }
       
+      const sizesBefore = new Map<any, unknown>()
+      resourcesToCalculate.forEach((item: any) => {
+        sizesBefore.set(item, BaseResources.extractPrimitiveValue(item.folderSize?.value ?? item.folderSize))
+      })
+
       const gameResources = resourcesToCalculate.filter((item: any) => pageTypeOfResource(item) === 'Game')
       const otherResources = resourcesToCalculate.filter((item: any) => pageTypeOfResource(item) !== 'Game')
-      let updatedCount = 0
       if (gameResources.length > 0) {
-        updatedCount += await calculateResourceSizesBatch(gameResources, isElectronEnvironment.value, true)
+        await calculateResourceSizesBatch(gameResources, isElectronEnvironment.value, true)
       }
       if (otherResources.length > 0) {
-        updatedCount += await calculateResourceSizesBatch(otherResources, isElectronEnvironment.value, false)
+        await calculateResourceSizesBatch(otherResources, isElectronEnvironment.value, false)
       }
-      if (updatedCount > 0) {
-        await saveData()
+
+      const changed = resourcesToCalculate.filter((item: any) => {
+        const now = BaseResources.extractPrimitiveValue(item.folderSize?.value ?? item.folderSize)
+        return now !== sizesBefore.get(item)
+      })
+      if (changed.length > 0) {
+        await saveResourcesDelta(changed)
+      }
+    }
+
+    /**
+     * 批量导入后在后台补文件夹大小。
+     * 游戏目录可能要扫很久，不能让它挡住“导入完成”；资源先出现在列表里，大小算完再落盘。
+     * @param resources 这次新导入的资源
+     */
+    const fillImportedResourceSizes = async (resources: any[]) => {
+      const targets = resources.filter((item: any) => {
+        return item.constructor?.cardDisplayConfig?.badge?.field === 'folderSize'
+      })
+      if (targets.length === 0) return
+
+      const gameResources = targets.filter((item: any) => pageTypeOfResource(item) === 'Game')
+      const otherResources = targets.filter((item: any) => pageTypeOfResource(item) !== 'Game')
+      /** 同一批里同一个文件夹只扫一次。 */
+      const folderSizeCache: FolderSizeCache = new Map()
+      try {
+        if (gameResources.length > 0) {
+          await calculateResourceSizesBatch(gameResources, isElectronEnvironment.value, true, undefined, folderSizeCache)
+        }
+        if (otherResources.length > 0) {
+          await calculateResourceSizesBatch(otherResources, isElectronEnvironment.value, false, undefined, folderSizeCache)
+        }
+        const calculated = targets.filter((item: any) => {
+          const size = BaseResources.extractPrimitiveValue(item.folderSize?.value ?? item.folderSize)
+          return Number(size) > 0
+        })
+        if (calculated.length > 0) {
+          await saveResourcesDelta(calculated)
+        }
+      } catch (error) {
+        console.warn('[GenericResourceView] 后台补文件夹大小失败:', error)
       }
     }
 
@@ -2905,27 +3599,23 @@ export default defineComponent({
         return
       }
 
-      let updatedCount = 0
-      for (let i = 0; i < novelsToCount.length; i++) {
-        const item = novelsToCount[i]
+      const changed: any[] = []
+      for (const item of novelsToCount) {
         const resourcePath = BaseResources.extractPrimitiveValue(item.resourcePath?.value || item.resourcePath)
         try {
           const result = await window.electronAPI.countNovelWords(resourcePath)
           const wordCount = Number(result?.wordCount) || 0
           if (result?.success && wordCount > 0 && item.totalWords && typeof item.totalWords === 'object' && 'value' in item.totalWords) {
             item.totalWords.value = wordCount
-            updatedCount++
+            changed.push(item)
           }
         } catch (error) {
           console.warn('[GenericResourceView] 统计小说字数失败:', resourcePath, error)
         }
-        if (i < novelsToCount.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 10))
-        }
       }
 
-      if (updatedCount > 0) {
-        await saveData()
+      if (changed.length > 0) {
+        await saveResourcesDelta(changed)
       }
     }
 
@@ -2957,8 +3647,8 @@ export default defineComponent({
         return
       }
 
-      for (let i = 0; i < resourcesToCalculate.length; i++) {
-        const item = resourcesToCalculate[i]
+      const changed: any[] = []
+      for (const item of resourcesToCalculate) {
         const resourcePath = BaseResources.extractPrimitiveValue(
           item.resourcePath?.value || item.resourcePath
         )
@@ -2974,17 +3664,17 @@ export default defineComponent({
           }
           if (item.pagesCount && typeof item.pagesCount === 'object' && 'value' in item.pagesCount) {
             item.pagesCount.value = count
-          } else if (item.pagesCount !== undefined) {
-            item.pagesCount = count
           } else {
             item.pagesCount = count
           }
+          // 页数以前不写回存档，每次进页面都要重新扫一遍文件夹
+          changed.push(item)
         } catch (error) {
           console.warn('[GenericResourceView] 获取漫画页数失败:', resourcePath, error)
         }
-        if (i < resourcesToCalculate.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 10))
-        }
+      }
+      if (changed.length > 0) {
+        await saveResourcesDelta(changed)
       }
     }
 
@@ -3009,8 +3699,8 @@ export default defineComponent({
         return
       }
 
-      for (let i = 0; i < resourcesToCalculate.length; i++) {
-        const item = resourcesToCalculate[i]
+      const changed: any[] = []
+      for (const item of resourcesToCalculate) {
         const resourcePath = BaseResources.extractPrimitiveValue(
           item.resourcePath?.value || item.resourcePath
         )
@@ -3018,15 +3708,16 @@ export default defineComponent({
         try {
           const folder = { ...item, folderPath: resourcePath }
           const folderVideos = await videoFolderComposable.getFolderVideos(folder)
-          const count = folderVideos?.length ?? 0
-          item.videoCount = count
+          item.videoCount = folderVideos?.length ?? 0
+          changed.push(item)
         } catch (error) {
           console.warn('[GenericResourceView] 获取番剧视频数量失败:', resourcePath, error)
           item.videoCount = 0
+          changed.push(item)
         }
-        if (i < resourcesToCalculate.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 10))
-        }
+      }
+      if (changed.length > 0) {
+        await saveResourcesDelta(changed)
       }
     }
 
@@ -3039,8 +3730,7 @@ export default defineComponent({
         return (duration === undefined || duration === null || duration === 0) && item.resourcePath != null
       })
       if (toUpdate.length === 0) return
-      console.log(`[GenericResourceView] 开始刷新 ${toUpdate.length} 个未知时长的视频...`)
-      let updatedCount = 0
+      const changed: any[] = []
       for (const item of toUpdate) {
         const path = BaseResources.extractPrimitiveValue(item.resourcePath?.value || item.resourcePath)
         if (!path || typeof path !== 'string' || !path.trim()) continue
@@ -3052,15 +3742,48 @@ export default defineComponent({
             } else {
               item.duration = duration
             }
-            updatedCount++
+            changed.push(item)
           }
         } catch (e) {
           console.warn('[GenericResourceView] 获取视频时长失败:', path, e)
         }
       }
-      if (updatedCount > 0) {
-        await saveData()
-        console.log(`[GenericResourceView] 已刷新 ${updatedCount} 个视频时长并保存`)
+      if (changed.length > 0) {
+        await saveResourcesDelta(changed)
+      }
+    }
+
+    /**
+     * 封面换掉以后清掉旧文件。
+     * 只删存档里的副本和自动截帧生成的文件，用户从别处选的封面原图不动。
+     * @param previousCover 更新前用的封面路径
+     * @param nextCover 更新后的封面路径，空表示用户清除了封面
+     */
+    const deleteReplacedCover = async (previousCover: string, nextCover: string) => {
+      if (!previousCover || previousCover === nextCover) return
+      if (previousCover.startsWith('data:') || previousCover.startsWith('http://') ||
+          previousCover.startsWith('https://') || previousCover.startsWith('archive:')) return
+
+      const normalized = previousCover.replace(/\\/g, '/')
+      const isRelative = !/^[A-Za-z]:/.test(normalized) && !normalized.startsWith('/') && !normalized.startsWith('file://')
+      if (isRelative) {
+        await saveManager.deleteThumbnail(normalized)
+        return
+      }
+
+      const saveDir = String(saveManager.dataDirectory || '').replace(/\\/g, '/').replace(/\/+$/, '')
+      const lower = normalized.toLowerCase()
+      const generatedDirs = [`${saveDir}/Video/Covers`, `${saveDir}/videos/covers`]
+        .map(dir => dir.toLowerCase())
+      for (const dir of generatedDirs) {
+        if (!lower.startsWith(`${dir}/`)) continue
+        // 只认自动截帧放在目录根部的 xxxcover_N.jpg。
+        // 文件夹视频的封面在子目录里，还被 videoThumbnails 引用着，不能跟着删。
+        const fileName = lower.slice(dir.length + 1)
+        if (!fileName.includes('/') && /cover_\d+\.(jpg|jpeg|png|webp)$/.test(fileName)) {
+          await saveManager.deleteThumbnail(normalized)
+          return
+        }
       }
     }
 
@@ -3069,7 +3792,7 @@ export default defineComponent({
      * 已经在存档里的封面不会再复制。原文件已经丢了的封面补不回来，只能继续显示默认图。
      */
     const persistCoversIntoSaveData = async () => {
-      let changedCount = 0
+      const changed: any[] = []
       for (const item of items.value) {
         const resourceId = BaseResources.extractPrimitiveValue(item.id?.value || item.id)
         const coverInfo = coverManager.extractCoverFromResource(item)
@@ -3079,15 +3802,15 @@ export default defineComponent({
           const nextCover = coverManager.extractCoverFromResource(processed)
           if (nextCover && nextCover.value !== coverInfo.value) {
             Object.assign(item, processed)
-            changedCount++
+            changed.push(item)
           }
         } catch (error) {
           console.warn('[GenericResourceView] 把封面写入存档失败:', resourceId, error)
         }
       }
-      if (changedCount > 0) {
-        await saveData()
-        console.log(`[GenericResourceView] 已将 ${changedCount} 个封面复制进存档`)
+      if (changed.length > 0) {
+        await saveResourcesDelta(changed)
+        console.log(`[GenericResourceView] 已将 ${changed.length} 个封面复制进存档`)
       }
     }
 
@@ -3104,28 +3827,37 @@ export default defineComponent({
         return !hasThumbnail && typeof path === 'string' && path.trim() !== ''
       })
       if (toUpdate.length === 0) return
-      console.log(`[GenericResourceView] 开始为 ${toUpdate.length} 个电影补封面...`)
-      let updatedCount = 0
+      const changed: any[] = []
       for (const item of toUpdate) {
         const path = BaseResources.extractPrimitiveValue(item.resourcePath?.value || item.resourcePath)
         const name = BaseResources.extractPrimitiveValue(item.name?.value || item.name) || ''
-        if (!path || typeof path !== 'string') continue
+        const resourceId = BaseResources.extractPrimitiveValue(item.id?.value || item.id)
+        if (!path || typeof path !== 'string' || !resourceId) continue
         try {
-          const thumb = await videoThumbnailComposable.generateThumbnail(path, name)
+          const thumb = await videoThumbnailComposable.generateThumbnail(
+            path,
+            name,
+            null,
+            undefined,
+            { skipPersist: true }
+          )
           if (!thumb) continue
           if (item.thumbnail && typeof item.thumbnail === 'object' && 'value' in item.thumbnail) {
             item.thumbnail.value = thumb
           } else {
             item.thumbnail = thumb
           }
-          updatedCount++
+          // 截出来的帧先留在内存里，这里直接写入存档，只留这一张
+          const processed = await coverManager.processCoverForResource(item, pageTypeOfResource(item), String(resourceId))
+          if (processed) Object.assign(item, processed)
+          changed.push(item)
         } catch (error) {
           console.warn('[GenericResourceView] 补电影封面失败:', path, error)
         }
       }
-      if (updatedCount > 0) {
-        await saveData()
-        console.log(`[GenericResourceView] 已补上 ${updatedCount} 个电影封面并保存`)
+      if (changed.length > 0) {
+        await saveResourcesDelta(changed)
+        console.log(`[GenericResourceView] 已补上 ${changed.length} 个电影封面并保存`)
       }
     }
 
@@ -3152,7 +3884,13 @@ export default defineComponent({
       const currentThumbnail = typeof formData.thumbnail === 'string' ? formData.thumbnail.trim() : ''
       if (!currentThumbnail) {
         try {
-          const thumb = await videoThumbnailComposable.generateThumbnail(filePath, formData.name || '')
+          const thumb = await videoThumbnailComposable.generateThumbnail(
+            filePath,
+            formData.name || '',
+            null,
+            undefined,
+            { skipPersist: true }
+          )
           if (thumb) {
             formData.thumbnail = thumb
           }
@@ -3171,8 +3909,7 @@ export default defineComponent({
         return (duration === undefined || duration === null || duration === 0) && item.resourcePath != null
       })
       if (toUpdate.length === 0) return
-      console.log(`[GenericResourceView] 开始刷新 ${toUpdate.length} 个未知时长的音频...`)
-      let updatedCount = 0
+      const changed: any[] = []
       for (const item of toUpdate) {
         const path = BaseResources.extractPrimitiveValue(item.resourcePath?.value || item.resourcePath)
         if (!path || typeof path !== 'string' || !path.trim()) continue
@@ -3184,15 +3921,14 @@ export default defineComponent({
             } else {
               item.duration = duration
             }
-            updatedCount++
+            changed.push(item)
           }
         } catch (e) {
           console.warn('[GenericResourceView] 获取音频时长失败:', path, e)
         }
       }
-      if (updatedCount > 0) {
-        await saveData()
-        console.log(`[GenericResourceView] 已刷新 ${updatedCount} 个音频时长并保存`)
+      if (changed.length > 0) {
+        await saveResourcesDelta(changed)
       }
     }
 
@@ -3273,6 +4009,10 @@ export default defineComponent({
             } catch (e) {
               console.error(`[GenericResourceView] fromJSON 第 ${i} 条失败:`, loadedData[i], e)
               throw e
+            }
+            // 几千条时一次还原完会把界面冻住，隔一段让浏览器喘口气
+            if (i > 0 && i % 100 === 0) {
+              await new Promise(resolve => setTimeout(resolve, 0))
             }
           }
           items.value = converted
@@ -3399,40 +4139,26 @@ export default defineComponent({
         }
       }, 1000) // 每1秒更新一次。只有自己会启动的资源才会被登记进来
       
-      // 组件挂载后自动检查文件存在性
-      // 注意：数据加载在前面已经处理了，这里的 items.value 检查是为了处理传入 props.items 的情况
-        if (items.value && items.value.length > 0) {
-        await persistCoversIntoSaveData()
-        await checkFileExistence()
-        // 自动计算资源大小
-        await calculateResourceSizes()
-        await fillMissingGameEngines()
-        // 漫画/图片页：首次进入时刷新所有未设置页数的资源的页数
-        await calculateMangaPagesCounts()
-        // 番剧页：首次进入时刷新所有未设置视频数量的资源的视频数
-        await calculateAnimeVideoCounts()
-        // 小说页：字数还是 0 的书在这里补算，算完会记住
-        await calculateNovelWordCounts()
-        // 视频页：首次进入时刷新所有未知时长的视频（已有时长的不刷新）
-        if (items.value.some((item: any) => item?.constructor?.name === 'Video')) {
-          refreshUnknownVideoDurations()
-          refreshMissingVideoThumbnails()
-        }
-        // 音频：按每条资源自己的类型刷新，不看页面是不是音频页
-        if (items.value.some((item: any) => item?.constructor?.name === 'Audio')) {
-          refreshUnknownAudioDurations()
-        }
-      }
+      // 文件是否存在、封面和大小都在下面的列表长度监听里做。
+      // 加载完成时会给 items 赋值，长度从 0 变成实际数量，那一次就会检查。这里再查就会弹两次。
     })
     
     // 组件卸载前清理事件监听器
     onBeforeUnmount(() => {
+      // 离开页面前把攒下的访问记录写完
+      flushScheduledResourceSaves().catch(error => {
+        console.warn('[GenericResourceView] 离开页面前保存资源失败:', error)
+      })
       window.removeEventListener('game-request-update-playtime', handleRequestUpdatePlaytime as EventListener)
       window.removeEventListener('game-request-final-playtime', handleRequestFinalPlaytime as EventListener)
       // 清理定时器
       if (playtimeUpdateTimer) {
         clearInterval(playtimeUpdateTimer)
         playtimeUpdateTimer = null
+      }
+      if (maintenanceTimer) {
+        clearTimeout(maintenanceTimer)
+        maintenanceTimer = null
       }
       // 游戏页：移除全局截图监听
       if (isElectronEnvironment.value && window.electronAPI?.removeGlobalScreenshotListener) {
@@ -3448,28 +4174,63 @@ export default defineComponent({
     })
 
 
+    /**
+     * 进页面后要补的维护任务：封面入库、文件存在性、页数、时长。
+     * 这些都会碰磁盘和数据库，不能压在首屏渲染上，统一延后合并跑一次。
+     */
+    let maintenanceTimer: ReturnType<typeof setTimeout> | null = null
+    let maintenanceRunning = false
+    let maintenancePending = false
+
+    const runMaintenance = async () => {
+      if (maintenanceRunning) {
+        maintenancePending = true
+        return
+      }
+      maintenanceRunning = true
+      try {
+        await persistCoversIntoSaveData()
+        await checkFileExistence()
+        await calculateResourceSizes()
+        await fillMissingGameEngines()
+        await calculateMangaPagesCounts()
+        await calculateAnimeVideoCounts()
+        await calculateNovelWordCounts()
+        if (items.value.some((item: any) => item?.constructor?.name === 'Video')) {
+          await refreshUnknownVideoDurations()
+          await refreshMissingVideoThumbnails()
+        }
+        await refreshMissingFolderVideoCovers()
+        if (items.value.some((item: any) => item?.constructor?.name === 'Audio')) {
+          await refreshUnknownAudioDurations()
+        }
+      } catch (error) {
+        console.warn('[GenericResourceView] 后台维护任务失败:', error)
+      } finally {
+        maintenanceRunning = false
+        if (maintenancePending) {
+          maintenancePending = false
+          scheduleMaintenance()
+        }
+      }
+    }
+
+    const scheduleMaintenance = (delay = 1200) => {
+      if (maintenanceTimer) clearTimeout(maintenanceTimer)
+      maintenanceTimer = setTimeout(() => {
+        maintenanceTimer = null
+        runMaintenance()
+      }, delay)
+    }
+
     // 监听 items 变化，当数据更新时自动检查文件存在性和计算大小
     watch(
       () => items.value.length,
-      async (newLength, oldLength) => {
+      (newLength, oldLength) => {
         // 只在数据从空变为有数据，或者数据数量变化时检查
         if (newLength > 0 && (oldLength === 0 || newLength !== oldLength)) {
-          // 延迟一点执行，确保数据已经更新完成
-          await new Promise(resolve => setTimeout(resolve, 100))
-          await persistCoversIntoSaveData()
-          await checkFileExistence()
-          await calculateResourceSizes()
-          await fillMissingGameEngines()
-          await calculateMangaPagesCounts()
-          await calculateAnimeVideoCounts()
-          await calculateNovelWordCounts()
-          if (items.value.some((item: any) => item?.constructor?.name === 'Video')) {
-            refreshUnknownVideoDurations()
-            refreshMissingVideoThumbnails()
-          }
-          if (items.value.some((item: any) => item?.constructor?.name === 'Audio')) {
-            refreshUnknownAudioDurations()
-          }
+          // 等首屏画完再开始，几千条资源的扫描不会卡住打开页面
+          scheduleMaintenance()
         }
       },
       { immediate: false }
@@ -3512,11 +4273,191 @@ export default defineComponent({
       return area === 'useScreenshotFolder' ? 'landscape' : 'portrait'
     })
 
-    // 番剧详情页是否显示视频列表（用于替换视频页时展示集数，包含空列表时显示“未找到视频”）
+    /**
+     * 这条是不是视频文件夹。
+     * 看存档里的类型，不看类名。打包后类名会被改掉，用类名判断会把刚拖进来的文件夹也当成没有视频。
+     * @param item 当前资源
+     */
+    const isVideoFolderResource = (item: any) => {
+      const saved = String(BaseResources.extractPrimitiveValue(item?.resourceType) || '').trim().toLowerCase()
+      if (saved === 'animation' || saved === 'videofolder' || saved === 'video-folder' || saved === 'anime') return true
+      return item?.constructor?.cardDisplayConfig?.badge?.field === 'videoCount'
+    }
+    /**
+     * 视频文件夹的目录。
+     * 新记录写在 resourcePath。旧记录可能还在 folderPath 上，两条都要认。
+     * @param item 当前资源
+     */
+    const videoFolderPathOf = (item: any) => {
+      const candidates = [
+        item?.resourcePath,
+        item?.folderPath,
+        item?.retainedFields?.resourcePath,
+        item?.retainedFields?.folderPath
+      ]
+      for (const candidate of candidates) {
+        const value = BaseResources.extractPrimitiveValue(candidate)
+        if (typeof value === 'string' && value.trim()) return value.trim()
+      }
+      return ''
+    }
+
+    /**
+     * 读出这条视频文件夹已经记住的封面。
+     * 没有记过就返回空表。返回的是副本，改它不会碰到别的文件夹。
+     * @param item 视频文件夹
+     */
+    const readVideoThumbnailMap = (item: any): Record<string, string> => {
+      const raw = BaseResources.extractPrimitiveValue(item?.videoThumbnails)
+      /** 路径到封面的对照。键一律用正斜杠。 */
+      const map: Record<string, string> = {}
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return map
+      for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+        if (typeof value !== 'string' || !value.trim()) continue
+        map[String(key).replace(/\\/g, '/')] = value
+      }
+      return map
+    }
+
+    /**
+     * 把封面对照表写回这条资源。
+     * 类字段写 value，旧数据如果只是普通对象就直接换掉。
+     * @param item 视频文件夹
+     * @param map 路径到封面的对照
+     */
+    const writeVideoThumbnailMap = (item: any, map: Record<string, string>) => {
+      if (!item) return
+      /** 交给存档的普通对象，避免和界面上的响应式对象是同一份。 */
+      const plain = { ...map }
+      const field = item.videoThumbnails
+      if (field && typeof field === 'object' && 'value' in field) {
+        field.value = plain
+      } else {
+        item.videoThumbnails = plain
+      }
+    }
+
+    /**
+     * 文件夹自己还没有封面时，用里面第一集的截图。
+     * 已经选过封面的不动。
+     * @param item 视频文件夹
+     * @param thumb 第一张可用的封面路径
+     */
+    const assignFolderThumbnailIfEmpty = (item: any, thumb: string) => {
+      if (!item || !thumb) return
+      const current = BaseResources.extractPrimitiveValue(item.thumbnail)
+      if (typeof current === 'string' && current.trim()) return
+      if (item.thumbnail && typeof item.thumbnail === 'object' && 'value' in item.thumbnail) {
+        item.thumbnail.value = thumb
+      } else {
+        item.thumbnail = thumb
+      }
+    }
+
+    /**
+     * 把记住的封面贴到刚扫出来的视频上。
+     * 扫描本身不带封面，只按路径对上之前截好的那一帧。
+     * @param videos 这次扫到的视频
+     * @param map 路径到封面的对照
+     */
+    const applyVideoThumbnailMap = (videos: Array<{ path?: string, thumbnail?: string | null }>, map: Record<string, string>) => {
+      for (const video of videos) {
+        const key = String(video.path || '').replace(/\\/g, '/')
+        const saved = map[key]
+        if (saved) video.thumbnail = saved
+      }
+    }
+
+    /**
+     * 给文件夹里还没有封面的视频各截一帧。
+     * 一次只处理一个视频，避免几十集同时解码。已经有封面的跳过。
+     * @param folderPath 视频文件夹路径
+     * @param folderName 文件夹名称，用来给封面文件起名
+     * @param existing 已经记住的封面
+     */
+    const fillFolderVideoCovers = async (
+      folderPath: string,
+      folderName: string,
+      existing: Record<string, string>
+    ): Promise<{ map: Record<string, string>, firstThumb: string, addedCount: number }> => {
+      const videos = await videoFolderComposable.getFolderVideos({ folderPath } as any)
+      /** 补完之后的封面对照。先抄一份已有的，再往里加新截到的。 */
+      const map = { ...existing }
+      /** 第一张能用的封面，留给文件夹卡片。 */
+      let firstThumb = ''
+      /** 这次新截到的数量。为 0 时不用再保存。 */
+      let addedCount = 0
+      const cleanFolderName = String(folderName || '未知').replace(/[^\w\u4e00-\u9fa5\-_]/g, '_') || 'folder'
+      for (const video of videos) {
+        const key = String(video.path || '').replace(/\\/g, '/')
+        if (!key) continue
+        if (map[key]) {
+          if (!firstThumb) firstThumb = map[key]
+          continue
+        }
+        const videoFileName = key.split('/').pop() || ''
+        const nameWithoutExt = videoFileName.replace(/\.[^/.]+$/, '')
+        const cleanVideoName = nameWithoutExt.replace(/[^\w\u4e00-\u9fa5\-_]/g, '_') || 'video'
+        const maxNumber = await videoThumbnailComposable.getMaxFolderVideoThumbnailNumber(cleanFolderName, cleanVideoName)
+        const thumbnailFilename = `${cleanFolderName}/${cleanVideoName}_cover_${maxNumber + 1}.jpg`
+        const thumb = await videoThumbnailComposable.generateThumbnailForFolderVideo(video.path, thumbnailFilename)
+        if (!thumb) continue
+        map[key] = thumb
+        addedCount++
+        if (!firstThumb) firstThumb = thumb
+      }
+      return { map, firstThumb, addedCount }
+    }
+
+    /**
+     * 正在给文件夹补封面。避免进入页面和列表变化各跑一遍，同一批视频被截两次。
+     */
+    let folderCoverFillRunning = false
+
+    /**
+     * 给还没有封面的视频文件夹补截图。
+     * 只补缺的那几集。已经拖进来、当时没截到封面的文件夹，下次进页面也会补上。
+     */
+    const refreshMissingFolderVideoCovers = async () => {
+      if (folderCoverFillRunning) return
+      const folders = items.value.filter((item: any) => isVideoFolderResource(item))
+      if (folders.length === 0) return
+      folderCoverFillRunning = true
+      /** 这次补过封面的文件夹，最后只保存这几条。 */
+      const changed: any[] = []
+      try {
+        for (const item of folders) {
+          const folderPath = videoFolderPathOf(item)
+          if (!folderPath) continue
+          const folderName = BaseResources.extractPrimitiveValue(item.name?.value || item.name) || '未知'
+          const filled = await fillFolderVideoCovers(folderPath, String(folderName), readVideoThumbnailMap(item))
+          if (filled.addedCount === 0) continue
+          writeVideoThumbnailMap(item, filled.map)
+          assignFolderThumbnailIfEmpty(item, filled.firstThumb)
+          const selected = resourcePage.selectedItem.value
+          const selectedId = BaseResources.extractPrimitiveValue(selected?.id)
+          const itemId = BaseResources.extractPrimitiveValue(item.id)
+          if (selected && selectedId && itemId && String(selectedId) === String(itemId)) {
+            applyVideoThumbnailMap(detailFolderVideos.value, filled.map)
+          }
+          changed.push(item)
+        }
+        if (changed.length > 0) {
+          await saveResourcesDelta(changed)
+          console.log(`[GenericResourceView] 已为 ${changed.length} 个视频文件夹补上封面`)
+        }
+      } catch (error) {
+        console.warn('[GenericResourceView] 补视频文件夹封面失败:', error)
+      } finally {
+        folderCoverFillRunning = false
+      }
+    }
+    /**
+     * 详情下面要不要画出视频列表。
+     * 扫完才显示。空列表也显示，用来说明这个文件夹里没有认出来的视频。
+     */
     const isAnimeWithFolderVideos = computed(() => {
-      const item = resourcePage.selectedItem.value
-      if (!item || item.constructor?.name !== 'VideoFolder') return false
-      return Array.isArray(item.folderVideos)
+      return detailFolderVideosReady.value && isVideoFolderResource(resourcePage.selectedItem.value)
     })
 
     // 播放番剧文件夹中的视频
@@ -3566,20 +4507,28 @@ export default defineComponent({
         const cleanVideoName = nameWithoutExt.replace(/[^\w\u4e00-\u9fa5\-_]/g, '_')
         const maxNumber = await videoThumbnailComposable.getMaxFolderVideoThumbnailNumber(cleanFolderName, cleanVideoName)
         const thumbnailFilename = `${cleanFolderName}/${cleanVideoName}_cover_${maxNumber + 1}.jpg`
-        if (video.thumbnail?.trim()) {
-          await videoThumbnailComposable.deleteOldThumbnail(video.thumbnail)
-        }
         const thumbnailPath = await videoThumbnailComposable.generateThumbnailForFolderVideo(video.path, thumbnailFilename)
         if (thumbnailPath) {
+          // 新图生成成功后再删旧图，生成失败时原来的封面还能用
+          if (video.thumbnail?.trim() && video.thumbnail !== thumbnailPath) {
+            await videoThumbnailComposable.deleteOldThumbnail(video.thumbnail)
+          }
           video.thumbnail = thumbnailPath
           const videoInList = selectedItem.folderVideos?.[index]
           if (videoInList) videoInList.thumbnail = thumbnailPath
+          const coverKey = String(video.path || '').replace(/\\/g, '/')
+          const coverMap = readVideoThumbnailMap(selectedItem)
+          coverMap[coverKey] = thumbnailPath
+          writeVideoThumbnailMap(selectedItem, coverMap)
           const originalItem = items.value.find((i: any) => (i.id?.value || i.id) === (selectedItem.id?.value || selectedItem.id))
           if (originalItem?.folderVideos?.[index]) {
             originalItem.folderVideos[index].thumbnail = thumbnailPath
           }
+          if (originalItem && originalItem !== selectedItem) {
+            writeVideoThumbnailMap(originalItem, coverMap)
+          }
           try {
-            await saveData()
+            await saveResourcesDelta(originalItem || selectedItem)
           } catch (e) {
             console.warn('[GenericResourceView] 保存番剧缩略图失败:', e)
           }
@@ -3611,7 +4560,13 @@ export default defineComponent({
         console.log('视频名称:', videoName)
         console.log('当前缩略图:', currentThumbnail)
         
-        const thumb = await videoThumbnailComposable.generateThumbnail(filePath, videoName, currentThumbnail)
+        const thumb = await videoThumbnailComposable.generateThumbnail(
+          filePath,
+          videoName,
+          null,
+          undefined,
+          { skipPersist: true }
+        )
         console.log('随机封面生成结果:', thumb)
         
         if (thumb) {
@@ -3646,28 +4601,41 @@ export default defineComponent({
           const config = ResourceClass?.detailPanelConfig
           const previewArea = config?.previewArea
 
-          // 番剧类型：加载文件夹内的视频列表（用于替换视频页时展示集数）
-          const isAnimeFolder = resourceType.value === 'Anime'
-          if (isAnimeFolder) {
-            const folderPath = BaseResources.extractPrimitiveValue(
-              selectedItem.resourcePath?.value || selectedItem.resourcePath
-            )
-            if (folderPath && !selectedItem.folderVideos) {
+          // 视频文件夹才扫下面的列表。页面类型不要求正好叫 Anime，刚拖进来的也走这里。
+          if (isVideoFolderResource(selectedItem)) {
+            const folderPath = videoFolderPathOf(selectedItem)
+            detailFolderVideosReady.value = false
+            detailFolderVideos.value = []
+            if (!folderPath) {
+              detailFolderVideosReady.value = true
+            } else {
               try {
-                const folder = { ...selectedItem, folderPath: folderPath || selectedItem.folderPath }
+                const folder = { folderPath }
                 const folderVideos = await videoFolderComposable.getFolderVideos(folder)
+                if (resourcePage.selectedItem.value !== selectedItem) return
+                applyVideoThumbnailMap(folderVideos, readVideoThumbnailMap(selectedItem))
+                detailFolderVideos.value = folderVideos
                 selectedItem.folderVideos = folderVideos
                 selectedItem.videoCount = folderVideos.length
                 const originalItem = items.value.find((i: any) => (i.id?.value || i.id) === (selectedItem.id?.value || selectedItem.id))
-                if (originalItem) {
+                if (originalItem && originalItem !== selectedItem) {
                   originalItem.folderVideos = folderVideos
                   originalItem.videoCount = folderVideos.length
                 }
               } catch (error) {
                 console.error('[GenericResourceView] 加载番剧视频列表失败:', error)
+                if (resourcePage.selectedItem.value !== selectedItem) return
+                detailFolderVideos.value = []
                 selectedItem.folderVideos = []
+              } finally {
+                if (resourcePage.selectedItem.value === selectedItem) {
+                  detailFolderVideosReady.value = true
+                }
               }
             }
+          } else {
+            detailFolderVideos.value = []
+            detailFolderVideosReady.value = false
           }
 
           // Image/Manga 类型：加载图片列表
@@ -3716,18 +4684,24 @@ export default defineComponent({
               detailPages.value = files
               imagePagesComposable.updateTotalPages()
               
+              const previousPagesCount = BaseResources.extractPrimitiveValue(selectedItem.pagesCount?.value ?? selectedItem.pagesCount)
               if (selectedItem.pagesCount && typeof selectedItem.pagesCount === 'object' && 'value' in selectedItem.pagesCount) {
                 selectedItem.pagesCount.value = files.length
-              } else if (selectedItem.pagesCount !== undefined) {
+              } else {
                 selectedItem.pagesCount = files.length
+              }
+              if (previousPagesCount !== files.length) {
+                scheduleResourceSave(selectedItem)
               }
             } catch (error) {
               console.error('[GenericResourceView] 加载图片列表失败:', error)
             }
           }
         } else if (!showDetail) {
-          // 关闭详情时清空图片列表
+          // 关闭详情时清空图片列表和视频列表
           detailPages.value = []
+          detailFolderVideos.value = []
+          detailFolderVideosReady.value = false
         }
       },
       { immediate: false }
@@ -3758,7 +4732,8 @@ export default defineComponent({
             } else {
               item.visitedSessions = [now]
             }
-            await saveData()
+            // 访问记录不急着落盘，攒一下再写；打开一张图不该重写整页
+            scheduleResourceSave(item)
           }
         } catch (error) {
           console.warn('[GenericResourceView] 更新浏览信息失败:', error)
@@ -3817,41 +4792,50 @@ export default defineComponent({
       } else if (item.action === 'filterBySearch') {
         // 搜索操作不需要额外处理，搜索框已经绑定了 searchQuery
       } else if (item.action === 'showBatchImportDialog') {
-        // 批量导入本地资源
-        if (!isElectronEnvironment.value || !window.electronAPI) {
-          notify.toast('error', '操作失败', '当前环境不支持此功能')
-          return
-        }
-
-        try {
-          // 选择文件夹
-          const folderResult = await window.electronAPI.selectFolder()
-          if (!folderResult.success || !folderResult.path) {
-            console.log('[GenericResourceView] 用户取消选择文件夹或选择失败')
-            return
-          }
-
-          const searchExtensions = extensionsForSearch(acceptedKindIds.value)
-
-          // 使用新的 API 递归搜索匹配的文件
-          const searchResult = await window.electronAPI.searchMatchingFiles(folderResult.path, searchExtensions)
-          if (!searchResult.success) {
-            notify.toast('error', '搜索文件失败', searchResult.error || '未知错误')
-            return
-          }
-
-          const matchedFiles = searchResult.files || []
-          
-          // 设置文件列表和文件夹路径并显示对话框
-          batchImportFiles.value = matchedFiles
-          batchImportFolderPath.value = folderResult.path
-          showBatchImportDialog.value = true
-        } catch (error: any) {
-          console.error('[GenericResourceView] 批量导入失败:', error)
-          notify.toast('error', '操作失败', error.message || '未知错误')
-        }
+        // 先打开窗口。深度、排除名单和路径都在窗口里设，搜完的结果也留在同一个窗口。
+        batchImportFiles.value = []
+        batchImportFolderPath.value = ''
+        batchImportSearching.value = false
+        showBatchImportDialog.value = true
       } else if (item.action === 'showBookmarkImportDialog') {
         showBookmarkImportDialog.value = true
+      }
+    }
+
+    /**
+     * 按窗口里的深度、排除名单和文件类型搜索当前页面接受的文件。
+     * 扩展名默认来自这一页勾选的资源类型，窗口里可以再收窄。
+     * @param options 路径、层数、排除片段、要搜的扩展名，以及本层找到后是否继续往下
+     */
+    const runBatchImportSearch = async (options: { folderPath: string; maxDepth: number | null; excludePatterns: string[]; extensions: string[]; stopAtFirstMatch?: boolean }) => {
+      if (!isElectronEnvironment.value || !window.electronAPI?.searchMatchingFiles) {
+        notify.toast('error', '操作失败', '当前环境不支持此功能')
+        return
+      }
+      batchImportSearching.value = true
+      try {
+        const searchExtensions = options.extensions?.length > 0
+          ? options.extensions
+          : extensionsForSearch(acceptedKindIds.value)
+        const searchResult = await window.electronAPI.searchMatchingFiles(options.folderPath, searchExtensions, {
+          maxDepth: options.maxDepth,
+          excludePatterns: options.excludePatterns,
+          // 默认按「本层找到就不再往下」搜，窗口里可以取消。
+          stopAtFirstMatch: options.stopAtFirstMatch !== false
+        })
+        if (!searchResult.success) {
+          notify.toast('error', '搜索文件失败', searchResult.error || '未知错误')
+          batchImportFiles.value = []
+          batchImportFolderPath.value = ''
+          return
+        }
+        batchImportFiles.value = searchResult.files || []
+        batchImportFolderPath.value = options.folderPath
+      } catch (error: any) {
+        console.error('[GenericResourceView] 批量导入搜索失败:', error)
+        notify.toast('error', '操作失败', error.message || '未知错误')
+      } finally {
+        batchImportSearching.value = false
       }
     }
 
@@ -3860,6 +4844,9 @@ export default defineComponent({
       showBatchImportDialog.value = false
       batchImportFiles.value = []
       batchImportFolderPath.value = ''
+      batchImportSearching.value = false
+      batchImportImporting.value = false
+      batchImportProgress.value = { current: 0, total: 0 }
     }
 
     // 关闭书签导入对话框
@@ -3869,19 +4856,37 @@ export default defineComponent({
 
     // 处理批量导入确认
     const handleBatchImportConfirm = async (selectedFiles: string[], folderPath: string) => {
+      // 写入过程中窗口还开着，防住重复确认，否则同一批会进两次。
+      if (batchImportImporting.value) return
       if (selectedFiles.length === 0) {
         notify.toast('warning', '提示', '请至少选择一个文件')
         return
       }
 
+      batchImportImporting.value = true
+      batchImportProgress.value = { current: 0, total: selectedFiles.length }
+
       try {
         let addedCount = 0
         let linkedCount = 0
+        let relocatedCount = 0
         let failedCount = 0
-        /** 批量导入里遇到的第一部「同名且原文件已丢失」的资源 */
-        let pendingPathUpdate: { existingItem: any; newPath: string; newFileName: string } | null = null
+        let duplicateCount = 0
+        let ambiguousCount = 0
+        const claimedResourceIds = new Set<string>()
+        const markerLookupCache = new Map<string, { resource: any; tableName: string } | null>()
+        /** 这次真正新建的资源。文件夹大小等收窗以后在后台补。 */
+        const addedResources: any[] = []
+        const sameResourceRule = await loadSameResourceRule()
 
-        for (const relativeFilePath of selectedFiles) {
+        for (let index = 0; index < selectedFiles.length; index++) {
+          const relativeFilePath = selectedFiles[index]
+          // 先把这一条摆到进度上，后面每一步都会让窗口有反应。
+          batchImportProgress.value = {
+            current: index + 1,
+            total: selectedFiles.length,
+            file: relativeFilePath
+          }
           // 拼接完整路径
           const fullFilePath = folderPath + (folderPath.endsWith('\\') || folderPath.endsWith('/') ? '' : '/') + relativeFilePath
           const fileName = relativeFilePath.split(/[\\/]/).pop() || ''
@@ -3903,20 +4908,88 @@ export default defineComponent({
           }
 
           if (pageAlreadyHas(fullFilePath)) {
-            failedCount++
+            duplicateCount++
             continue
           }
 
           const linked = await attachExistingResource(fullFilePath)
           if (linked) {
+            await writeResourceMarkerForItem(linked, fullFilePath, { onlyIfMissing: true })
             addedCount++
             linkedCount++
             continue
           }
 
+          const incomingSavedType = savedTypeOfClass(MatchedResourceClass).toLowerCase()
+
+          let adoptedResourceId = ''
+          const markerMatch = await findMarkerImportMatch(fullFilePath, incomingSavedType, markerLookupCache)
+          if (markerMatch.action === 'duplicate') {
+            duplicateCount++
+            continue
+          }
+          if (markerMatch.action === 'ambiguous') {
+            ambiguousCount++
+            continue
+          }
+          if (markerMatch.action === 'adopt') {
+            if (claimedResourceIds.has(markerMatch.resourceId)) {
+              duplicateCount++
+              continue
+            }
+            adoptedResourceId = markerMatch.resourceId
+          }
+          if (markerMatch.action === 'relocate') {
+            if (claimedResourceIds.has(markerMatch.resourceId)) {
+              duplicateCount++
+              continue
+            }
+            const existingItem = attachSavedResource(markerMatch.saved)
+            if (await relocateImportedItem(existingItem, fullFilePath, claimedResourceIds)) {
+              relocatedCount++
+            } else {
+              duplicateCount++
+            }
+            continue
+          }
+
+          const sameMatch = await findSameResourceForImport(
+            fullFilePath,
+            incomingSavedType,
+            sameResourceRule,
+            fingerprintKindForResource(incomingSavedType)
+          )
+          if (sameMatch.action === 'duplicate') {
+            duplicateCount++
+            continue
+          }
+          if (sameMatch.action === 'ambiguous') {
+            notifySameResourceAmbiguous(sameMatch.items.length)
+            ambiguousCount++
+            continue
+          }
+          if (sameMatch.action === 'relocate') {
+            if (await relocateImportedItem(sameMatch.item, fullFilePath, claimedResourceIds)) {
+              relocatedCount++
+            } else {
+              duplicateCount++
+            }
+            continue
+          }
+
+          const relocatedItem = await findMissingResourceByFingerprint(fullFilePath, sameMatch.incoming.fingerprint)
+          if (relocatedItem) {
+            if (await relocateImportedItem(relocatedItem, fullFilePath, claimedResourceIds)) {
+              relocatedCount++
+            } else {
+              duplicateCount++
+            }
+            continue
+          }
+
           // 创建资源数据
           const resourceData: any = {
-            id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            id: adoptedResourceId || `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             resourceType: savedTypeOfClass(MatchedResourceClass),
             name: extractNameFromPath(fileName),
             description: '',
@@ -3937,73 +5010,48 @@ export default defineComponent({
           // 批量导入和拖入一样，当时就识别引擎并保存。
           await assignDetectedGameEngine(resource, fullFilePath)
 
-          // 和拖入一样：游戏记所在文件夹的大小，不能只记 exe 自己。
-          if (isElectronEnvironment.value) {
-            const cardConfig = resource.constructor?.cardDisplayConfig
-            if (cardConfig?.badge?.field === 'folderSize') {
-              await calculateAndUpdateResourceSize(
-                resource,
-                isElectronEnvironment.value,
-                pageTypeOfResource(resource) === 'Game'
-              )
-            }
-          }
-          await attachFingerprint(resource, fullFilePath)
-          
-          // 检查是否已存在相同路径
-          const existingItem = items.value.find((item: any) => {
-            const itemPath = BaseResources.extractPrimitiveValue(
-              item.resourcePath?.value || item.resourcePath
-            )
-            return itemPath === fullFilePath
-          })
-
-          if (existingItem) {
-            failedCount++
-            continue
-          }
-
-          const relocatedItem = await findMissingResourceByFileName(fullFilePath) || await findMissingResourceByFingerprint(fullFilePath)
-          if (relocatedItem) {
-            const newFileName = fullFilePath.split(/[\\/]/).pop() || fullFilePath
-            pendingPathUpdate = {
-              existingItem: relocatedItem,
-              newPath: fullFilePath,
-              newFileName
-            }
-            break
-          }
+          await attachFingerprint(resource, fullFilePath, sameMatch.incoming.fingerprint)
+          await writeResourceMarkerForItem(resource, fullFilePath)
 
           // 添加到列表
           items.value.push(resource)
+          addedResources.push(resource)
+          if (adoptedResourceId) claimedResourceIds.add(adoptedResourceId)
           addedCount++
         }
 
         // 保存数据
-        if (addedCount > 0) {
+        if (addedCount > 0 || relocatedCount > 0) {
           await saveData()
         }
 
+        // 文件夹大小要扫整个目录，放后台算，别让人对着进度条等。
+        if (addedResources.length > 0) {
+          void fillImportedResourceSizes(addedResources)
+        }
+
         // 显示通知
-        if (addedCount > 0 || failedCount > 0) {
+        if (addedCount > 0 || relocatedCount > 0 || failedCount > 0 || duplicateCount > 0 || ambiguousCount > 0) {
+          const parts = [
+            addedCount > 0 ? `成功导入 ${addedCount} 个资源` : '',
+            linkedCount > 0 ? `其中 ${linkedCount} 个接上了已有记录` : '',
+            relocatedCount > 0 ? `更新 ${relocatedCount} 条资源路径` : '',
+            duplicateCount > 0 ? `${duplicateCount} 个已存在` : '',
+            ambiguousCount > 0 ? `${ambiguousCount} 个无法唯一确定` : '',
+            failedCount > 0 ? `${failedCount} 个失败` : ''
+          ].filter(Boolean)
           notify.toast(
-            addedCount > 0 ? 'success' : 'warning',
-            addedCount > 0 ? '导入成功' : '导入结果',
-            addedCount > 0 
-              ? `成功导入 ${addedCount} 个资源${linkedCount > 0 ? `，其中 ${linkedCount} 个接上了已有记录` : ''}${failedCount > 0 ? `，${failedCount} 个失败` : ''}`
-              : `没有资源被导入（${failedCount} 个失败）`
+            addedCount > 0 || relocatedCount > 0 ? 'success' : 'warning',
+            addedCount > 0 || relocatedCount > 0 ? '导入完成' : '导入结果',
+            parts.join('，')
           )
         }
-
-        if (pendingPathUpdate) {
-          resourcePage.showPathUpdateDialogHandler(pendingPathUpdate)
-        }
-
-        // 关闭对话框
-        closeBatchImportDialog()
       } catch (error: any) {
         console.error('[GenericResourceView] 批量导入确认失败:', error)
         notify.toast('error', '导入失败', error.message || '未知错误')
+      } finally {
+        // 不管成功还是失败都收窗，免得一直停在“正在导入”。
+        closeBatchImportDialog()
       }
     }
 
@@ -4087,10 +5135,15 @@ export default defineComponent({
       toggleSelectItem,
       // 批量导入对话框相关
       showBatchImportDialog,
+      batchImportSearchExtensions,
       batchImportFiles,
       batchImportFolderPath,
+      batchImportSearching,
+      batchImportImporting,
+      batchImportProgress,
       batchImportDialogRef,
       closeBatchImportDialog,
+      runBatchImportSearch,
       handleBatchImportConfirm,
       // 书签导入对话框相关
       showBookmarkImportDialog,
@@ -4164,6 +5217,7 @@ export default defineComponent({
       previewThumbnailShape,
       // 番剧详情页视频列表（用于替换视频页）
       isAnimeWithFolderVideos,
+      detailFolderVideos,
       playFolderVideo,
       getThumbnailUrlForFolderVideo,
       handleFolderVideoThumbnailError,
