@@ -690,11 +690,13 @@ async function countNovelWords(filePath) {
  * 符号链接不跟进去，避免「不限制层数」时在目录环里转圈。
  * @param {string} rootDir 要搜索的根目录
  * @param {string[]} extensions 要匹配的扩展名，例如 ['.exe', '.zip']
- * @param {{ maxDepth?: number | null, excludePatterns?: string[], stopAtFirstMatch?: boolean }} [options]
+ * @param {{ maxDepth?: number | null, excludePatterns?: string[], stopAtFirstMatch?: boolean, mode?: string, folderGroups?: { id: string, extensions: string[] }[] }} [options]
  *   maxDepth 是往下进入的子文件夹层数，0 只看根目录，null 表示不限制。
  *   stopAtFirstMatch 为 true 时，某个文件夹本层找到符合的文件后就不再进入它的子文件夹；
  *   同一层的文件仍会全部列出，比如 game.exe 和同目录的启动器都在。
- * @returns {Promise<{ success: boolean, files?: string[], error?: string }>} 相对根目录的路径
+ *   mode 为 'folders' 时不收录文件：某一层直接含有所选类型的文件，就把这一层收成文件夹，不再进入它的子文件夹；
+ *   这一层没有，才继续往下。folderGroups 是勾选的文件夹类型，命中的类型写进 kinds。
+ * @returns {Promise<{ success: boolean, files?: string[], kinds?: Record<string, string>, error?: string }>} 相对根目录的路径
  */
 async function searchMatchingFiles(rootDir, extensions, options = {}) {
   try {
@@ -723,6 +725,32 @@ async function searchMatchingFiles(rootDir, extensions, options = {}) {
       .filter(Boolean)
     /** 本层找到匹配后是否还进子文件夹。默认继续往下找。 */
     const stopAtFirstMatch = options.stopAtFirstMatch === true
+    /**
+     * 文件夹模式不收录单个文件。
+     * 某一层直接含有所选类型的文件，就把这一层收成一条文件夹，不再进入它的子文件夹。
+     * 合集目录本身没有图片时会继续往下，直到碰到真正放着图片的那一层。
+     */
+    const folderMode = options.mode === 'folders'
+    /**
+     * 勾选的文件夹类型。先匹配靠前的类型，一个文件夹只归一类，避免同一目录既当图片又当视频。
+     * 扩展名按长度从长到短排，避免 .gz 抢在 .tar.gz 前面。
+     */
+    const folderGroups = folderMode
+      ? (Array.isArray(options.folderGroups) ? options.folderGroups : [])
+        .map(group => ({
+          id: String(group && group.id || ''),
+          extensions: (Array.isArray(group && group.extensions) ? group.extensions : [])
+            .map(ext => String(ext).toLowerCase())
+            .filter(Boolean)
+            .sort((left, right) => right.length - left.length)
+        }))
+        .filter(group => group.id && group.extensions.length)
+      : []
+    /** 相对路径对应的文件夹类型。导入时按它决定用漫画、视频文件夹还是音频。 */
+    const kinds = {}
+    if (folderMode && folderGroups.length === 0) {
+      return { success: false, error: '没有选择文件夹类型' }
+    }
     /** 已经走进去的真实路径，用来挡住目录联接造成的环。 */
     const seenDirs = new Set()
     /** 已查看的目录数。每隔一段让出主线程，大目录搜索时窗口还能动。 */
@@ -791,21 +819,41 @@ async function searchMatchingFiles(rootDir, extensions, options = {}) {
         await new Promise(resolve => setImmediate(resolve))
       }
 
-      // 先收本层的文件，再看要不要进子文件夹。
-      // 勾了「找到后不再往下」时，本层已经有结果就不再展开这一支，
-      // 避免游戏目录里 bin、tool 里的附属 exe 也被当成一个资源。
-      let matchedInThisDir = false
-      for (const entry of entries) {
-        if (entry.isSymbolicLink()) continue
-        if (isExcluded(entry.name, entry.isDirectory())) continue
-        if (!entry.isFile()) continue
-        const lowerName = entry.name.toLowerCase()
-        if (!lowerExtensions.some(ext => lowerName.endsWith(ext))) continue
-        matchedFiles.push(path.relative(rootDir, path.join(dirPath, entry.name)))
-        matchedInThisDir = true
+      // 文件夹模式：本层有目标文件就收当前目录，不再把里面的文件拆开导入，也不再进入子文件夹。
+      if (folderMode) {
+        /** 本层第一个命中的文件夹类型。靠前的类型优先。 */
+        let matchedGroup = null
+        for (const entry of entries) {
+          if (entry.isSymbolicLink() || !entry.isFile()) continue
+          if (isExcluded(entry.name, false)) continue
+          const lowerName = entry.name.toLowerCase()
+          matchedGroup = folderGroups.find(group => group.extensions.some(ext => lowerName.endsWith(ext))) || null
+          if (matchedGroup) break
+        }
+        if (matchedGroup) {
+          /** 根目录相对路径是空串，用点号当稳定的勾选值。 */
+          const relative = path.relative(rootDir, dirPath) || '.'
+          matchedFiles.push(relative)
+          kinds[relative] = matchedGroup.id
+          return
+        }
+      } else {
+        // 先收本层的文件，再看要不要进子文件夹。
+        // 勾了「找到后不再往下」时，本层已经有结果就不再展开这一支，
+        // 避免游戏目录里 bin、tool 里的附属 exe 也被当成一个资源。
+        let matchedInThisDir = false
+        for (const entry of entries) {
+          if (entry.isSymbolicLink()) continue
+          if (isExcluded(entry.name, entry.isDirectory())) continue
+          if (!entry.isFile()) continue
+          const lowerName = entry.name.toLowerCase()
+          if (!lowerExtensions.some(ext => lowerName.endsWith(ext))) continue
+          matchedFiles.push(path.relative(rootDir, path.join(dirPath, entry.name)))
+          matchedInThisDir = true
+        }
+        if (stopAtFirstMatch && matchedInThisDir) return
       }
 
-      if (stopAtFirstMatch && matchedInThisDir) return
       if (maxDepth != null && depth >= maxDepth) return
 
       for (const entry of entries) {
@@ -816,7 +864,9 @@ async function searchMatchingFiles(rootDir, extensions, options = {}) {
     }
 
     await walk(rootDir, 0)
-    return { success: true, files: matchedFiles }
+    return folderMode
+      ? { success: true, files: matchedFiles, kinds }
+      : { success: true, files: matchedFiles }
   } catch (error) {
     console.error('搜索匹配文件失败:', error)
     return { success: false, error: error.message }
@@ -827,7 +877,7 @@ async function searchMatchingFiles(rootDir, extensions, options = {}) {
  * 保存封面图片到指定的 cover 文件夹
  * @param {string} sourceImagePath - 源图片路径
  * @param {string} saveDataDir - SaveData 目录路径
- * @param {string} resourceType - 资源类型 (games, images, videos, novels, audio, software, website, other)
+ * @param {string} resourceType - 存档文件夹名，例如 Game、Image、Video。封面写在这个文件夹的 Covers 下面。
  * @param {string} resourceId - 资源 ID
  * @returns {Promise<Object>} { success: boolean, coverPath?: string, error?: string }
  */
@@ -843,7 +893,7 @@ async function saveCoverToFolder(sourceImagePath, saveDataDir, resourceType, res
     }
 
     // 构建目标封面文件夹路径
-    const coverDir = path.join(saveDataDir, resourceType, 'covers')
+    const coverDir = path.join(saveDataDir, resourceType, 'Covers')
     
     // 确保封面文件夹存在
     if (!fs.existsSync(coverDir)) {
@@ -867,7 +917,7 @@ async function saveCoverToFolder(sourceImagePath, saveDataDir, resourceType, res
     }
 
     // 返回相对路径（相对于 SaveData 目录）
-    const relativePath = path.join(resourceType, 'covers', targetFileName).replace(/\\/g, '/')
+    const relativePath = path.join(resourceType, 'Covers', targetFileName).replace(/\\/g, '/')
     
     return { success: true, coverPath: relativePath }
   } catch (error) {
@@ -899,7 +949,7 @@ async function saveCoverFromDataUrl(dataUrl, saveDataDir, resourceType, resource
     }
 
     // 构建目标封面文件夹路径
-    const coverDir = path.join(saveDataDir, resourceType, 'covers')
+    const coverDir = path.join(saveDataDir, resourceType, 'Covers')
     
     // 确保封面文件夹存在
     if (!fs.existsSync(coverDir)) {
@@ -926,7 +976,7 @@ async function saveCoverFromDataUrl(dataUrl, saveDataDir, resourceType, resource
     }
 
     // 返回相对路径
-    const relativePath = path.join(resourceType, 'covers', targetFileName).replace(/\\/g, '/')
+    const relativePath = path.join(resourceType, 'Covers', targetFileName).replace(/\\/g, '/')
     
     return { success: true, coverPath: relativePath }
   } catch (error) {

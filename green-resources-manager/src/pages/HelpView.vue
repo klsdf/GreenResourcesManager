@@ -18,19 +18,8 @@ import IntroSection from '../components/help/sections/IntroSection.vue'
 import GeneralSection from '../components/help/sections/GeneralSection.vue'
 import PagesSection from '../components/help/sections/PagesSection.vue'
 import ResourcesSection from '../components/help/sections/ResourcesSection.vue'
-import ApiSection from '../components/help/sections/ApiSection.vue'
-import ApiGamesSection from '../components/help/sections/api-pages/ApiGamesSection.vue'
-import ApiMangaSection from '../components/help/sections/api-pages/ApiMangaSection.vue'
-import ApiVideosSection from '../components/help/sections/api-pages/ApiVideosSection.vue'
-import ApiNovelsSection from '../components/help/sections/api-pages/ApiNovelsSection.vue'
-import ApiWebsitesSection from '../components/help/sections/api-pages/ApiWebsitesSection.vue'
-import ApiAudioSection from '../components/help/sections/api-pages/ApiAudioSection.vue'
 import FaqSection from '../components/help/sections/FaqSection.vue'
-import WorkshopSection from '../components/help/sections/WorkshopSection.vue'
-import WorkshopPagesSection from '../components/help/sections/WorkshopPagesSection.vue'
-import WorkshopPluginSection from '../components/help/sections/WorkshopPluginSection.vue'
-import WorkshopNoteSection from '../components/help/sections/WorkshopNoteSection.vue'
-import WorkshopCalendarSection from '../components/help/sections/WorkshopCalendarSection.vue'
+import AiSkillsSection from '../components/help/sections/AiSkillsSection.vue'
 import SupportSection from '../components/help/sections/SupportSection.vue'
 import AboutSection from '../components/help/sections/AboutSection.vue'
 
@@ -42,21 +31,10 @@ export default defineComponent({
     GeneralSection,
     PagesSection,
     ResourcesSection,
-    ApiSection,
-    ApiGamesSection,
-    ApiMangaSection,
-    ApiVideosSection,
-    ApiNovelsSection,
-    ApiWebsitesSection,
-    ApiAudioSection,
     FaqSection,
+    AiSkillsSection,
     SupportSection,
-    AboutSection,
-    WorkshopSection,
-    WorkshopPagesSection,
-    WorkshopPluginSection,
-    WorkshopNoteSection,
-    WorkshopCalendarSection
+    AboutSection
   },
   setup() {
     const activeSection = ref('intro')
@@ -66,21 +44,10 @@ export default defineComponent({
       general: GeneralSection,
       pages: PagesSection,
       resources: ResourcesSection,
-      api: ApiSection,
-      'api-games': ApiGamesSection,
-      'api-manga': ApiMangaSection,
-      'api-videos': ApiVideosSection,
-      'api-novels': ApiNovelsSection,
-      'api-websites': ApiWebsitesSection,
-      'api-audio': ApiAudioSection,
       faq: FaqSection,
+      'ai-skills': AiSkillsSection,
       support: SupportSection,
-      about: AboutSection,
-      workshop: WorkshopSection,
-      'workshop-pages': WorkshopPagesSection,
-      'workshop-plugin': WorkshopPluginSection,
-      'workshop-note': WorkshopNoteSection,
-      'workshop-calendar': WorkshopCalendarSection
+      about: AboutSection
     }
 
     const currentSectionComponent = computed(() => {
@@ -106,7 +73,10 @@ export default defineComponent({
 // ============================================
 .help-view {
   display: flex;
-  min-height: 100vh;
+  /* 跟主内容区一样高，不要用 100vh。标签栏已经占掉一截，再用整屏高度会把底部裁掉。 */
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
   background: var(--bg-primary);
 }
 </style>
@@ -124,6 +94,8 @@ export default defineComponent({
 // 右侧内容区域 - 显示帮助文档的主要内容
 .help-content {
   flex: 1;
+  min-width: 0;
+  min-height: 0;
   overflow-y: auto;
   padding: var(--spacing-3xl);
   background: var(--bg-primary);

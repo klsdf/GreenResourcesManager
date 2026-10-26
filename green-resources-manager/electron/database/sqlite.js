@@ -37,7 +37,24 @@ function getSaveDataDirectory() {
 }
 
 /**
- * 获取数据库文件路径
+ * 数据库写成功后安排一次云存档。
+ * 真正复制在稍后再做，这里返回原结果，调用处不用改判断。
+ * @param {{ ok: boolean, message?: string }} result 原来的写入结果
+ * @returns {{ ok: boolean, message?: string }}
+ */
+function notifySaveCommitted(result) {
+  if (result && result.ok) {
+    try {
+      require('../utils/onedrive-backup').scheduleSync()
+    } catch (error) {
+      console.warn('[OneDrive] 安排同步失败:', error.message)
+    }
+  }
+  return result
+}
+
+/**
+ * 获取数据库文件路径。目录不存在时会先创建，创建失败则退回程序旁边的 SaveData。
  * @returns {string} 数据库文件路径
  */
 function getDatabasePath() {
@@ -538,8 +555,6 @@ async function getPageData(pageId) {
     const selectPageStmt = db.prepare(`SELECT * FROM ${quotedTableName}`)
     const pageResources = selectPageStmt.all()
 
-    console.log(`[SQLite] 页面 ${pageId} 的索引记录数: ${pageResources.length}`)
-
     if (pageResources.length === 0) {
       db.close()
       console.log(`[SQLite] 页面 ${pageId} 没有资源索引，返回空数组`)
@@ -574,7 +589,6 @@ async function getPageData(pageId) {
       .map(pr => resourceMap.get(pr.resourceId))
       .filter(Boolean)
 
-    console.log(`[SQLite] getPageData 完成: pageId=${pageId}, 返回 ${orderedResources.length} 条`)
     db.close()
 
     return {
@@ -622,7 +636,7 @@ async function saveResourceToTable(resourceType, resource) {
       const insertStmt = db.prepare(`INSERT OR REPLACE INTO "${resourceType}" (id, jsonData, timestamp, version) VALUES (?, ?, ?, ?)`)
       insertStmt.run(resource.id, jsonToStore, timestamp, version)
       db.close()
-      return { ok: true }
+      return notifySaveCommitted({ ok: true })
     }
 
     ensureResourceTablesExist(db)
@@ -672,7 +686,7 @@ async function saveResourceToTable(resourceType, resource) {
         removes: tagChanges.removes
       })
     }
-    return { ok: true }
+    return notifySaveCommitted({ ok: true })
   } catch (err) {
     console.error(`[SQLite] 保存资源到 ${resourceType} 表失败:`, err.message)
     return { ok: false, message: err.message }
@@ -725,7 +739,7 @@ async function addResourceToPage(pageId, resourceType, resourceId) {
     }
 
     db.close()
-    return { ok: true }
+    return notifySaveCommitted({ ok: true })
   } catch (err) {
     console.error(`[SQLite] 添加资源到页面 ${pageId} 失败:`, err.message)
     return { ok: false, message: err.message }
@@ -966,12 +980,12 @@ async function savePageResources(pageId, resources) {
 
     // 允许空数组的情况（清空页面）
     if (resources.length === 0) {
-      return { ok: true }
+      return notifySaveCommitted({ ok: true })
     }
     if (insertedCount === 0) {
       return { ok: false, message: '所有资源均被跳过，未写入任何数据（请检查资源 id、resourceType 及表结构）' }
     }
-    return { ok: true }
+    return notifySaveCommitted({ ok: true })
   } catch (err) {
     console.error(`[SQLite] 保存页面 ${pageId} 资源失败:`, err.message)
     return { ok: false, message: err.message }
@@ -1137,7 +1151,7 @@ async function deleteResourceFromTable(tableName, resourceId) {
         removes: removedRefs
       })
     }
-    return { ok: true }
+    return notifySaveCommitted({ ok: true })
   } catch (err) {
     console.error(`[SQLite] 从 ${tableName} 表删除资源 ${resourceId} 失败:`, err.message)
     return { ok: false, message: err.message }
@@ -1265,7 +1279,7 @@ async function migrateSettingsFromJson(customSaveDataPath) {
 
     db.close()
     console.log('[SQLite] 设置数据迁移完成')
-    return { ok: true }
+    return notifySaveCommitted({ ok: true })
   } catch (error) {
     console.error('[SQLite] 迁移设置数据失败:', error)
     return { ok: false, message: error.message }
@@ -1362,7 +1376,7 @@ async function saveSettingsToSqlite(settings) {
     )
 
     db.close()
-    return { ok: true }
+    return notifySaveCommitted({ ok: true })
   } catch (error) {
     console.error('[SQLite] 保存设置数据失败:', error)
     return { ok: false, message: error.message }
@@ -1419,7 +1433,7 @@ async function migrateUserFromJson(customSaveDataPath) {
 
     db.close()
     console.log('[SQLite] 用户数据迁移完成')
-    return { ok: true }
+    return notifySaveCommitted({ ok: true })
   } catch (error) {
     console.error('[SQLite] 迁移用户数据失败:', error)
     return { ok: false, message: error.message }
@@ -1522,7 +1536,7 @@ async function saveUserToSqlite(user) {
   }
 
   console.log('[SQLite] 用户数据保存成功')
-  return { ok: true }
+  return notifySaveCommitted({ ok: true })
 }
 
 /**
@@ -1660,7 +1674,7 @@ async function deletePageData(pageId) {
     }
 
     console.log(`[SQLite] 已删除页面 ${pageId} 的名单，资源正文仍保留`)
-    return { ok: true }
+    return notifySaveCommitted({ ok: true })
   } catch (err) {
     console.error(`[SQLite] 删除页面 ${pageId} 数据失败:`, err.message)
     return { ok: false, message: err.message }

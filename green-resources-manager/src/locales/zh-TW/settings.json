@@ -10,6 +10,7 @@
     "audios": "音訊",
     "novels": "小說",
     "websites": "網站",
+    "save": "存檔",
     "archive": "解壓縮",
     "pet": "桌寵",
     "updates": "更新"
@@ -24,6 +25,7 @@
     "audios": "音訊播放和管理設定",
     "novels": "小說閱讀和管理設定",
     "websites": "網站收藏和管理設定",
+    "save": "存檔位置、雲端存檔和自動備份",
     "archive": "壓縮檔解壓縮和壓縮相關設定",
     "pet": "桌寵顯示和管理設定",
     "updates": "應用程式更新和版本管理"
@@ -102,6 +104,14 @@
     "openFolderTitle": "開啟存檔資料夾",
     "openFolderDesc": "在檔案總管中開啟應用程式存檔資料夾",
     "openFolderButton": "開啟資料夾"
+  },
+  "cloudSave": {
+    "title": "雲端存檔",
+    "description": "開啟後，每次儲存都會把存檔資料庫複製到本機 OneDrive 資料夾裡的 GreenResourcesManager，由 OneDrive 自己上傳。封面和資源檔仍留在本機。",
+    "connected": "已找到 OneDrive",
+    "missing": "未找到 OneDrive",
+    "missingDetail": "沒有偵測到 OneDrive 同步資料夾。請先安裝並登入 OneDrive，再打開這個開關。",
+    "openFolder": "開啟雲端存檔資料夾"
   },
   "autoBackup": {
     "title": "開啟自動備份",

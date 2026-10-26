@@ -10,7 +10,7 @@
       <FunMenu
         :items="menuItems"
         :active-key="activeSection"
-        :default-expanded-keys="['user-manual', 'workshop']"
+        :default-expanded-keys="['user-manual']"
         :is-item-active-fn="isItemActive"
         :collapsed="isCollapsed"
         @item-click="handleMenuClick"
@@ -56,30 +56,7 @@ const menuItems = computed<MenuItem[]>(() => [
 
     ]
   },
-  {
-    id: 'api',
-    icon: '🔌',
-    label: t('help.sidebar.apiManual'),
-    children: [
-      { id: 'api-games', icon: '🎮', label: t('help.sidebar.apiGames') },
-      { id: 'api-manga', icon: '📚', label: t('help.sidebar.apiManga') },
-      { id: 'api-videos', icon: '🎬', label: t('help.sidebar.apiVideos') },
-      { id: 'api-novels', icon: '📖', label: t('help.sidebar.apiNovels') },
-      { id: 'api-websites', icon: '🌐', label: t('help.sidebar.apiWebsites') },
-      { id: 'api-audio', icon: '🎵', label: t('help.sidebar.apiAudio') }
-    ]
-  },
-  {
-    id: 'workshop',
-    icon: '🎨',
-    label: t('help.sidebar.workshop'),
-    children: [
-      { id: 'workshop-pages', icon: '📄', label: t('help.sidebar.workshopPages') },
-      { id: 'workshop-plugin', icon: '🧩', label: t('help.sidebar.workshopPlugin') },
-      { id: 'workshop-note', icon: '📝', label: t('help.sidebar.workshopNote') },
-      { id: 'workshop-calendar', icon: '📅', label: t('help.sidebar.workshopCalendar') }
-    ]
-  },
+  { id: 'ai-skills', icon: '🤖', label: t('help.sidebar.aiSkills') },
   { id: 'support', icon: '💬', label: t('help.sidebar.support') },
   { id: 'about', icon: 'ℹ️', label: t('help.sidebar.about') },
 ])
@@ -89,31 +66,12 @@ const isItemActive = (item: MenuItem): boolean => {
     return item.children.some(child => props.activeSection === child.id)
   }
   
-  if (item.id === 'workshop' && item.children) {
-    return props.activeSection === 'workshop' ||
-           item.children.some(child => props.activeSection === child.id)
-  }
-
-  if (item.id === 'api' && item.children) {
-    return props.activeSection === 'api' || 
-           props.activeSection === 'api-games' ||
-           props.activeSection === 'api-manga' ||
-           props.activeSection === 'api-videos' ||
-           props.activeSection === 'api-novels' ||
-           props.activeSection === 'api-websites' ||
-           props.activeSection === 'api-audio' ||
-           item.children.some(subChild => props.activeSection === subChild.id)
-  }
-  
   return props.activeSection === item.id
 }
 
 const handleMenuClick = (item: MenuItem) => {
-  if (item.id) {
-    if (item.id !== 'user-manual') {
-      emit('section-change', item.id)
-    }
-  }
+  if (!item.id || item.id === 'user-manual') return
+  emit('section-change', item.id)
 }
 </script>
 
@@ -124,6 +82,7 @@ const handleMenuClick = (item: MenuItem) => {
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
+  min-height: 0;
   overflow-y: auto;
   transition: width 0.3s ease;
 }

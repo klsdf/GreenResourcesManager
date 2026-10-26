@@ -17,7 +17,7 @@
 
 const fs = require('fs')
 const path = require('path')
-const { shell } = require('electron')
+const { app, shell } = require('electron')
 const { isImageFile } = require('../utils/image-file')
 
 /**
@@ -77,6 +77,39 @@ function registerIpcHandlers(ipcMain, shell, pathUtils) {
       return { success: true }
     } catch (error) {
       console.error('打开文件夹失败:', error)
+      return { success: false, error: error.message }
+    }
+  })
+
+  /**
+   * 打开某一份 AI Skill 的文件夹。
+   * skillName 只能是 ai-handbook 下的一层目录名，避免打开到手册以外的路径。
+   * @param {string} skillName skill 目录名，例如 update-local-save
+   */
+  ipcMain.handle('open-ai-handbook', async (event, skillName) => {
+    try {
+      /** 全部 skill 所在的目录。 */
+      const handbookDir = path.resolve(app.getAppPath(), 'ai-handbook')
+      /** 只接受一层目录名，拒绝 .. 和斜杠。 */
+      const folderName = String(skillName || '')
+      if (!/^[a-z0-9-]+$/.test(folderName)) {
+        return { success: false, error: '无效的 skill' }
+      }
+      /** 这份 skill 的目录，里面应有 SKILL.md。 */
+      const targetDir = path.resolve(handbookDir, folderName)
+      if (!targetDir.startsWith(handbookDir + path.sep)) {
+        return { success: false, error: '无效的 skill' }
+      }
+      if (!fs.existsSync(targetDir)) {
+        return { success: false, error: `文件夹不存在: ${targetDir}` }
+      }
+      const openError = await shell.openPath(targetDir)
+      if (openError) {
+        return { success: false, error: openError }
+      }
+      return { success: true }
+    } catch (error) {
+      console.error('打开 AI Skill 文件夹失败:', error)
       return { success: false, error: error.message }
     }
   })

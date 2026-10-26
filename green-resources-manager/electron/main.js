@@ -260,6 +260,14 @@ if (!gotTheLock) {
       }
     })
 
+    // 先把封面收进各自的资源文件夹，再打开窗口。这样界面读到的已经是新路径。
+    try {
+      const saveLayout = require('./utils/save-layout')
+      saveLayout.migrateResourceFolders(sqlite.getSaveDataDirectory(), sqlite.getDatabasePath())
+    } catch (error) {
+      console.error('[存档目录] 整理封面目录失败:', error)
+    }
+
     // 右键解压时主窗口先藏起来，进度显示在单独的小窗里
     createWindow(shellExtractPathsAtLaunch.length === 0)
     appMenu.createMenu(() => mainWindowModule.getMainWindow())
@@ -392,6 +400,14 @@ if (!gotTheLock) {
     
     // 保存设置数据到 SQLite
     ipcMain.handle('sqlite-save-settings', (event, settings) => sqlite.saveSettingsToSqlite(settings))
+
+    const onedriveBackup = require('./utils/onedrive-backup')
+    // 探测本机 OneDrive 文件夹，设置页用来显示是否已连接
+    ipcMain.handle('onedrive-status', () => onedriveBackup.status())
+    // 立刻把存档数据库复制进 OneDrive。开关关着时模块自己跳过
+    ipcMain.handle('onedrive-sync-now', () => onedriveBackup.syncNow())
+    // 打开 OneDrive 里的云存档文件夹
+    ipcMain.handle('onedrive-open-folder', () => onedriveBackup.openFolder())
     
     // 从 JSON 迁移用户数据到 SQLite
     ipcMain.handle('sqlite-migrate-user', (event, customSaveDataPath) => sqlite.migrateUserFromJson(customSaveDataPath))

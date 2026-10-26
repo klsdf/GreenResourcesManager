@@ -9,7 +9,7 @@ import { Website } from './website'
 import { Audio } from './audio'
 import { Other } from './other'
 import { ResourceField } from './base/ResourceField'
-import { FormField, FormField_Date, FormField_Tags, FormField_Text } from './base/FormField'
+import { FormField, FormField_Date, FormField_Tags, FormField_Text, FormField_YesNo } from './base/FormField'
 import { createFormField, editorKindOf, isSimpleEditor, type PageFieldDef, type PageFieldEditor } from '../pages/pageFieldSchema'
 
 /**
@@ -260,6 +260,50 @@ export function extensionsForSearch(kindIds: string[]): string[] {
   return [...extensions]
 }
 
+/** 文件夹模式里可选的一种文件夹。勾选后，搜索只收含有这类内容的目录。 */
+export interface FolderImportOption {
+  /** 导入时使用的基本类型。音频和小说没有单独的文件夹类，仍用原来的类型，路径指向整个文件夹。 */
+  id: string
+  /** 窗口里显示的名称 */
+  label: string
+  /** 这一层里出现这些扩展名，就把当前文件夹收成一条资源，不再往下找 */
+  extensions: string[]
+}
+
+/**
+ * 页面能按文件夹导入的类型。
+ * 内容扩展名取自对应的单文件类型：图片文件夹看的是图片，不是 pdf。
+ * 只在页面本来就接受这种文件夹时出现，避免把漫画写进只收单张图片的页面。
+ * 音频和小说没有单独的文件夹类，仍用原来的类型，路径指向整个文件夹。
+ */
+const FOLDER_IMPORT_PROFILES: { id: string; label: string; triggers: string[]; contentKindId: string }[] = [
+  { id: 'imageFolder', label: '图片文件夹', triggers: ['imageFolder'], contentKindId: 'image' },
+  { id: 'videoFolder', label: '视频文件夹', triggers: ['videoFolder'], contentKindId: 'video' },
+  { id: 'audio', label: '音频文件夹', triggers: ['audio'], contentKindId: 'audio' },
+  { id: 'executableFolder', label: '程序文件夹', triggers: ['executableFolder'], contentKindId: 'executable' },
+  { id: 'novel', label: '小说文件夹', triggers: ['novel'], contentKindId: 'novel' }
+]
+
+/**
+ * 按当前页面接受的类型，列出文件夹模式可以勾选的项。
+ * 合集目录本身往往没有图片，要靠搜索时「这一层没有才继续往下」找到真正的图片文件夹。
+ * @param kindIds 页面接受的基本类型
+ */
+export function folderImportOptions(kindIds: string[]): FolderImportOption[] {
+  /** 这一页接受的类型，用来决定要不要出现对应的文件夹选项。 */
+  const accepted = new Set(kindIds)
+  /** 窗口里按固定顺序展示的文件夹类型。 */
+  const options: FolderImportOption[] = []
+  for (const profile of FOLDER_IMPORT_PROFILES) {
+    if (!profile.triggers.some(id => accepted.has(id))) continue
+    const content = findBasicKind(profile.contentKindId)
+    const extensions = (content?.extensions || []).filter(ext => ext !== '<folder>' && ext !== '*')
+    if (extensions.length === 0) continue
+    options.push({ id: profile.id, label: profile.label, extensions: [...extensions] })
+  }
+  return options
+}
+
 /**
  * 按存档里的 resourceType 找回原来的资源类。
  * 认不出来就返回空，调用方不要拿别的类型去套。
@@ -305,10 +349,11 @@ export function collectFieldCatalog(): PageFieldOption[] {
       const isTags = field.editType instanceof FormField_Tags
       const isText = field.editType instanceof FormField_Text
       const isDate = field.editType instanceof FormField_Date
+      const isYesNo = field.editType instanceof FormField_YesNo
       seen.set(key, {
         key,
         label: field.editType.fieldName || key,
-        filterable: isTags || isText || isDate,
+        filterable: isTags || isText || isDate || isYesNo,
         isArray: isTags,
         dateFilter: isDate,
         editor: editorKindOf(field.editType)
@@ -383,6 +428,18 @@ export function makeFieldFilter(field: PageFieldOption) {
       key: field.key,
       title: `${field.label}筛选`,
       filterType: 'dateField',
+      params: {
+        field: field.key
+      },
+      isArray: false
+    }
+  }
+  // 是/否不能走普通文本筛选。普通筛选会丢掉空值，旧游戏没填过就不会出现在「否」里。
+  if (field.editor === 'yesno') {
+    return {
+      key: field.key,
+      title: `${field.label}筛选`,
+      filterType: 'yesNo',
       params: {
         field: field.key
       },

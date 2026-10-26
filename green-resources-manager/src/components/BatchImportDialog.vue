@@ -28,9 +28,24 @@
             </div>
             <fun-button
               class="batch-import__button batch-import__button--confirm batch-import__search-button"
-              :disabled="searching || !folderPathInput.trim() || selectedExtensions.length === 0"
+              :disabled="!canStartSearch"
               @click="startSearch"
             >{{ searching ? $lt('正在搜索...') : $lt('开始搜索') }}</fun-button>
+          </div>
+
+          <div class="batch-import__field">
+            <span class="batch-import__label">{{ $lt('导入模式') }}</span>
+            <span class="batch-import__hint">{{ importMode === 'folder' ? $lt('只导入文件夹。某一层直接含有所选内容时，就把这一层收成一条资源，不再进入它的子文件夹。') : $lt('按扩展名导入单个文件。') }}</span>
+            <div class="batch-import__type-list">
+              <label class="batch-import__type" :class="{ 'batch-import__type--active': importMode === 'file' }">
+                <input v-model="importMode" type="radio" value="file" class="batch-import__checkbox batch-import__mode-file" />
+                <span>{{ $lt('文件模式') }}</span>
+              </label>
+              <label class="batch-import__type" :class="{ 'batch-import__type--active': importMode === 'folder' }">
+                <input v-model="importMode" type="radio" value="folder" class="batch-import__checkbox batch-import__mode-folder" />
+                <span>{{ $lt('文件夹模式') }}</span>
+              </label>
+            </div>
           </div>
 
           <label class="batch-import__field">
@@ -52,7 +67,7 @@
             </span>
           </label>
 
-          <div class="batch-import__field">
+          <div v-if="importMode === 'file'" class="batch-import__field">
             <span class="batch-import__label">{{ $lt('搜索方式') }}</span>
             <label class="batch-import__unlimited">
               <input
@@ -65,7 +80,7 @@
             <span class="batch-import__hint">{{ $lt('默认勾选，适合每个游戏只在第一层放启动程序的目录。同一层里的文件仍会全部列出来。') }}</span>
           </div>
 
-          <div class="batch-import__field">
+          <div v-if="importMode === 'file'" class="batch-import__field">
             <span class="batch-import__label">{{ $lt('搜索的文件类型') }}</span>
             <span class="batch-import__hint">{{ $lt('勾选这次要搜索的扩展名，只搜这些文件。') }}</span>
             <div class="batch-import__type-list">
@@ -86,6 +101,29 @@
               <span v-if="availableExtensions.length === 0" class="batch-import__hint">{{ $lt('当前页面没有可搜索的文件类型') }}</span>
             </div>
             <span v-if="availableExtensions.length > 0 && selectedExtensions.length === 0" class="batch-import__hint">{{ $lt('至少选择一种文件类型') }}</span>
+          </div>
+
+          <div v-else class="batch-import__field">
+            <span class="batch-import__label">{{ $lt('文件夹类型') }}</span>
+            <span class="batch-import__hint">{{ $lt('勾选要收的文件夹。合集目录本身没有这些文件时，会继续往下找真正放着内容的那一层。') }}</span>
+            <div class="batch-import__type-list">
+              <label
+                v-for="option in folderOptions"
+                :key="option.id"
+                class="batch-import__type"
+                :class="{ 'batch-import__type--active': selectedFolderKindIds.includes(option.id) }"
+              >
+                <input
+                  v-model="selectedFolderKindIds"
+                  type="checkbox"
+                  :value="option.id"
+                  class="batch-import__checkbox"
+                />
+                <span>{{ $lt(option.label) }}</span>
+              </label>
+              <span v-if="folderOptions.length === 0" class="batch-import__hint">{{ $lt('当前页面没有可以按文件夹导入的类型') }}</span>
+            </div>
+            <span v-if="folderOptions.length > 0 && selectedFolderKindIds.length === 0" class="batch-import__hint">{{ $lt('至少选择一种文件夹类型') }}</span>
           </div>
 
           <div class="batch-import__field">
@@ -124,9 +162,9 @@
         <div ref="resultsRef" class="batch-import__results">
           <div v-if="!hasSearched" class="batch-import__empty">{{ $lt('设置好左边的条件后开始搜索，结果会显示在这里') }}</div>
           <div v-else-if="searching" class="batch-import__empty">{{ $lt('正在搜索...') }}</div>
-          <div v-else-if="files.length === 0" class="batch-import__empty">{{ $lt('没有找到匹配的文件') }}</div>
+          <div v-else-if="files.length === 0" class="batch-import__empty">{{ searchedMode === 'folder' ? $lt('没有找到匹配的文件夹') : $lt('没有找到匹配的文件') }}</div>
           <template v-else>
-            <div class="batch-import__result-count">{{ $lf('找到 {n} 个文件', { n: files.length }) }}</div>
+            <div class="batch-import__result-count">{{ searchedMode === 'folder' ? $lf('找到 {n} 个文件夹', { n: files.length }) : $lf('找到 {n} 个文件', { n: files.length }) }}</div>
             <div class="batch-import__file-list">
               <label 
                 v-for="(file, index) in files" 
@@ -140,8 +178,8 @@
                   :value="file"
                   class="batch-import__checkbox"
                 />
-                <BatchImportFileIcon :file="file" :icon="iconForFile(file)" />
-                <span class="batch-import__filename">{{ file }}</span>
+                <BatchImportFileIcon :file="file" :icon="iconForFile(file)" :folder="searchedMode === 'folder'" />
+                <span class="batch-import__filename">{{ displayResultName(file) }}</span>
               </label>
             </div>
           </template>
@@ -227,6 +265,8 @@ interface Props {
   importProgress?: { current: number; total: number; file?: string }
   /** 当前页面接受、可以搜索的扩展名，例如 ['.exe', '.swf', '.bat']。 */
   availableExtensions?: string[]
+  /** 文件夹模式可以勾选的类型。文件模式不用它。 */
+  folderOptions?: { id: string; label: string; extensions: string[] }[]
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -236,13 +276,24 @@ const props = withDefaults(defineProps<Props>(), {
   searching: false,
   importing: false,
   importProgress: () => ({ current: 0, total: 0 }),
-  availableExtensions: () => []
+  availableExtensions: () => [],
+  folderOptions: () => []
 })
 
 const emit = defineEmits<{
   close: []
   confirm: [files: string[], folderPath: string]
-  search: [options: { folderPath: string; maxDepth: number | null; excludePatterns: string[]; extensions: string[]; stopAtFirstMatch: boolean }]
+  search: [options: {
+    folderPath: string
+    maxDepth: number | null
+    excludePatterns: string[]
+    extensions: string[]
+    stopAtFirstMatch: boolean
+    /** file 搜单个文件，folder 只收含有目标内容的文件夹。 */
+    mode: 'file' | 'folder'
+    /** 文件夹模式勾选的类型。文件模式为空。 */
+    folderGroups: { id: string; extensions: string[] }[]
+  }]
 }>()
 
 /** 遮罩是否显示。和 props.visible 同步，关闭时先收起再通知外面。 */
@@ -257,6 +308,12 @@ const unlimitedDepth = ref(false)
 const stopAtFirstMatch = ref(true)
 /** 这次要搜索的扩展名。打开窗口时默认全选当前页面支持的类型。 */
 const selectedExtensions = ref<string[]>([])
+/** 文件模式搜单个文件，文件夹模式只收文件夹。默认仍是原来的文件搜索。 */
+const importMode = ref<'file' | 'folder'>('file')
+/** 最近一次搜索用的模式。结果文案跟着它，避免搜完又改模式时把文件夹显示成文件。 */
+const searchedMode = ref<'file' | 'folder'>('file')
+/** 文件夹模式勾选的类型。打开窗口时默认全选当前页面能用的项。 */
+const selectedFolderKindIds = ref<string[]>([])
 /** 勾选的排除分类。打开窗口时恢复默认勾选。 */
 const checkedCategoryIds = ref<string[]>(getDefaultExcludedCategoryIds())
 /** 分类之外自己补充的名字。一行一个片段。 */
@@ -286,6 +343,13 @@ const isAllSelected = computed({
   set: (value: boolean) => {
     selectedFiles.value = value ? [...props.files] : []
   }
+})
+
+/** 路径和类型都齐了才能搜。文件夹模式看文件夹类型，不再要求勾扩展名。 */
+const canStartSearch = computed(() => {
+  if (props.searching || !folderPathInput.value.trim()) return false
+  if (importMode.value === 'folder') return selectedFolderKindIds.value.length > 0
+  return selectedExtensions.value.length > 0
 })
 
 /** 进度条宽度。总数还没拿到时保持 0。 */
@@ -446,7 +510,10 @@ function resetForm() {
   searchDepth.value = 3
   unlimitedDepth.value = false
   stopAtFirstMatch.value = true
+  importMode.value = 'file'
+  searchedMode.value = 'file'
   selectedExtensions.value = [...props.availableExtensions]
+  selectedFolderKindIds.value = props.folderOptions.map(option => option.id)
   checkedCategoryIds.value = getDefaultExcludedCategoryIds()
   excludeText.value = ''
   folderPathInput.value = ''
@@ -485,26 +552,42 @@ async function pickFolder() {
   }
 }
 
+/** 根目录被收成一条资源时，相对路径是点号，列表里改成看得懂的名字。 */
+function displayResultName(file: string): string {
+  if (searchedMode.value === 'folder' && (file === '.' || file === '')) return '（当前文件夹）'
+  return file
+}
+
 /**
  * 按当前条件开始搜索。
  * 层数勾了不限制就传 null。没勾时用输入的整数，空的或负数当成 0。
+ * 文件夹模式不传扩展名，只传勾选的文件夹类型。
  */
 function startSearch() {
   const folderPath = folderPathInput.value.trim()
-  if (!folderPath || props.searching || selectedExtensions.value.length === 0) return
+  if (!canStartSearch.value) return
   /** 传给搜索的层数。null 表示一直往下找。 */
   let maxDepth: number | null = null
   if (!unlimitedDepth.value) {
     const depthNumber = Number(searchDepth.value)
     maxDepth = Number.isFinite(depthNumber) ? Math.max(0, Math.floor(depthNumber)) : 3
   }
+  /** 文件夹模式只把勾选的类型交给搜索，不再带文件扩展名。 */
+  const folderGroups = importMode.value === 'folder'
+    ? props.folderOptions
+      .filter(option => selectedFolderKindIds.value.includes(option.id))
+      .map(option => ({ id: option.id, extensions: [...option.extensions] }))
+    : []
   hasSearched.value = true
+  searchedMode.value = importMode.value
   emit('search', {
     folderPath,
     maxDepth,
     excludePatterns: readExcludePatterns(),
-    extensions: [...selectedExtensions.value],
-    stopAtFirstMatch: stopAtFirstMatch.value
+    extensions: importMode.value === 'folder' ? [] : [...selectedExtensions.value],
+    stopAtFirstMatch: importMode.value === 'folder' ? true : stopAtFirstMatch.value,
+    mode: importMode.value,
+    folderGroups
   })
 }
 
@@ -520,7 +603,7 @@ function handleConfirm() {
   if (props.searching || props.importing) return
   // 一个都没勾时也给个提示，不然点了没反应像卡住。
   if (selectedFiles.value.length === 0) {
-    notify.toast('warning', '提示', '请先勾选要导入的文件')
+    notify.toast('warning', '提示', searchedMode.value === 'folder' ? '请先勾选要导入的文件夹' : '请先勾选要导入的文件')
     return
   }
   // 传副本：写入期间列表里的勾选变化不能影响正在处理的这一批。

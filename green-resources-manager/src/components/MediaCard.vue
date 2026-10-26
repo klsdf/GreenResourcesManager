@@ -30,8 +30,10 @@
       <div v-if="badgeText && scale >= 30" class="media-badge">
         {{ badgeText }}
       </div>
-      <!-- 左上角标识容器（文件丢失 + 压缩包） -->
-      <div v-if="showFileError || showArchiveIcon" class="top-left-indicators">
+      <!-- 左上角标识容器（VR、文件丢失、压缩包） -->
+      <div v-if="showVrMark || showFileError || showArchiveIcon" class="top-left-indicators">
+        <!-- VR 游戏。和压缩包标志同一排，只在标了「是」时出现。 -->
+        <div v-if="showVrMark" class="vr-indicator" :title="$lt('VR 游戏')">VR</div>
         <!-- 文件不存在错误图标 -->
         <div v-if="showFileError" class="file-error-icon" :title="$lt('本地文件不存在')">
           ⚠️
@@ -619,6 +621,15 @@ export default {
       
       // 如果没有配置 badge，则不显示徽章
       return ''
+    },
+    /**
+     * 卡片左上角是否标出 VR。
+     * 只认「是否 VR 游戏」选了是。没填或否都不显示，避免旧游戏满屏都是 VR。
+     */
+    showVrMark() {
+      const raw = this.item?.isVr ?? this.item?.retainedFields?.isVr
+      const value = raw instanceof ResourceField ? getFieldValue(raw) : raw
+      return value === '是' || value === true
     },
     showFileError() {
       // 优先使用 item.fileExists（如果存在），否则使用 prop 的 fileExists
@@ -1894,6 +1905,23 @@ $running-color-dark: #10b981;
   font-weight: bold;
   box-shadow: 0 2px 4px rgba(0, 0, 0, $shadow-opacity);
   animation: pulse 2s infinite;
+  flex-shrink: 0;
+}
+
+/* VR 标志。高度和旁边的圆形标志一样，宽度留给两个字母。 */
+.vr-indicator {
+  background: $info-color;
+  color: white;
+  border-radius: 12px;
+  height: 24px;
+  padding: 0 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, $shadow-opacity);
   flex-shrink: 0;
 }
 

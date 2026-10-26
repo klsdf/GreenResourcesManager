@@ -11,27 +11,29 @@ import { BaseResources } from '@resources/base/ResourcesDataBase.ts'
 const COVER_FIELDS = ['coverPath', 'cover', 'thumbnail', 'thumbnailPath']
 
 /**
- * 资源类型到保存目录的映射
+ * 资源类型到存档文件夹的映射。
+ * 一种资源只用一个文件夹，封面写在这个文件夹的 Covers 下面，和截图放在一起。
+ * 文件夹名要和 electron/utils/save-layout.js 里的 RESOURCE_SAVE_FOLDERS 一致。
  */
 const RESOURCE_TYPE_TO_DIR_MAP: Record<string, string> = {
-  Game: 'games',
-  Software: 'software',
-  Image: 'images',
-  Manga: 'images',
-  SingleImage: 'singleImage',
-  Video: 'videos',
-  Anime: 'videos',
-  Novel: 'novels',
-  Website: 'websites',
-  Audio: 'audios',
-  Other: 'other'
+  Game: 'Game',
+  Software: 'Software',
+  Image: 'Image',
+  Manga: 'Image',
+  SingleImage: 'SingleImage',
+  Video: 'Video',
+  Anime: 'AnimeSeries',
+  Novel: 'Novel',
+  Website: 'Website',
+  Audio: 'Audio',
+  Other: 'Other'
 }
 
 /**
  * 获取资源类型对应的目录名
  */
 function getResourceTypeDir(resourceType: string): string {
-  return RESOURCE_TYPE_TO_DIR_MAP[resourceType] || 'other'
+  return RESOURCE_TYPE_TO_DIR_MAP[resourceType] || 'Other'
 }
 
 /**

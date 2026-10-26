@@ -28,14 +28,29 @@
     
     <div class="toolbar-right">
       <template v-for="item in rightItems" :key="getItemKey(item)">
-        <!-- 多选模式按钮 -->
-        <fun-button
-          v-if="item.type === 'multi-select'"
-          :type="isMultiSelectMode ? 'secondary' : 'primary'"
-          @click="handleToggleMultiSelect"
-        >
-          {{ isMultiSelectMode ? $lt('退出多选') : $lt('多选模式') }}
-        </fun-button>
+        <!-- 多选时，先给当前页和全部结果的勾选，再放退出。顺序从左到右。 -->
+        <template v-if="item.type === 'multi-select'">
+          <fun-button
+            v-if="isMultiSelectMode"
+            type="secondary"
+            @click="handleSelectCurrentPage"
+          >
+            {{ $lt('选择当前页全部') }}
+          </fun-button>
+          <fun-button
+            v-if="isMultiSelectMode"
+            type="secondary"
+            @click="handleSelectAll"
+          >
+            {{ $lt('选择全部') }}
+          </fun-button>
+          <fun-button
+            :type="isMultiSelectMode ? 'secondary' : 'primary'"
+            @click="handleToggleMultiSelect"
+          >
+            {{ isMultiSelectMode ? $lt('退出多选') : $lt('多选模式') }}
+          </fun-button>
+        </template>
 
         <!-- 布局控制 -->
         <LayoutControl
@@ -114,7 +129,9 @@ export default {
     'layout-changed',
     'button-click',
     'search',
-    'toggle-multi-select'
+    'toggle-multi-select',
+    'select-current-page',
+    'select-all'
   ],
   computed: {
     leftItems() {
@@ -203,6 +220,18 @@ export default {
     },
     handleToggleMultiSelect() {
       this.$emit('toggle-multi-select')
+    },
+    /**
+     * 通知页面勾选当前这一页。
+     */
+    handleSelectCurrentPage() {
+      this.$emit('select-current-page')
+    },
+    /**
+     * 通知页面勾选当前名单里的全部资源。
+     */
+    handleSelectAll() {
+      this.$emit('select-all')
     },
     handleSearchInput(event, item) {
       this.$emit('update:searchQuery', event.target.value)

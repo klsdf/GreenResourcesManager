@@ -179,4 +179,72 @@ describe('批量搜索文件', () => {
     expect(result.files).not.toContain(join('Tool', 'loaders', 'pidfinder.exe'))
     expect(result.files).not.toContain(join('lib', 'python.exe'))
   })
+
+  it('文件夹模式只收直接含有目标文件的那一层，合集目录继续往下', async () => {
+    mkdirSync(join(dir, '我的漫画', '合集', '第一话'), { recursive: true })
+    mkdirSync(join(dir, '我的漫画', '单行本'), { recursive: true })
+    writeFileSync(join(dir, '我的漫画', '合集', '第一话', '001.jpg'), '')
+    writeFileSync(join(dir, '我的漫画', '合集', '第一话', '002.png'), '')
+    writeFileSync(join(dir, '我的漫画', '单行本', 'cover.jpg'), '')
+    writeFileSync(join(dir, '我的漫画', '说明.txt'), '')
+
+    const result = await searchMatchingFiles(dir, [], {
+      maxDepth: 5,
+      mode: 'folders',
+      folderGroups: [{ id: 'imageFolder', extensions: ['.jpg', '.png'] }]
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.files.sort()).toEqual([
+      join('我的漫画', '单行本'),
+      join('我的漫画', '合集', '第一话')
+    ])
+    expect(result.kinds[join('我的漫画', '合集', '第一话')]).toBe('imageFolder')
+    expect(result.kinds[join('我的漫画', '单行本')]).toBe('imageFolder')
+  })
+
+  it('选中的文件夹自己就有图片时，收它自己并且不再进入子文件夹', async () => {
+    mkdirSync(join(dir, 'extra'), { recursive: true })
+    writeFileSync(join(dir, 'page.jpg'), '')
+    writeFileSync(join(dir, 'extra', 'more.jpg'), '')
+
+    const result = await searchMatchingFiles(dir, [], {
+      maxDepth: 3,
+      mode: 'folders',
+      folderGroups: [{ id: 'imageFolder', extensions: ['.jpg'] }]
+    })
+
+    expect(result.files).toEqual(['.'])
+    expect(result.kinds['.']).toBe('imageFolder')
+  })
+
+  it('深度为 0 时，根目录没有目标文件就不往下找', async () => {
+    mkdirSync(join(dir, '第一话'), { recursive: true })
+    writeFileSync(join(dir, '第一话', '001.jpg'), '')
+
+    const result = await searchMatchingFiles(dir, [], {
+      maxDepth: 0,
+      mode: 'folders',
+      folderGroups: [{ id: 'imageFolder', extensions: ['.jpg'] }]
+    })
+
+    expect(result.files).toEqual([])
+  })
+
+  it('同一层同时有图片和视频时，只按勾选顺序归到前面的那一类', async () => {
+    writeFileSync(join(dir, 'a.jpg'), '')
+    writeFileSync(join(dir, 'b.mp4'), '')
+
+    const result = await searchMatchingFiles(dir, [], {
+      maxDepth: 1,
+      mode: 'folders',
+      folderGroups: [
+        { id: 'imageFolder', extensions: ['.jpg'] },
+        { id: 'videoFolder', extensions: ['.mp4'] }
+      ]
+    })
+
+    expect(result.files).toEqual(['.'])
+    expect(result.kinds['.']).toBe('imageFolder')
+  })
 })

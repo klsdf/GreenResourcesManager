@@ -39,7 +39,7 @@
     },
     {
       "id": "playTime-asc",
-      "label": "按游戏时长（升序）",
+      "label": "按游戏时长",
       "field": "playTime",
       "order": "asc"
     },
@@ -180,8 +180,6 @@
     "name",
     "nickname",
     "nameZh",
-    "nameEn",
-    "nameJa",
     "description",
     "developers",
     "publisher",
@@ -189,5 +187,57 @@
     "engine",
     "coverPath",
     "resourcePath"
+  ],
+  "pageFieldDefs": [
+    {
+      "key": "name",
+      "label": "游戏名",
+      "editor": "text"
+    },
+    {
+      "key": "nickname",
+      "label": "昵称",
+      "editor": "text"
+    },
+    {
+      "key": "nameZh",
+      "label": "中文名",
+      "editor": "text"
+    },
+    {
+      "key": "description",
+      "label": "游戏简介",
+      "editor": "textarea"
+    },
+    {
+      "key": "developers",
+      "label": "开发商",
+      "editor": "tags"
+    },
+    {
+      "key": "publisher",
+      "label": "发行商",
+      "editor": "tags"
+    },
+    {
+      "key": "tags",
+      "label": "标签",
+      "editor": "tags"
+    },
+    {
+      "key": "engine",
+      "label": "选择游戏引擎",
+      "editor": "engine"
+    },
+    {
+      "key": "coverPath",
+      "label": "游戏封面",
+      "editor": "cover"
+    },
+    {
+      "key": "resourcePath",
+      "label": "游戏路径",
+      "editor": "file"
+    }
   ]
 }

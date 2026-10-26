@@ -24,7 +24,9 @@
       @sort-by-changed="handleSortByChanged"
       @context-menu-click="handleContextMenuClick" 
       @page-change="handlePageChange"
-      @toggle-multi-select="toggleMultiSelectMode">
+      @toggle-multi-select="toggleMultiSelectMode"
+      @select-current-page="selectCurrentPage"
+      @select-all="selectAllListed">
       
     <!-- 主内容区域 -->
     <!-- 直接使用 div + useDragAndDrop，避免 FunDropZone 组件的性能问题 -->
@@ -340,6 +342,7 @@
     :importing="batchImportImporting"
     :import-progress="batchImportProgress"
     :available-extensions="batchImportSearchExtensions"
+    :folder-options="batchImportFolderOptions"
     @close="closeBatchImportDialog"
     @search="runBatchImportSearch"
     @confirm="handleBatchImportConfirm"
@@ -411,7 +414,7 @@ import ScraperUpdateDialog from './ScraperUpdateDialog.vue'
 import type { FilterItem } from '../types/filter'
 import coverManager from '../utils/CoverManager.ts'
 import { fingerprintFileSize, fingerprintKindForResource, fingerprintPageCount, isSameFingerprintIdentity, readFingerprint, writeFingerprint } from '../utils/resourceFingerprint.ts'
-import { cardTypeForResource, classForKind, collectFieldCatalog, defaultAcceptedKindIds, extensionsForSearch, findBasicKind, getResourceClassBySavedType, matchAcceptedKind, savedTypeOfClass } from '../configs/resources/resourceKindCatalog'
+import { cardTypeForResource, classForKind, collectFieldCatalog, defaultAcceptedKindIds, extensionsForSearch, findBasicKind, folderImportOptions, getResourceClassBySavedType, matchAcceptedKind, savedTypeOfClass } from '../configs/resources/resourceKindCatalog'
 import {
   buildSameResourceDescriptor,
   matchesSameResource,
@@ -608,6 +611,12 @@ export default defineComponent({
     })
     /** 批量导入时能搜到的扩展名，跟着这一页接受的资源类型走 */
     const batchImportSearchExtensions = computed(() => extensionsForSearch(acceptedKindIds.value))
+    /** 文件夹模式能勾的类型。图片页给图片文件夹，音乐页给音频文件夹。 */
+    const batchImportFolderOptions = computed(() => folderImportOptions(acceptedKindIds.value))
+    /** 最近一次搜索是文件还是文件夹。确认导入时按它决定把路径当成文件还是目录。 */
+    const batchImportMode = ref<'file' | 'folder'>('file')
+    /** 文件夹结果的相对路径对应哪种基本类型。根目录用点号当键。 */
+    const batchImportKindByPath = ref<Record<string, string>>({})
     /** 页面编辑时要显示的字段。没配过就不过滤，沿用资源类上的全部字段 */
     const pageFieldKeys = computed((): string[] | null => {
       const fields = pageConfig.value?.pageFields
@@ -3773,7 +3782,15 @@ export default defineComponent({
 
       const saveDir = String(saveManager.dataDirectory || '').replace(/\\/g, '/').replace(/\/+$/, '')
       const lower = normalized.toLowerCase()
-      const generatedDirs = [`${saveDir}/Video/Covers`, `${saveDir}/videos/covers`]
+      const generatedDirs = [
+        `${saveDir}/Video/Covers`,
+        `${saveDir}/AnimeSeries/Covers`,
+        `${saveDir}/Game/Covers`,
+        `${saveDir}/Image/Covers`,
+        `${saveDir}/videos/covers`,
+        `${saveDir}/games/covers`,
+        `${saveDir}/images/covers`
+      ]
         .map(dir => dir.toLowerCase())
       for (const dir of generatedDirs) {
         if (!lower.startsWith(`${dir}/`)) continue
@@ -4795,6 +4812,8 @@ export default defineComponent({
         // 先打开窗口。深度、排除名单和路径都在窗口里设，搜完的结果也留在同一个窗口。
         batchImportFiles.value = []
         batchImportFolderPath.value = ''
+        batchImportMode.value = 'file'
+        batchImportKindByPath.value = {}
         batchImportSearching.value = false
         showBatchImportDialog.value = true
       } else if (item.action === 'showBookmarkImportDialog') {
@@ -4807,29 +4826,46 @@ export default defineComponent({
      * 扩展名默认来自这一页勾选的资源类型，窗口里可以再收窄。
      * @param options 路径、层数、排除片段、要搜的扩展名，以及本层找到后是否继续往下
      */
-    const runBatchImportSearch = async (options: { folderPath: string; maxDepth: number | null; excludePatterns: string[]; extensions: string[]; stopAtFirstMatch?: boolean }) => {
+    const runBatchImportSearch = async (options: {
+      folderPath: string
+      maxDepth: number | null
+      excludePatterns: string[]
+      extensions: string[]
+      stopAtFirstMatch?: boolean
+      mode?: 'file' | 'folder'
+      folderGroups?: { id: string; extensions: string[] }[]
+    }) => {
       if (!isElectronEnvironment.value || !window.electronAPI?.searchMatchingFiles) {
         notify.toast('error', '操作失败', '当前环境不支持此功能')
         return
       }
+      /** 文件夹模式只收目录。文件模式仍按扩展名搜单个文件。 */
+      const searchingFolders = options.mode === 'folder'
+      batchImportMode.value = searchingFolders ? 'folder' : 'file'
       batchImportSearching.value = true
       try {
-        const searchExtensions = options.extensions?.length > 0
-          ? options.extensions
-          : extensionsForSearch(acceptedKindIds.value)
+        const searchExtensions = searchingFolders
+          ? []
+          : (options.extensions?.length > 0
+            ? options.extensions
+            : extensionsForSearch(acceptedKindIds.value))
         const searchResult = await window.electronAPI.searchMatchingFiles(options.folderPath, searchExtensions, {
           maxDepth: options.maxDepth,
           excludePatterns: options.excludePatterns,
-          // 默认按「本层找到就不再往下」搜，窗口里可以取消。
-          stopAtFirstMatch: options.stopAtFirstMatch !== false
+          // 文件模式默认「本层找到就不再往下」。文件夹模式由主进程固定成：有内容就收当前层。
+          stopAtFirstMatch: searchingFolders ? true : options.stopAtFirstMatch !== false,
+          mode: searchingFolders ? 'folders' : 'files',
+          folderGroups: searchingFolders ? options.folderGroups : []
         })
         if (!searchResult.success) {
-          notify.toast('error', '搜索文件失败', searchResult.error || '未知错误')
+          notify.toast('error', searchingFolders ? '搜索文件夹失败' : '搜索文件失败', searchResult.error || '未知错误')
           batchImportFiles.value = []
           batchImportFolderPath.value = ''
+          batchImportKindByPath.value = {}
           return
         }
         batchImportFiles.value = searchResult.files || []
+        batchImportKindByPath.value = searchResult.kinds || {}
         batchImportFolderPath.value = options.folderPath
       } catch (error: any) {
         console.error('[GenericResourceView] 批量导入搜索失败:', error)
@@ -4844,6 +4880,8 @@ export default defineComponent({
       showBatchImportDialog.value = false
       batchImportFiles.value = []
       batchImportFolderPath.value = ''
+      batchImportMode.value = 'file'
+      batchImportKindByPath.value = {}
       batchImportSearching.value = false
       batchImportImporting.value = false
       batchImportProgress.value = { current: 0, total: 0 }
@@ -4859,9 +4897,11 @@ export default defineComponent({
       // 写入过程中窗口还开着，防住重复确认，否则同一批会进两次。
       if (batchImportImporting.value) return
       if (selectedFiles.length === 0) {
-        notify.toast('warning', '提示', '请至少选择一个文件')
+        notify.toast('warning', '提示', batchImportMode.value === 'folder' ? '请至少选择一个文件夹' : '请至少选择一个文件')
         return
       }
+      /** 这次确认的是文件夹搜索结果。路径指向目录，类型来自搜索时记下的对照。 */
+      const importingFolders = batchImportMode.value === 'folder'
 
       batchImportImporting.value = true
       batchImportProgress.value = { current: 0, total: selectedFiles.length }
@@ -4887,20 +4927,29 @@ export default defineComponent({
             total: selectedFiles.length,
             file: relativeFilePath
           }
-          // 拼接完整路径
-          const fullFilePath = folderPath + (folderPath.endsWith('\\') || folderPath.endsWith('/') ? '' : '/') + relativeFilePath
-          const fileName = relativeFilePath.split(/[\\/]/).pop() || ''
+          // 根目录被收成一条资源时相对路径是点号，完整路径就是搜索根目录本身。
+          const isSearchRoot = importingFolders && (relativeFilePath === '.' || relativeFilePath === '')
+          const fullFilePath = isSearchRoot
+            ? folderPath
+            : folderPath + (folderPath.endsWith('\\') || folderPath.endsWith('/') ? '' : '/') + relativeFilePath
+          const fileName = isSearchRoot
+            ? (folderPath.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || '')
+            : (relativeFilePath.split(/[\\/]/).pop() || '')
 
-          // 获取文件扩展名
+          // 获取文件扩展名。文件夹导入不靠扩展名判断类型。
           const lowerFileName = fileName.toLowerCase()
           const fileExt = lowerFileName.includes('.') 
             ? '.' + lowerFileName.split('.').pop() 
             : ''
 
-          const matchedKind = matchAcceptedKind(fileExt, false, acceptedKindIds.value)
-          const MatchedResourceClass = matchedKind
-            ? classForKind(matchedKind.id, legacyResourceTypes.value)
-            : null
+          /** 文件夹结果用搜索时记下的类型；文件结果仍按扩展名匹配当前页面。 */
+          const folderKindId = importingFolders ? batchImportKindByPath.value[relativeFilePath] : ''
+          const matchedKind = importingFolders
+            ? findBasicKind(folderKindId)
+            : matchAcceptedKind(fileExt, false, acceptedKindIds.value)
+          const MatchedResourceClass = importingFolders
+            ? (folderKindId ? classForKind(folderKindId, legacyResourceTypes.value) : null)
+            : (matchedKind ? classForKind(matchedKind.id, legacyResourceTypes.value) : null)
 
           if (!matchedKind || !MatchedResourceClass) {
             failedCount++
@@ -5124,6 +5173,37 @@ export default defineComponent({
       }
     }
 
+    /**
+     * 把一批资源加进当前选择。
+     * 换成新的 Set 再赋回去，批量勾选时卡片和已选数量会一起更新。
+     * 已经选中的会留着，所以先勾这一页，再翻页勾另一页，两页都会留在选择里。
+     * @param list 要勾选的资源
+     */
+    const addItemsToSelection = (list: any[]) => {
+      const next = new Set(selectedItems.value)
+      for (const item of list || []) {
+        const itemId = item?.id?.value || item?.id
+        if (itemId) next.add(itemId)
+      }
+      selectedItems.value = next
+    }
+
+    /**
+     * 勾选当前这一页正在显示的资源。
+     * 分页之后屏幕上只有这一页，所以范围是当前页，不是整个筛选结果。
+     */
+    const selectCurrentPage = () => {
+      addItemsToSelection(resourcePage.paginatedItems?.value || [])
+    }
+
+    /**
+     * 勾选当前筛选和搜索之后的全部资源，包含其他页。
+     * 用筛选结果而不是库里的全部，避免把搜索藏起来的资源也选进批量删除。
+     */
+    const selectAllListed = () => {
+      addItemsToSelection(filteredItems.value || [])
+    }
+
     return {
       resourceType, // 返回 computed，保持响应式
       isElectronEnvironment,
@@ -5131,11 +5211,14 @@ export default defineComponent({
       isMultiSelectMode,
       selectedItems,
       toggleMultiSelectMode,
+      selectCurrentPage,
+      selectAllListed,
       isItemSelected,
       toggleSelectItem,
       // 批量导入对话框相关
       showBatchImportDialog,
       batchImportSearchExtensions,
+      batchImportFolderOptions,
       batchImportFiles,
       batchImportFolderPath,
       batchImportSearching,

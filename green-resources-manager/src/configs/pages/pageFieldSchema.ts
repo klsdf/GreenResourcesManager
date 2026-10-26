@@ -13,7 +13,8 @@ import {
   FormField_SelectVideoThumbnail,
   FormField_Tags,
   FormField_Text,
-  FormField_Textarea
+  FormField_Textarea,
+  FormField_YesNo
 } from '../resources/base/FormField'
 
 /**
@@ -27,6 +28,7 @@ export type PageFieldEditor =
   | 'number'
   | 'date'
   | 'checkbox'
+  | 'yesno'
   | 'engine'
   | 'file'
   | 'folder'
@@ -55,7 +57,8 @@ export const SIMPLE_PAGE_FIELD_EDITORS: Array<{ id: PageFieldEditor; label: stri
   { id: 'textarea', label: '多行文本' },
   { id: 'tags', label: '标签' },
   { id: 'number', label: '数字' },
-  { id: 'date', label: '日期' }
+  { id: 'date', label: '日期' },
+  { id: 'yesno', label: '是 / 否' }
 ]
 
 /**
@@ -84,6 +87,7 @@ export function editorLabel(editor: string): string {
   if (editor === 'folder') return '文件夹'
   if (editor === 'cover') return '封面'
   if (editor === 'checkbox') return '勾选'
+  if (editor === 'yesno') return '是 / 否'
   if (editor === 'select') return '选项'
   return '文本'
 }
@@ -97,6 +101,7 @@ export function defaultValueForEditor(editor: string): any {
   if (editor === 'tags') return []
   if (editor === 'number') return 0
   if (editor === 'checkbox') return false
+  if (editor === 'yesno') return '否'
   return ''
 }
 
@@ -196,6 +201,7 @@ export function editorKindOf(editType: FormField | null): PageFieldEditor {
   if (editType instanceof FormField_Tags) return 'tags'
   if (editType instanceof FormField_Date) return 'date'
   if (editType instanceof FormField_Number) return 'number'
+  if (editType instanceof FormField_YesNo) return 'yesno'
   if (editType instanceof FormField_Checkbox) return 'checkbox'
   if (editType instanceof FormField_Textarea) return 'textarea'
   if (editType instanceof FormField_Select) return 'select'
@@ -214,6 +220,7 @@ export function createFormField(def: PageFieldDef): FormField {
   if (def.editor === 'number') return new FormField_Number(label, false)
   if (def.editor === 'date') return new FormField_Date(label, false)
   if (def.editor === 'checkbox') return new FormField_Checkbox(label, false)
+  if (def.editor === 'yesno') return new FormField_YesNo(label, false)
   return new FormField_Text(label, false)
 }
 
@@ -224,7 +231,7 @@ export function createFormField(def: PageFieldDef): FormField {
  */
 export function normalizeEditor(editor: unknown): PageFieldEditor {
   const text = String(editor || '')
-  const known: PageFieldEditor[] = ['text', 'textarea', 'tags', 'number', 'date', 'checkbox', 'engine', 'file', 'folder', 'cover', 'select']
+  const known: PageFieldEditor[] = ['text', 'textarea', 'tags', 'number', 'date', 'checkbox', 'yesno', 'engine', 'file', 'folder', 'cover', 'select']
   return known.includes(text as PageFieldEditor) ? text as PageFieldEditor : 'text'
 }
 

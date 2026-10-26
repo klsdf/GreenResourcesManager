@@ -8,4 +8,5 @@ export { default as ResourcesSection } from './ResourcesSection.vue'
 export { default as FaqSection } from './FaqSection.vue'
 export { default as SupportSection } from './SupportSection.vue'
 export { default as AboutSection } from './AboutSection.vue'
+export { default as AiSkillsSection } from './AiSkillsSection.vue'
 

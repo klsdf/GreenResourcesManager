@@ -11,6 +11,14 @@ export default defineConfig({
     }
   },
   base: './',
+  css: {
+    preprocessorOptions: {
+      scss: {
+        // 改用 Sass 的编译器接口。旧的 render 接口会在 Dart Sass 2.0 移除，这就是终端里的 legacy-js-api 警告。
+        api: 'modern-compiler'
+      }
+    }
+  },
   build: {
     outDir: 'dist',
     assetsDir: 'assets',

@@ -10,6 +10,7 @@
     "audios": "Audio",
     "novels": "Novels",
     "websites": "Websites",
+    "save": "Save Data",
     "archive": "Archive",
     "pet": "Pet",
     "updates": "Updates"
@@ -24,6 +25,7 @@
     "audios": "Audio playback and management settings",
     "novels": "Novel reading and management settings",
     "websites": "Website bookmark and management settings",
+    "save": "Save location, cloud save, and automatic backups",
     "archive": "Archive extraction and compression settings",
     "pet": "Desktop pet display and management settings",
     "updates": "Application updates and version management"
@@ -102,6 +104,14 @@
     "openFolderTitle": "Open Save Data Folder",
     "openFolderDesc": "Open the application save data folder in file explorer",
     "openFolderButton": "Open Folder"
+  },
+  "cloudSave": {
+    "title": "Cloud save",
+    "description": "When on, each save copies the database into GreenResourcesManager inside your local OneDrive folder. The OneDrive app uploads it. Covers and resource files stay on this computer.",
+    "connected": "OneDrive found",
+    "missing": "OneDrive not found",
+    "missingDetail": "No OneDrive sync folder was detected. Install and sign in to OneDrive, then turn this on.",
+    "openFolder": "Open cloud save folder"
   },
   "autoBackup": {
     "title": "Enable Auto Backup",

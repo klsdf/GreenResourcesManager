@@ -154,12 +154,31 @@
       "isArray": true
     },
     {
+      "key": "gameType",
+      "title": "游戏类型筛选",
+      "filterType": "resourceField",
+      "params": {
+        "resource": "page",
+        "field": "gameType"
+      },
+      "isArray": true
+    },
+    {
       "key": "engines",
       "title": "引擎筛选",
       "filterType": "resourceField",
       "params": {
         "resource": "game",
         "field": "engine"
+      },
+      "isArray": false
+    },
+    {
+      "key": "isVr",
+      "title": "是否 VR 游戏",
+      "filterType": "yesNo",
+      "params": {
+        "field": "isVr"
       },
       "isArray": false
     },
@@ -180,10 +199,12 @@
     "name",
     "nickname",
     "nameZh",
+    "isVr",
     "description",
     "developers",
     "publisher",
     "tags",
+    "gameType",
     "engine",
     "coverPath",
     "resourcePath"
@@ -205,6 +226,11 @@
       "editor": "text"
     },
     {
+      "key": "isVr",
+      "label": "是否 VR 游戏",
+      "editor": "yesno"
+    },
+    {
       "key": "description",
       "label": "游戏简介",
       "editor": "textarea"
@@ -222,6 +248,11 @@
     {
       "key": "tags",
       "label": "标签",
+      "editor": "tags"
+    },
+    {
+      "key": "gameType",
+      "label": "游戏类型",
       "editor": "tags"
     },
     {

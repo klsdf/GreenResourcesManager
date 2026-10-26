@@ -37,6 +37,13 @@
           <!-- 语言页不翻译。看不懂当前界面的人要靠这一页自己认出来。 -->
           <LanguageSettings v-if="currentCategory === 'language'" />
 
+          <!-- 存档位置、云存档和自动备份单独一页，避免通用设置越堆越长。 -->
+          <SaveDataSettings
+            v-if="currentCategory === 'save'"
+            :settings="settings"
+            @update:settings="handleSettingUpdate"
+          />
+
           <!-- 个性化设置 -->
           <PersonalizationSettings 
             v-if="currentCategory === 'personalization'"
@@ -143,6 +150,7 @@ import PetSettings from '../components/settings/PetSettings.vue'
 import PersonalizationSettings from '../components/settings/PersonalizationSettings.vue'
 import PageManagementSettings from '../components/settings/PageManagementSettings.vue'
 import LanguageSettings from '../components/settings/LanguageSettings.vue'
+import SaveDataSettings from '../components/settings/SaveDataSettings.vue'
 
 export default {
   name: 'SettingsView',
@@ -159,7 +167,8 @@ export default {
     PetSettings,
     PersonalizationSettings,
     PageManagementSettings,
-    LanguageSettings
+    LanguageSettings,
+    SaveDataSettings
   },
   setup() {
     const { t } = useI18n()
@@ -178,6 +187,7 @@ export default {
           description: '看懂下面哪一句，就选哪一句。 If you can read one of these, choose it.',
           unlocalized: true
         },
+        { id: 'save', name: '存档', icon: '💾', description: '存档位置、云存档和自动备份' },
         { id: 'personalization', name: '个性化', icon: '🎨', description: '个性化外观和主题设置' },
         { id: 'pageManagement', name: '页面管理', icon: '🧩', description: '添加、编辑、排序或删除页面' },
         { id: 'games', name: '游戏', icon: '🎮', description: '游戏相关的设置选项' },
@@ -233,6 +243,7 @@ export default {
         novelShowProgress: true,
         // 网站默认仍用系统浏览器。选「软件新标签页」后才在应用内打开。
         websiteOpenMode: 'external',
+        onedriveBackup: false,
         // 分页设置
         image: {
           listPageSize: 20,
@@ -268,6 +279,8 @@ export default {
       comicArchiveProgramListener: null as ((event: Event) => void) | null,
       /** 左下角快速开关改了伪装模式时，同步这一页内存里的值，避免自动保存写回旧状态。 */
       disguiseModeListener: null as ((event: Event) => void) | null,
+      /** 左下角改了安全键时，同步这一页的开关，避免自动保存把刚打开的状态写回去。 */
+      safetyKeyListener: null as ((event: Event) => void) | null,
       isAutoSaving: false,
       lastSaveTime: null,
       // 初始化标志，避免在初始化时触发watcher
@@ -597,6 +610,7 @@ export default {
             novelShowProgress: true,
             // 网站设置。external 用系统浏览器，internal 在软件里新开标签页。
             websiteOpenMode: 'external',
+        onedriveBackup: false,
             // 分页设置
             image: {
               listPageSize: 20,
@@ -980,6 +994,11 @@ export default {
       this.settings.disguiseMode = enabled
     }
     window.addEventListener('disguise-mode-changed', this.disguiseModeListener)
+    this.safetyKeyListener = (event: Event) => {
+      const enabled = (event as CustomEvent<{ enabled?: boolean }>).detail?.enabled === true
+      this.settings.safetyKeyEnabled = enabled
+    }
+    window.addEventListener('safety-key-changed', this.safetyKeyListener)
     try {
       // 先初始化存档设置的默认值，确保UI可以立即显示
       if (!this.settings.saveDataLocation) {
@@ -1116,6 +1135,9 @@ export default {
             if (this.settings.websiteOpenMode !== 'internal' && this.settings.websiteOpenMode !== 'external') {
               this.settings.websiteOpenMode = 'external'
             }
+            if (typeof this.settings.onedriveBackup !== 'boolean') {
+              this.settings.onedriveBackup = false
+            }
             
             // 初始化安全键设置（如果未设置）
             if (this.settings.safetyKeyEnabled === undefined || this.settings.safetyKeyEnabled === null) {
@@ -1241,6 +1263,10 @@ export default {
     if (this.disguiseModeListener) {
       window.removeEventListener('disguise-mode-changed', this.disguiseModeListener)
       this.disguiseModeListener = null
+    }
+    if (this.safetyKeyListener) {
+      window.removeEventListener('safety-key-changed', this.safetyKeyListener)
+      this.safetyKeyListener = null
     }
     // 清理定时器
     if (this.autoSaveTimer) {

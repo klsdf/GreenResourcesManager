@@ -10,7 +10,7 @@
   ],
   "displayLayoutConfig": {
     "minWidth": 80,
-    "maxWidth": 400
+    "maxWidth": 200
   },
   "sortOptions": [
     {
@@ -39,7 +39,7 @@
     },
     {
       "id": "playTime-asc",
-      "label": "按游戏时长（升序）",
+      "label": "按游戏时长",
       "field": "playTime",
       "order": "asc"
     },

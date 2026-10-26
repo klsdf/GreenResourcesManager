@@ -164,6 +164,15 @@
       "isArray": false
     },
     {
+      "key": "isVr",
+      "title": "是否 VR 游戏",
+      "filterType": "yesNo",
+      "params": {
+        "field": "isVr"
+      },
+      "isArray": false
+    },
+    {
       "key": "others",
       "title": "其他筛选",
       "filterType": "runningStatus",
@@ -180,6 +189,7 @@
     "name",
     "nickname",
     "nameZh",
+    "isVr",
     "description",
     "developers",
     "publisher",
@@ -187,7 +197,7 @@
     "engine",
     "coverPath",
     "resourcePath",
-    "thumbnail"
+    "custom_mvo2jz4zriih"
   ],
   "pageFieldDefs": [
     {
@@ -204,6 +214,11 @@
       "key": "nameZh",
       "label": "中文名",
       "editor": "text"
+    },
+    {
+      "key": "isVr",
+      "label": "是否 VR 游戏",
+      "editor": "yesno"
     },
     {
       "key": "description",
@@ -241,9 +256,9 @@
       "editor": "file"
     },
     {
-      "key": "thumbnail",
-      "label": "缩略图",
-      "editor": "cover"
+      "key": "custom_mvo2jz4zriih",
+      "label": "游戏类型",
+      "editor": "tags"
     }
   ]
 }

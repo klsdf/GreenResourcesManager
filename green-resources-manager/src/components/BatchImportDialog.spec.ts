@@ -69,6 +69,33 @@ describe('BatchImportDialog 确认导入', () => {
 
     const secondSearch = wrapper.emitted('search')?.[1]?.[0] as any
     expect(secondSearch.stopAtFirstMatch).toBe(false)
+    expect(firstSearch.mode).toBe('file')
+  })
+
+  it('文件夹模式只提交勾选的文件夹类型，不再带文件扩展名', async () => {
+    const wrapper = await openDialog({
+      availableExtensions: ['.jpg', '.png'],
+      folderOptions: [
+        { id: 'imageFolder', label: '图片文件夹', extensions: ['.jpg', '.png'] },
+        { id: 'videoFolder', label: '视频文件夹', extensions: ['.mp4'] }
+      ]
+    })
+    await wrapper.find('.batch-import__path').setValue('D:\\Manga')
+    await wrapper.find('.batch-import__mode-folder').setValue(true)
+    const videoBox = wrapper.findAll('.batch-import__type input[type="checkbox"]').find(box => {
+      return box.element instanceof HTMLInputElement && box.element.value === 'videoFolder'
+    })
+    await videoBox?.setValue(false)
+
+    await wrapper.find('.batch-import__search-button').trigger('click')
+
+    const search = wrapper.emitted('search')?.[0]?.[0] as any
+    expect(search.mode).toBe('folder')
+    expect(search.extensions).toEqual([])
+    expect(search.folderGroups).toEqual([
+      { id: 'imageFolder', extensions: ['.jpg', '.png'] }
+    ])
+    expect(wrapper.text()).not.toContain('搜索的文件类型')
   })
 
   it('导入过程中不重复发确认，并显示当前文件和进度', async () => {

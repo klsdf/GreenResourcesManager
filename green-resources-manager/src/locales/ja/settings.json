@@ -10,6 +10,7 @@
     "audios": "オーディオ",
     "novels": "小説",
     "websites": "ウェブサイト",
+    "save": "セーブデータ",
     "archive": "アーカイブ",
     "pet": "ペット",
     "updates": "更新"
@@ -24,6 +25,7 @@
     "audios": "オーディオ再生と管理設定",
     "novels": "小説読書と管理設定",
     "websites": "ウェブサイトブックマークと管理設定",
+    "save": "セーブの場所、クラウドセーブ、自動バックアップ",
     "archive": "アーカイブの展開と圧縮設定",
     "pet": "デスクトップペットの表示と管理設定",
     "updates": "アプリケーションの更新とバージョン管理"
@@ -102,6 +104,14 @@
     "openFolderTitle": "セーブデータフォルダを開く",
     "openFolderDesc": "ファイルエクスプローラーでアプリケーションのセーブデータフォルダを開く",
     "openFolderButton": "フォルダを開く"
+  },
+  "cloudSave": {
+    "title": "クラウドセーブ",
+    "description": "オンにすると、保存のたびにデータベースを OneDrive フォルダ内の GreenResourcesManager へコピーします。アップロードは OneDrive 本体が行います。カバー画像とリソースファイルはローカルに残ります。",
+    "connected": "OneDrive を検出",
+    "missing": "OneDrive が見つかりません",
+    "missingDetail": "OneDrive の同期フォルダが見つかりません。OneDrive にサインインしてから、このスイッチをオンにしてください。",
+    "openFolder": "クラウドセーブフォルダを開く"
   },
   "autoBackup": {
     "title": "自動バックアップを有効化",

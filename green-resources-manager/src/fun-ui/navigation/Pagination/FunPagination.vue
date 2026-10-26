@@ -10,6 +10,11 @@
     </span>
     <div v-if="hasPageInfo" class="fun-pagination__controls">
       <fun-button
+        class="fun-pagination__button fun-pagination__button--first"
+        :disabled="currentPage <= 1"
+        @click="handleFirstPage"
+      > {{ $lt('回到首页') }} </fun-button>
+      <fun-button
         class="fun-pagination__button fun-pagination__button--prev"
         :disabled="currentPage <= 1"
         @click="handlePreviousPage"
@@ -32,6 +37,11 @@
         :disabled="currentPage >= totalPages"
         @click="handleNextPage"
       > {{ $lt('下一页 ▶') }} </fun-button>
+      <fun-button
+        class="fun-pagination__button fun-pagination__button--last"
+        :disabled="currentPage >= totalPages"
+        @click="handleLastPage"
+      > {{ $lt('回到尾页') }} </fun-button>
     </div>
     <div v-if="hasActions" class="fun-pagination__actions">
       <slot name="actions"></slot>
@@ -81,17 +91,41 @@ watch(() => props.currentPage, (newPage) => {
   jumpToPageInput.value = newPage
 }, { immediate: true })
 
-// 上一页
+/**
+ * 回到第一页。
+ * 已经在第一页时不再通知外面，避免把同一页再刷一遍。
+ */
+function handleFirstPage() {
+  if (props.currentPage > 1) {
+    emit('page-change', 1)
+  }
+}
+
+/**
+ * 往前翻一页。
+ */
 function handlePreviousPage() {
   if (props.currentPage > 1) {
     emit('page-change', props.currentPage - 1)
   }
 }
 
-// 下一页
+/**
+ * 往后翻一页。
+ */
 function handleNextPage() {
   if (props.currentPage < props.totalPages) {
     emit('page-change', props.currentPage + 1)
+  }
+}
+
+/**
+ * 回到最后一页。
+ * 已经在最后一页时不再通知外面。
+ */
+function handleLastPage() {
+  if (props.currentPage < props.totalPages) {
+    emit('page-change', props.totalPages)
   }
 }
 

@@ -100,6 +100,8 @@ class SaveManager {
         videoPlayMode: 'external',
         /** 网站打开方式。external 用系统浏览器，internal 在软件新标签页打开。 */
         websiteOpenMode: 'external',
+        /** 云存档。打开后把存档数据库复制到本机 OneDrive 文件夹。 */
+        onedriveBackup: false,
         lastView: 'games', // 记录最后访问的页面
         // 各页面的排序方式设置
         sortSettings: {

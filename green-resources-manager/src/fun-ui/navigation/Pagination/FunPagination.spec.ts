@@ -57,12 +57,22 @@ describe('FunPagination 单行布局', () => {
     expect((input.element as HTMLInputElement).value).toBe('2')
   })
 
-  it('上一页和下一页按当前页与总页数禁用', async () => {
+  it('首页在上一页左边，尾页在下一页右边，到头时禁用', async () => {
     const wrapper = mountPagination({ currentPage: 1 })
+    const controls = wrapper.find('.fun-pagination__controls')
+    const labels = controls.findAll('button').map(button => button.text().trim())
+    expect(labels).toEqual(['回到首页', '◀ 上一页', '下一页 ▶', '回到尾页'])
+    expect(wrapper.find('.fun-pagination__button--first').attributes('disabled')).toBeDefined()
     expect(wrapper.find('.fun-pagination__button--prev').attributes('disabled')).toBeDefined()
+
+    await wrapper.setProps({ currentPage: 2 })
+    await wrapper.find('.fun-pagination__button--first').trigger('click')
+    await wrapper.find('.fun-pagination__button--last').trigger('click')
+    expect(wrapper.emitted('page-change')).toEqual([[1], [14]])
 
     await wrapper.setProps({ currentPage: 14 })
     expect(wrapper.find('.fun-pagination__button--next').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('.fun-pagination__button--last').attributes('disabled')).toBeDefined()
   })
 
   it('右侧插槽放显示设置，列表为空时这一条也保留', () => {

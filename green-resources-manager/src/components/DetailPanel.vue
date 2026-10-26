@@ -276,7 +276,7 @@ export default {
     },
     /**
      * 详情页左侧封面的原始路径。
-     * 电影的自动封面写在 thumbnail 里，路径是 videos/covers 这种相对路径，不能直接当图片地址。
+     * 电影的自动封面写在 thumbnail 里，路径是 Video/Covers 这种相对路径，不能直接当图片地址。
      * 电影优先看 thumbnail，避免别的空字段或旧字段抢在前面。
      */
     coverSourcePath() {
@@ -788,7 +788,7 @@ export default {
     },
     /**
      * 把封面路径解析成详情页能显示的图片地址。
-     * 电影自动封面是 videos/covers 下的相对路径。先拼到存档目录，再读成 data URL，和卡片同一条路。
+     * 电影自动封面是 Video/Covers 下的相对路径。先拼到存档目录，再读成 data URL，和卡片同一条路。
      * 拼出来的路径读不到时，再试原始路径，避免存档目录重复拼接后丢图。
      * @param imagePath 封面原始路径
      */

@@ -46,6 +46,9 @@
         <path d="M5 5.5A1.5 1.5 0 0 1 6.5 4H19v16H6.5A1.5 1.5 0 0 1 5 18.5z" />
         <path d="M8.5 4v16" />
       </template>
+      <template v-else-if="kind === 'folder'">
+        <path d="M3 7.5A2 2 0 0 1 5 5.5h4l2 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      </template>
       <template v-else>
         <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
         <path d="M14 3v5h5" />
@@ -63,11 +66,15 @@ const props = withDefaults(defineProps<{
   file: string
   /** exe/lnk 取到的程序图标 data URL。取不到时显示内置图标。 */
   icon?: string
+  /** 文件夹模式的结果用文件夹图标，不再按扩展名猜。 */
+  folder?: boolean
 }>(), {
-  icon: ''
+  icon: '',
+  folder: false
 })
 
-const kind = computed(() => getFileIconKind(props.file))
+/** 文件夹模式固定用文件夹图标。文件模式仍按扩展名选。 */
+const kind = computed(() => props.folder ? 'folder' : getFileIconKind(props.file))
 </script>
 
 <style scoped lang="scss">

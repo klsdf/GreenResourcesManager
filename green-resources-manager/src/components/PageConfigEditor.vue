@@ -412,7 +412,7 @@ export default defineComponent({
 
     /**
      * 这一页的字段能不能进侧边栏。
-     * 已有字段沿用目录里的筛选能力。页面新加的文本、标签和日期也可以筛选。
+     * 已有字段沿用目录里的筛选能力。页面新加的文本、标签、日期和是/否也可以筛选。
      * @param def 页面字段定义
      */
     const filterOptionForDef = (def: PageFieldDef): PageFieldOption | null => {
@@ -420,7 +420,7 @@ export default defineComponent({
       if (known && !isSimpleEditor(def.editor)) {
         return known.filterable ? { ...known, label: def.label } : null
       }
-      if (def.editor !== 'text' && def.editor !== 'tags' && def.editor !== 'date') return null
+      if (def.editor !== 'text' && def.editor !== 'tags' && def.editor !== 'date' && def.editor !== 'yesno') return null
       return {
         key: def.key,
         label: def.label,

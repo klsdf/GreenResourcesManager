@@ -169,25 +169,31 @@
         </div>
       </div>
 
-      <!-- 左下角常驻：不用进设置页就能快速开关伪装模式 -->
-      <div class="sidebar-disguise" :class="{ 'sidebar-disguise--active': disguiseModeEnabled }">
-        <span class="sidebar-disguise__label">
-          <span class="sidebar-disguise__icon">🎭</span>
-          <span class="sidebar-disguise__text">
-            <span class="sidebar-disguise__title">{{ $lt('伪装模式') }}</span>
-            <span class="sidebar-disguise__state">{{ disguiseModeEnabled ? $lt('已开启') : $lt('已关闭') }}</span>
-          </span>
-        </span>
+      <!-- 左下角分成两块：左边开关伪装，右边开关安全键。安全键和设置里是同一个开关。 -->
+      <div class="sidebar-quick">
         <button
           type="button"
-          class="sidebar-disguise__switch"
-          :class="{ 'is-on': disguiseModeEnabled }"
-          :aria-label="disguiseModeEnabled ? $lt('关闭伪装模式') : $lt('开启伪装模式')"
+          class="sidebar-quick__side"
           :aria-pressed="disguiseModeEnabled"
           :title="disguiseModeEnabled ? $lt('关闭伪装模式') : $lt('开启伪装模式')"
           @click="toggleDisguiseMode"
         >
-          <span class="sidebar-disguise__knob"></span>
+          <span class="sidebar-quick__title">{{ $lt('伪装模式') }}</span>
+          <span class="sidebar-quick__switch" :class="{ 'is-on': disguiseModeEnabled }" aria-hidden="true">
+            <span class="sidebar-quick__knob"></span>
+          </span>
+        </button>
+        <button
+          type="button"
+          class="sidebar-quick__side"
+          :aria-pressed="safetyKeyEnabled"
+          :title="$t('settings.safetyKey.description')"
+          @click="toggleSafetyKey"
+        >
+          <span class="sidebar-quick__title">{{ $t('settings.safetyKey.title') }}</span>
+          <span class="sidebar-quick__switch" :class="{ 'is-on': safetyKeyEnabled }" aria-hidden="true">
+            <span class="sidebar-quick__knob"></span>
+          </span>
         </button>
       </div>
     </nav>
@@ -841,6 +847,64 @@ export default {
       notificationService.success(
         this.$t('settings.general.disguiseModeUpdated'),
         enabled ? this.$t('settings.general.disguiseModeEnabled') : this.$t('settings.general.disguiseModeDisabled')
+      )
+    },
+
+    /**
+     * 左下角右侧的安全键开关。
+     * 和设置里「按下 ESC 时快速最小化并打开安全网页」是同一个开关：打开后按设置里的快捷键才会执行，点这一下本身不最小化。
+     * 先向主进程注册快捷键，成功后再写入存档，避免注册失败时界面已经显示成开启。
+     */
+    async toggleSafetyKey() {
+      /** 这次要点成的状态。 */
+      const enabled = !this.safetyKeyEnabled
+      /** 沿用设置里已经填好的网页和快捷键，没有就用启动时的默认值。 */
+      const url = this.safetyKeyUrl
+      /** 用户录入的按键。空着时主进程会按 Esc 注册。 */
+      const shortcut = this.safetyKeyShortcut || 'Esc'
+
+      if (window.electronAPI?.setSafetyKey) {
+        try {
+          const result = await window.electronAPI.setSafetyKey(enabled, url, shortcut)
+          if (!result?.success) {
+            notificationService.error(
+              this.$t('settings.general.safetyKeyFailed'),
+              result?.error || this.$t('settings.general.safetyKeyFailedDetail')
+            )
+            return
+          }
+        } catch (error: any) {
+          notificationService.error(
+            this.$t('settings.general.safetyKeyFailed'),
+            error?.message || this.$t('settings.general.safetyKeyFailedDetail')
+          )
+          return
+        }
+      }
+
+      this.safetyKeyEnabled = enabled
+
+      try {
+        const settings = await saveManager.loadSettings()
+        if (settings) {
+          settings.safetyKeyEnabled = enabled
+          await saveManager.saveSettings(settings)
+        }
+      } catch (error) {
+        console.warn('保存安全键设置失败:', error)
+      }
+
+      try {
+        window.dispatchEvent(new CustomEvent('safety-key-changed', {
+          detail: { enabled, url, shortcut }
+        }))
+      } catch (error) {
+        console.warn('触发安全键变化事件失败:', error)
+      }
+
+      notificationService.success(
+        this.$t('settings.general.safetyKeyUpdated'),
+        enabled ? this.$t('settings.general.safetyKeyEnabled') : this.$t('settings.general.safetyKeyDisabled')
       )
     },
 
@@ -2083,77 +2147,72 @@ export default {
   background: rgba(255, 255, 255, 0.15);
 }
 
-/* 左下角常驻的伪装模式开关。粘在底部，导航项多了也不会被滚走。 */
-.sidebar-disguise {
+/* 左下角两块快速开关。粘在底部，导航项多了也不会被滚走。左右各占一半。 */
+.sidebar-quick {
   position: sticky;
   bottom: 0;
   z-index: 2;
   flex-shrink: 0;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 12px 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.2);
   background: var(--sidebar-bg-end);
   backdrop-filter: blur(4px);
 }
 
-.sidebar-disguise__label {
+.sidebar-quick__side {
+  flex: 1 1 0;
+  min-width: 0;
   display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 10px;
-  min-width: 0;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
   color: var(--sidebar-text);
+  cursor: pointer;
+  font: inherit;
 }
 
-.sidebar-disguise__icon {
-  font-size: 1.2rem;
-  line-height: 1;
-  flex-shrink: 0;
+.sidebar-quick__side + .sidebar-quick__side {
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.sidebar-disguise__text {
-  display: flex;
-  flex-direction: column;
+.sidebar-quick__side:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-quick__side:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.8);
+  outline-offset: -2px;
+}
+
+.sidebar-quick__title {
   min-width: 0;
-}
-
-.sidebar-disguise__title {
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   font-weight: 600;
+  line-height: 1.2;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.sidebar-disguise__state {
-  font-size: 0.72rem;
-  opacity: 0.75;
-  white-space: nowrap;
-}
-
-.sidebar-disguise--active .sidebar-disguise__state {
-  opacity: 1;
-  color: #ffd166;
-}
-
-.sidebar-disguise__switch {
+.sidebar-quick__switch {
   position: relative;
   width: 38px;
   height: 22px;
-  padding: 0;
   flex-shrink: 0;
-  border: none;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.25);
-  cursor: pointer;
   transition: background var(--transition-base) ease;
 }
 
-.sidebar-disguise__switch.is-on {
+.sidebar-quick__switch.is-on {
   background: #ffd166;
 }
 
-.sidebar-disguise__knob {
+.sidebar-quick__knob {
   position: absolute;
   top: 3px;
   left: 3px;
@@ -2164,13 +2223,8 @@ export default {
   transition: transform var(--transition-base) ease;
 }
 
-.sidebar-disguise__switch.is-on .sidebar-disguise__knob {
+.sidebar-quick__switch.is-on .sidebar-quick__knob {
   transform: translateX(16px);
-}
-
-.sidebar-disguise__switch:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.8);
-  outline-offset: 2px;
 }
 
 /* 侧边栏窄屏模式（< 200px）：只显示图标 */
@@ -2201,13 +2255,18 @@ export default {
   justify-content: center;
   padding: 12px 8px;
 }
-.sidebar.sidebar-narrow .sidebar-disguise {
+.sidebar.sidebar-narrow .sidebar-quick {
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 8px;
 }
-.sidebar.sidebar-narrow .sidebar-disguise__text {
+.sidebar.sidebar-narrow .sidebar-quick__side + .sidebar-quick__side {
+  border-left: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+.sidebar.sidebar-narrow .sidebar-quick__title {
   display: none;
+}
+.sidebar.sidebar-narrow .sidebar-quick__side {
+  justify-content: center;
 }
 
 /* 筛选器侧边栏样式 */

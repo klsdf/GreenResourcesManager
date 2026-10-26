@@ -80,6 +80,18 @@ function readRating(item: any): number {
 }
 
 /**
+ * 把是/否字段收成「是」或「否」。
+ * 没填、空字符串和 false 都算否。只有明确写成「是」或 true 才算是。
+ * @param item 一条资源
+ * @param field 字段键
+ */
+function readYesNo(item: any, field: string): '是' | '否' {
+	const raw = readFieldValue(item?.[field] ?? item?.retainedFields?.[field])
+	if (raw === true || raw === '是') return '是'
+	return '否'
+}
+
+/**
  * 资源字段筛选器参数
  */
 export interface ResourceFieldParams {
@@ -305,6 +317,33 @@ export const filterLibrary = {
 			}
 		}
 	},
+
+	/**
+	 * 是/否筛选。
+	 * 两项都列出来。旧记录没有这个字段时算否，这样没标过的游戏也会出现在「否」里。
+	 */
+	yesNo: (params: { field?: string }) => ({
+		extractFn: (items: any[]): FilterItem[] => {
+			/** 要读的字段。没传时没有可统计的值，两项都是 0。 */
+			const field = String(params?.field || '')
+			let yesCount = 0
+			let noCount = 0
+			for (const item of items) {
+				if (field && readYesNo(item, field) === '是') yesCount += 1
+				else noCount += 1
+			}
+			return [
+				{ name: '是', count: yesCount },
+				{ name: '否', count: noCount }
+			]
+		},
+		matchFn: (item: any, selected: string[], excluded: string[]): boolean => {
+			const label = readYesNo(item, String(params?.field || ''))
+			if (excluded.includes(label)) return false
+			if (selected.length > 0) return selected.includes(label)
+			return true
+		}
+	}),
 
 	/**
 	 * 丢失资源筛选器

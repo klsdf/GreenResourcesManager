@@ -15,6 +15,8 @@
     <div
       v-for="item in items"
       :key="rowKey(item)"
+      :ref="(el) => bindRow(el, item)"
+      :data-row-id="rowKey(item)"
       class="resource-list__row"
       :class="{ 'is-selected': isItemSelected(item) }"
       role="row"
@@ -30,6 +32,16 @@
       </span>
 
       <span class="resource-list__cell resource-list__cell--name">
+        <!-- 封面用小图，类型图标留在旁边。没有封面时不占位，只保留图标。 -->
+        <img
+          v-if="coverUrlOf(item)"
+          class="resource-list__cover"
+          :src="coverUrlOf(item)"
+          alt=""
+          loading="lazy"
+          decoding="async"
+          @error="clearCover(item)"
+        >
         <span class="resource-list__icon" aria-hidden="true">{{ iconFor(item) }}</span>
         <span class="resource-list__name" :title="nameOf(item)">{{ nameOf(item) }}</span>
         <span v-if="itemIsRunning(item)" class="resource-list__running">{{ $lt('运行中') }}</span>
@@ -65,9 +77,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, reactive, watch } from 'vue'
 import { formatPlayTime, formatLastPlayed, formatDuration, formatVideoDuration } from '../utils/formatters'
 import { lt, lf } from '../locales/lt'
+import coverManager from '../utils/CoverManager.ts'
+import disguiseManager from '../utils/DisguiseManager.ts'
+import { isDisguiseModeEnabled } from '../utils/disguiseMode.ts'
+import { getGameScreenshotFolderPath } from '../composables/game/useGameScreenshot.ts'
 
 interface ListColumn {
   key: string
@@ -330,6 +346,236 @@ function iconFor(item: any): string {
   return TYPE_ICONS[type] || '📄'
 }
 
+/**
+ * 已经解析好的封面地址，键是这一行的资源 id。
+ * 用响应式对象，异步读完后这一行会自己换成小图。
+ */
+const coverUrls = reactive<Record<string, string>>({})
+/** 这一轮已经在读的资源，避免同一行滚进视野时重复请求。 */
+const coverLoading = new Set<string>()
+/** 读失败或本来就没有封面的资源。不再占一个空图片位。 */
+const coverMissing = new Set<string>()
+/** 行进入视野附近才去读封面，列表很长时不会一上来就把封面全读完。 */
+let coverObserver: IntersectionObserver | null = null
+
+/**
+ * 取出这条资源自己的封面路径。
+ * 单图没有单独封面，就用图片文件本身。其余类型先看封面字段。
+ * @param item 列表里的一条资源
+ * @returns 封面路径。没有时为空字符串
+ */
+function coverPathOf(item: any): string {
+  const type = String(props.typeForItem ? props.typeForItem(item) : '').toLowerCase()
+  if (type === 'singleimage') {
+    const ownFile = readField(item, 'resourcePath')
+    if (typeof ownFile === 'string' && ownFile.trim()) return ownFile.trim()
+  }
+  for (const field of ['coverPath', 'cover', 'thumbnail', 'thumbnailPath']) {
+    const value = readField(item, field)
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  return ''
+}
+
+/**
+ * 这个地址浏览器可以直接拿来当图片，不用再问主进程。
+ * @param path 封面路径
+ */
+function isDirectImageUrl(path: string): boolean {
+  return /^(https?:|data:|file:|archive:)/i.test(path)
+}
+
+/**
+ * 当前这一行要显示的封面地址。
+ * 已经是网址或 data URL 的封面立刻能画，本地文件等滚到附近再解析。
+ * @param item 列表里的一条资源
+ */
+function coverUrlOf(item: any): string {
+  return coverUrls[rowKey(item)] || ''
+}
+
+/**
+ * 网址和 data URL 不用等滚进视野，打开列表就能画。
+ * 本地封面仍交给观察器，避免一页几百条同时读盘。
+ */
+function primeDirectCovers() {
+  if (isDisguiseModeEnabled()) return
+  for (const item of props.items) {
+    const id = rowKey(item)
+    if (!id || coverUrls[id] || coverMissing.has(id)) continue
+    const path = coverPathOf(item)
+    if (path && isDirectImageUrl(path)) coverUrls[id] = path
+  }
+}
+
+/**
+ * 图片加载失败时先改读 data URL。还是不行再拿掉这一格，类型图标留着。
+ * @param item 这一行的资源
+ */
+async function clearCover(item: any) {
+  const id = rowKey(item)
+  const filePath = coverFiles.get(id)
+  if (id && filePath && !coverRetried.has(id) && window.electronAPI?.readFileAsDataUrl) {
+    coverRetried.add(id)
+    try {
+      const dataUrl = await window.electronAPI.readFileAsDataUrl(filePath)
+      if (dataUrl) {
+        coverUrls[id] = dataUrl
+        return
+      }
+    } catch (error) {
+      // 下面会收掉这张图
+    }
+  }
+  delete coverUrls[id]
+  coverMissing.add(id)
+}
+
+/**
+ * 这一行封面对应的磁盘路径。图片地址打不开时，用它再读一次 data URL。
+ * 键是资源 id。
+ */
+const coverFiles = new Map<string, string>()
+/** 已经用 data URL 补救过的行，避免失败后反复读盘。 */
+const coverRetried = new Set<string>()
+
+/**
+ * 把本地封面路径换成页面能显示的地址。
+ * 相对路径先补成存档里的完整路径。开发时页面在 http 上，file 地址经常被拦住，所以本地文件优先读成 data URL。
+ * @param path 封面原始路径
+ * @param id 这一行的资源 id，用来记住磁盘路径
+ */
+async function displayUrlFor(path: string, id: string): Promise<string> {
+  let resolved = path
+  if (!isDirectImageUrl(path)) {
+    resolved = await coverManager.getCoverUrl(path)
+  }
+  if (!resolved) return ''
+  if (isDirectImageUrl(resolved)) return resolved
+  coverFiles.set(id, resolved)
+  const api = window.electronAPI
+  /** 开发时页面在 http 上，直接用 file 地址会被浏览器拦住，封面会加载失败然后被拿掉。 */
+  const pageIsHttp = typeof location !== 'undefined' && /^https?:$/i.test(location.protocol)
+  if (!pageIsHttp && api?.getFileUrl) {
+    const result = await api.getFileUrl(resolved)
+    if (result?.success && result.url) return result.url
+  }
+  if (api?.readFileAsDataUrl) {
+    const dataUrl = await api.readFileAsDataUrl(resolved)
+    if (dataUrl) return dataUrl
+  }
+  return ''
+}
+
+/**
+ * 游戏没设封面时，用截图文件夹里的第一张图。
+ * 和网格卡片同一套规则，列表里看到的封面才跟卡片一致。
+ * @param item 游戏资源
+ */
+async function screenshotCoverOf(item: any): Promise<string> {
+  const type = String(props.typeForItem ? props.typeForItem(item) : '').toLowerCase()
+  if (type !== 'game' || !window.electronAPI?.listImageFiles) return ''
+  const folder = await getGameScreenshotFolderPath(
+    String(readField(item, 'id') || ''),
+    String(readField(item, 'name') || ''),
+    true
+  )
+  if (!folder) return ''
+  const result = await window.electronAPI.listImageFiles(folder)
+  const first = result?.success && result.files && result.files.length > 0 ? result.files[0] : ''
+  return first || ''
+}
+
+/**
+ * 读一条资源的封面并写进显示表。
+ * 伪装模式打开时换成伪装图，不把真正的封面画出来。
+ * @param item 列表里的一条资源
+ */
+async function loadCover(item: any) {
+  const id = rowKey(item)
+  if (!id || coverUrls[id] || coverLoading.has(id) || coverMissing.has(id)) return
+  coverLoading.add(id)
+  try {
+    let path = coverPathOf(item)
+    if (!path) path = await screenshotCoverOf(item)
+    if (!path) {
+      coverMissing.add(id)
+      return
+    }
+    const url = isDisguiseModeEnabled()
+      ? await disguiseManager.getRandomDisguiseImage(path)
+      : await displayUrlFor(path, id)
+    if (url) coverUrls[id] = url
+    else if (isDirectImageUrl(path) || window.electronAPI) coverMissing.add(id)
+  } catch (error) {
+    coverMissing.add(id)
+  } finally {
+    coverLoading.delete(id)
+  }
+}
+
+/**
+ * 准备行观察器。没有这个接口时，退回直接读当前这页，测试环境也能看到封面。
+ */
+function ensureCoverObserver() {
+  if (coverObserver || typeof IntersectionObserver === 'undefined') return
+  coverObserver = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue
+      const id = (entry.target as HTMLElement).dataset.rowId || ''
+      const item = props.items.find(candidate => rowKey(candidate) === id)
+      if (item) loadCover(item)
+      coverObserver?.unobserve(entry.target)
+    }
+  }, { rootMargin: '240px' })
+}
+
+/**
+ * 把一行登记进观察器。行被换掉时 Vue 会先传入空节点，这时不用再观察。
+ * @param element 这一行的根节点
+ * @param item 这一行的资源
+ */
+function bindRow(element: Element | null, item: any) {
+  if (!element) return
+  ensureCoverObserver()
+  if (coverObserver) {
+    coverObserver.observe(element)
+    return
+  }
+  loadCover(item)
+}
+
+watch(() => props.items, () => {
+  // 换了一页资源后，旧的“没有封面”标记不能挡住新资源。
+  // 列表在内部滚动区域里，只等视野观察器的话，第一屏经常一直不读封面，行上就只剩类型图标。
+  // 一页的条数有限，这里直接把这一页的封面读出来。
+  coverMissing.clear()
+  coverRetried.clear()
+  primeDirectCovers()
+  for (const item of props.items) loadCover(item)
+}, { immediate: true })
+
+function forgetCovers() {
+  coverObserver?.disconnect()
+  coverObserver = null
+  window.removeEventListener('disguise-mode-changed', reloadCovers)
+}
+
+/**
+ * 伪装开关变化后清掉已显示的封面，让靠近视野的行重新读。
+ * 关掉伪装时要回到真实封面，开着时不能继续留着刚才那张真图。
+ */
+function reloadCovers() {
+  for (const key of Object.keys(coverUrls)) delete coverUrls[key]
+  coverMissing.clear()
+  coverLoading.clear()
+  primeDirectCovers()
+  for (const item of props.items) loadCover(item)
+}
+
+window.addEventListener('disguise-mode-changed', reloadCovers)
+onBeforeUnmount(forgetCovers)
+
 function itemIsRunning(item: any): boolean {
   return props.isRunningItem ? props.isRunningItem(item) === true : false
 }
@@ -371,7 +617,7 @@ function handleRowClick(item: any) {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm, 8px);
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 var(--spacing-sm, 8px);
 }
 
@@ -443,6 +689,16 @@ function handleRowClick(item: any) {
   flex: 0 0 40px;
   display: flex;
   justify-content: flex-end;
+}
+
+.resource-list__cover {
+  flex: 0 0 64px;
+  width: 64px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  display: block;
 }
 
 .resource-list__icon {

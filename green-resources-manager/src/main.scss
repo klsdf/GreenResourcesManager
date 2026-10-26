@@ -1,25 +1,25 @@
-// 样式系统入口文件
-// 按顺序导入，确保层叠顺序正确
+// 样式系统入口。
+// 这些文件只输出 CSS，按书写顺序用 @use 拼在一起，层叠和以前的 @import 一样。
+// @use 每个文件只加载一次，也不会再触发 Dart Sass 对 @import 的弃用警告。
 
 // 1. 基础层 - 变量和重置
-@import './styles/base/variables.css';
-@import './styles/base/reset';
+@use './styles/base/variables.css';
+@use './styles/base/reset';
 
 // 2. 布局层 - 页面布局样式
-@import './styles/layout/sidebar';
-@import './styles/layout/main-content';
+@use './styles/layout/sidebar';
+@use './styles/layout/main-content';
 
 // 3. 组件层 - 可复用组件样式
-@import './styles/components/modal';
-@import './styles/components/button';
-@import './styles/components/form';
-@import './styles/components/card';
-@import './styles/components/grid';
-@import './styles/components/drag-drop';
-@import './styles/components/audio-player';
+@use './styles/components/modal';
+@use './styles/components/button';
+@use './styles/components/form';
+@use './styles/components/card';
+@use './styles/components/grid';
+@use './styles/components/drag-drop';
+@use './styles/components/audio-player';
 
 // 4. 工具类层 - 实用工具
-@import './styles/utilities/spacing';
-@import './styles/utilities/layout';
-@import './styles/utilities/responsive';
-
+@use './styles/utilities/spacing';
+@use './styles/utilities/layout';
+@use './styles/utilities/responsive';

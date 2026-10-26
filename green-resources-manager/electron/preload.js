@@ -87,6 +87,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // 文件URL处理
   getFileUrl: (filePath) => ipcRenderer.invoke('get-file-url', filePath),
+  /** 探测 OneDrive 文件夹，以及云存档开关现在是否打开 */
+  onedriveStatus: () => ipcRenderer.invoke('onedrive-status'),
+  /** 立刻把存档数据库复制到 OneDrive */
+  onedriveSyncNow: () => ipcRenderer.invoke('onedrive-sync-now'),
+  /** 打开 OneDrive 里的云存档文件夹 */
+  onedriveOpenFolder: () => ipcRenderer.invoke('onedrive-open-folder'),
   // 将本地文件读为 data:URL（用于在 http 源下安全显示本地图片）
   readFileAsDataUrl: (filePath) => ipcRenderer.invoke('read-file-as-data-url', filePath),
   openExternal: (filePath) => ipcRenderer.invoke('open-external', filePath),
@@ -224,6 +230,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setSaveDataDirectory: () => ipcRenderer.invoke('set-save-data-directory'),
   
   openFolder: (filePath) => ipcRenderer.invoke('open-folder', filePath),
+  /** 用系统文件管理器打开某一份 AI Skill 的文件夹。 */
+  openAiHandbook: (skillName) => ipcRenderer.invoke('open-ai-handbook', skillName),
   getAvailableWindows: () => ipcRenderer.invoke('get-available-windows'),
   getActiveWindow: () => ipcRenderer.invoke('get-active-window'),
   updateGlobalShortcut: (newKey) => ipcRenderer.invoke('update-global-shortcut', newKey),

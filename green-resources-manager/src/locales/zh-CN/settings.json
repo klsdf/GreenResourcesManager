@@ -10,6 +10,7 @@
     "audios": "音频",
     "novels": "小说",
     "websites": "网站",
+    "save": "存档",
     "archive": "解压/压缩",
     "pet": "桌宠",
     "updates": "更新"
@@ -24,6 +25,7 @@
     "audios": "音频播放和管理设置",
     "novels": "小说阅读和管理设置",
     "websites": "网站收藏和管理设置",
+    "save": "存档位置、云存档和自动备份",
     "archive": "压缩包解压和压缩相关设置",
     "pet": "桌宠显示和管理设置",
     "updates": "应用更新和版本管理"
@@ -102,6 +104,14 @@
     "openFolderTitle": "打开存档文件夹",
     "openFolderDesc": "在文件管理器中打开应用存档文件夹",
     "openFolderButton": "打开文件夹"
+  },
+  "cloudSave": {
+    "title": "云存档",
+    "description": "开启后，每次保存都会把存档数据库复制到本机 OneDrive 文件夹里的 GreenResourcesManager，由 OneDrive 自己上传。封面和资源文件仍留在本地。",
+    "connected": "已找到 OneDrive",
+    "missing": "未找到 OneDrive",
+    "missingDetail": "没有检测到 OneDrive 同步文件夹。请先安装并登录 OneDrive，然后再打开这个开关。",
+    "openFolder": "打开云存档文件夹"
   },
   "autoBackup": {
     "title": "开启自动备份",

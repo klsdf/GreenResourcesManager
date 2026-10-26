@@ -52,6 +52,16 @@ export class FormField_Select extends FormField {
 	}
 }
 
+/**
+ * 是或否的单选字段。
+ * 选项固定，不让页面自己再填一套选项，避免同一类问题出现「有 / 无」和「是 / 否」两套写法。
+ */
+export class FormField_YesNo extends FormField_Select {
+	constructor(fieldName: string, required?: boolean) {
+		super(fieldName, ['是', '否'], required)
+	}
+}
+
 export class FormField_SelectEngine extends FormField {
 
 	options: object[] = [

@@ -172,6 +172,8 @@ declare global {
       getFolderSize: (filePath: string) => Promise<{ success: boolean; size?: number; error?: string }>
       openFileFolder: (filePath: string) => Promise<{ success: boolean; folderPath?: string; error?: string }>
       openFolder: (filePath: string) => Promise<{ success: boolean; error?: string }>
+      /** 打开 ai-handbook 里某一份 skill 的文件夹。 */
+      openAiHandbook: (skillName: string) => Promise<{ success: boolean; error?: string }>
       /** 伪装图片所在文件夹。目录不存在时会先创建。 */
       getDisguiseDirectory: () => Promise<{ success: boolean; directory?: string; error?: string }>
       renameFolder: (oldPath: string, newPath: string) => Promise<{ success: boolean; error?: string }>
@@ -210,7 +212,7 @@ declare global {
        * excludePatterns 是文件名片段，命中的文件和同名文件夹都会跳过。
        * stopAtFirstMatch 为 true 时，某个文件夹本层找到匹配后不再进入它的子文件夹。
        */
-      searchMatchingFiles: (rootDir: string, extensions: string[], options?: { maxDepth?: number | null; excludePatterns?: string[]; stopAtFirstMatch?: boolean }) => Promise<{ success: boolean; files?: string[]; error?: string }>
+      searchMatchingFiles: (rootDir: string, extensions: string[], options?: { maxDepth?: number | null; excludePatterns?: string[]; stopAtFirstMatch?: boolean; mode?: 'files' | 'folders'; folderGroups?: { id: string; extensions: string[] }[] }) => Promise<{ success: boolean; files?: string[]; kinds?: Record<string, string>; error?: string }>
       listImageFiles: (folderPath: string, options?: { verifyContent?: boolean }) => Promise<{ success: boolean; files?: string[]; cached?: boolean; mtimeMs?: number; error?: string }>
       /** 批量列出多个文件夹中的图片，返回 文件夹路径 → 结果 */
       listImageFilesBatch: (folderPaths: string[], options?: { verifyContent?: boolean }) => Promise<{ success: boolean; data?: Record<string, { success: boolean; files: string[]; cached?: boolean; mtimeMs?: number; error?: string }>; error?: string }>
@@ -218,6 +220,12 @@ declare global {
       
       // 文件URL处理
       getFileUrl: (filePath: string) => Promise<{ success: boolean; url?: string; error?: string }>
+      /** 探测 OneDrive 根目录。detected 为空表示这台电脑没找到同步文件夹 */
+      onedriveStatus: () => Promise<{ detected: string; enabled: boolean }>
+      /** 立刻把存档数据库复制到 OneDrive。开关关闭或没找到文件夹时 ok 为 false */
+      onedriveSyncNow: () => Promise<{ ok: boolean; reason?: string; active: string; dest?: string }>
+      /** 在系统文件管理器中打开云存档文件夹 */
+      onedriveOpenFolder: () => Promise<{ ok: boolean; path?: string; error?: string }>
       readFileAsDataUrl: (filePath: string) => Promise<string | null>
       
       // 文本文件操作

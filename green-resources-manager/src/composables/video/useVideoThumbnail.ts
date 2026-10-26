@@ -333,8 +333,8 @@ export function useVideoThumbnail(options: VideoThumbnailOptions = {}) {
         return 0
       }
 
-      // 获取文件夹的缩略图目录
-      const thumbnailDir = `${saveManager.thumbnailDirectories?.videos || 'SaveData/Video/Covers'}/${folderName}`
+      // 番剧每一集的截帧放在 AnimeSeries，不和电影封面混在 Video 里
+      const thumbnailDir = `${saveManager.thumbnailDirectories?.animeSeries || 'SaveData/AnimeSeries/Covers'}/${folderName}`
       
       // 列出目录中的所有文件
       const result = await window.electronAPI.listFiles(thumbnailDir)
@@ -721,7 +721,7 @@ export function useVideoThumbnail(options: VideoThumbnailOptions = {}) {
             // 保存为本地文件
             const saveThumbnailFile = async () => {
               try {
-                const savedPath = await saveManager.saveThumbnail('videos', thumbnailFilename, dataUrl)
+                const savedPath = await saveManager.saveThumbnail('animeSeries', thumbnailFilename, dataUrl)
                 
                 if (savedPath) {
                   console.log('✅ 缩略图保存为本地文件:', savedPath)

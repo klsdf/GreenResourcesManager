@@ -18,6 +18,19 @@ describe('页面字段留在资源记录上', () => {
     expect(saved.name).toBe('示例')
     expect(saved.voiceActor).toEqual(['甲'])
     expect(saved.retainedFields).toBeUndefined()
+    expect(saved.isVr).toBe('否')
+  })
+
+  it('旧游戏没有是否 VR 字段时按否保存', () => {
+    const game = Game.fromJSON({
+      id: 'g1',
+      name: '示例',
+      resourceType: 'game'
+    })
+    expect(game.isVr.value).toBe('否')
+    BaseResources.assignSavedValue(game, 'isVr', '是')
+    const saved = BaseResources.composeSaveData(game, game.getSaveData())
+    expect(saved.isVr).toBe('是')
   })
 
   it('番剧详情挂上的视频列表不会写进存档', () => {

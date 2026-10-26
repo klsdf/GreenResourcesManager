@@ -76,6 +76,24 @@ describe('ResourceListView 列表显示', () => {
     expect(multi.emitted('toggle-select')).toHaveLength(1)
   })
 
+  it('名称前面同时显示小封面和类型图标', () => {
+    const game = new FakeGame()
+    ;(game as any).id = 'cover-game'
+    ;(game as any).coverPath = 'https://example.com/cover.png'
+    const wrapper = mountList({ items: [game] })
+    const cover = wrapper.find('.resource-list__cover')
+
+    expect(cover.exists()).toBe(true)
+    expect(cover.attributes('src')).toBe('https://example.com/cover.png')
+    expect(wrapper.find('.resource-list__icon').text()).toBe('🎮')
+  })
+
+  it('没有封面时只保留类型图标', () => {
+    const wrapper = mountList()
+    expect(wrapper.find('.resource-list__cover').exists()).toBe(false)
+    expect(wrapper.find('.resource-list__icon').text()).toBe('🎮')
+  })
+
   it('文件丢失和运行中的状态在名称旁标出来', () => {
     const wrapper = mountList({
       isRunningItem: () => true,

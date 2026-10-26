@@ -22,7 +22,9 @@
                 @search="handleSearch"
                 @update:searchQuery="handleSearchQueryUpdate"
                 @update:scale="$emit('update:scale', $event)"
-                @toggle-multi-select="$emit('toggle-multi-select')" />
+                @toggle-multi-select="$emit('toggle-multi-select')"
+                @select-current-page="$emit('select-current-page')"
+                @select-all="$emit('select-all')" />
 
             <!-- 分页条：中间是翻页，右侧是显示方式和排序 -->
             <fun-pagination 
@@ -180,6 +182,8 @@ export default {
         'button-click',
         'search',
         'toggle-multi-select',
+        'select-current-page',
+        'select-all',
         'update:displayMode',
         'display-mode-changed'
     ],

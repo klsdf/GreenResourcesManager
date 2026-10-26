@@ -10,6 +10,14 @@ export default defineConfig({
     }
   },
   base: './',
+  css: {
+    preprocessorOptions: {
+      scss: {
+        // 帮助页打包同样走新的 Sass 编译器接口，避免再打出 legacy-js-api 警告。
+        api: 'modern-compiler'
+      }
+    }
+  },
   build: {
     outDir: 'help-site',
     assetsDir: 'assets',

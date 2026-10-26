@@ -5,6 +5,7 @@ import {
 	FormField_SelectEngine, 
 	FormField_SelectFile, 
 	FormField_SelectGameCover,
+	FormField_YesNo,
 	FormField as FormFieldType,
 	FormField
 } from './base/FormField.ts'
@@ -54,6 +55,13 @@ export class Game extends BaseResources {
 	nameJa: ResourceField<string> = new ResourceField<string>({
 		saveable: true,
 		editType: new FormField_Text('日文名', false)
+	})
+
+	/** 是否 VR 游戏。没填过的旧记录保持默认「否」，筛选才能把它们归到否。 */
+	isVr: ResourceField<string> = new ResourceField<string>({
+		saveable: true,
+		defaultValue: '否',
+		editType: new FormField_YesNo('是否 VR 游戏', false)
 	})
 	
 	description: ResourceField<string> = new ResourceField<string>({
@@ -155,6 +163,7 @@ export class Game extends BaseResources {
 			nameZh: this.nameZh.value || '',
 			nameEn: this.nameEn.value || '',
 			nameJa: this.nameJa.value || '',
+			isVr: this.isVr.value === '是' ? '是' : '否',
 			description: this.description.value || '',
 			developers: Array.isArray(this.developers.value) ? [...this.developers.value] : [],
 			publisher: Array.isArray(this.publisher.value) ? [...this.publisher.value] : [],

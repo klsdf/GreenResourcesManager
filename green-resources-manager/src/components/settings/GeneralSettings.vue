@@ -128,81 +128,6 @@
         @update:model-value="onSafetyKeyUrlChange"
       />
       
-      <SettingSelect
-        :title="$t('settings.saveData.title')"
-        :description="$t('settings.saveData.description')"
-        :model-value="saveLocationMode"
-        :options="saveDataLocationOptions"
-        @update:model-value="onSaveDataLocationChange"
-      />
-
-      <SettingFilePicker
-        v-if="saveLocationMode === 'custom'"
-        :title="$t('settings.saveData.customPathTitle')"
-        :description="$t('settings.saveData.customPathDesc')"
-        :model-value="saveLocationPath"
-        :placeholder="$t('settings.saveData.customPathPlaceholder')"
-        picker-type="saveData"
-        @browse="handleSaveDataBrowse"
-      />
-
-      <SettingToggle
-        :title="$t('settings.autoBackup.title')"
-        :description="$t('settings.autoBackup.description')"
-        :model-value="settings.autoBackupEnabled"
-        @update:model-value="onAutoBackupEnabledChange"
-      />
-      
-      <SettingSlider
-        v-if="settings.autoBackupEnabled"
-        :title="$t('settings.autoBackup.intervalTitle')"
-        :description="$t('settings.autoBackup.intervalDesc')"
-        :model-value="settings.autoBackupInterval"
-        :min="5"
-        :max="60"
-        :step="5"
-        :unit="$t('settings.autoBackup.unitMinutes')"
-        @update:model-value="onAutoBackupIntervalChange"
-      />
-      
-      <SettingSlider
-        v-if="settings.autoBackupEnabled"
-        :title="$t('settings.autoBackup.maxCountTitle')"
-        :description="$t('settings.autoBackup.maxCountDesc')"
-        :model-value="maxBackupCountValue"
-        :min="3"
-        :max="10"
-        :step="1"
-        :unit="$t('settings.autoBackup.unitCount')"
-        @update:model-value="onMaxBackupCountChange"
-      />
-
-      <div class="setting-item">
-        <label class="setting-label">
-          <span class="setting-title">{{ $t('settings.autoBackup.openFolderTitle') }}</span>
-          <span class="setting-desc">{{ $t('settings.autoBackup.openFolderDesc') }}</span>
-        </label>
-        <div class="setting-control">
-          <button class="btn-open-save-data-folder" @click="openSaveBackupFolder">
-            <span class="btn-icon">📁</span>
-            {{ $t('settings.autoBackup.openFolderButton') }}
-          </button>
-        </div>
-      </div>
-      
-      <div class="setting-item">
-        <label class="setting-label">
-          <span class="setting-title">{{ $t('settings.saveData.openFolderTitle') }}</span>
-          <span class="setting-desc">{{ $t('settings.saveData.openFolderDesc') }}</span>
-        </label>
-        <div class="setting-control">
-          <button class="btn-open-save-data-folder" @click="openSaveDataFolder">
-            <span class="btn-icon">📁</span>
-            {{ $t('settings.saveData.openFolderButton') }}
-          </button>
-        </div>
-      </div>
-
       <div class="setting-item resource-rule-setting">
         <label class="setting-label">
           <span class="setting-title">{{ $t('settings.sameResource.title') }}</span>
@@ -313,10 +238,7 @@ import notify from '../../utils/NotificationService'
 import alertService from '../../utils/AlertService'
 import confirmService from '../../utils/ConfirmService'
 import SettingToggle from './SettingToggle.vue'
-import SettingSelect from './SettingSelect.vue'
 import SettingInput from './SettingInput.vue'
-import SettingSlider from './SettingSlider.vue'
-import SettingFilePicker from './SettingFilePicker.vue'
 import FunShortcutInput from '../../fun-ui/data-input/ShortcutInput/FunShortcutInput.vue'
 import {
   SAME_RESOURCE_CRITERIA,
@@ -330,10 +252,7 @@ export default {
   name: 'GeneralSettings',
   components: {
     SettingToggle,
-    SettingSelect,
     SettingInput,
-    SettingSlider,
-    SettingFilePicker,
     FunShortcutInput
   },
   props: {
@@ -349,10 +268,6 @@ export default {
   },
   data() {
     return {
-      /** 存档位置只来自项目根目录的记录，不放进真正的存档。 */
-      saveLocationMode: 'default',
-      /** 自定义存档的父目录。空字符串表示使用程序旁边的 SaveData。 */
-      saveLocationPath: '',
       userName: '',
       savedUserName: '',
       isSavingUserName: false,
@@ -361,9 +276,6 @@ export default {
     }
   },
   computed: {
-    maxBackupCountValue() {
-      return this.settings.maxBackupCount ?? 5
-    },
     resourceMarkerEnabled() {
       return this.settings.resourceMarkerEnabled !== false
     },
@@ -418,16 +330,9 @@ export default {
         { value: 'night-ink', label: this.t('settings.theme.night-ink'), colors: ['#161616', '#1e1e1e', '#2c2c2c', '#555555', '#a3a3a3', '#ececec', '#f0f0f0'] },
         { value: 'auto', label: this.t('settings.theme.auto'), colors: ['#1b2838', '#2a475e', '#66c0f4', '#F2AB39', '#FFEFC4', '#fffcf7'] }
       ]
-    },
-    saveDataLocationOptions() {
-      return [
-        { value: 'default', label: this.t('settings.saveData.default') },
-        { value: 'custom', label: this.t('settings.saveData.custom') }
-      ]
     }
   },
   mounted() {
-    this.loadSaveLocation()
     this.loadUserName()
   },
 
@@ -833,187 +738,6 @@ export default {
         }
       } else {
         notify.success(this.t('settings.general.showWindowShortcutUpdated'), this.t('settings.general.showWindowShortcutSet', { key: newKey }))
-      }
-    },
-    
-    /**
-     * 从项目根目录读取存档位置，用来显示设置项。
-     */
-    async loadSaveLocation() {
-      if (!window.electronAPI?.getSaveLocation) return
-      const location = await window.electronAPI.getSaveLocation()
-      const saveDataPath = location?.saveDataPath || ''
-      this.saveLocationPath = saveDataPath
-      this.saveLocationMode = saveDataPath ? 'custom' : 'default'
-    },
-
-    /**
-     * 切回本地存档时只改位置记录。主题和截图目录仍留在原来的存档里。
-     * @param newLocation 默认或自定义
-     */
-    async onSaveDataLocationChange(newLocation: string) {
-      this.saveLocationMode = newLocation
-      if (newLocation !== 'default') return
-      this.saveLocationPath = ''
-      if (window.electronAPI?.setSaveLocation) {
-        await window.electronAPI.setSaveLocation('')
-      }
-      const directory = window.electronAPI?.getSaveDataDirectory
-        ? await window.electronAPI.getSaveDataDirectory()
-        : 'SaveData'
-      saveManager.setDataDirectory(directory)
-      notify.success(this.t('settings.general.saveDataLocationUpdated'), this.t('settings.general.saveDataLocationDefault'))
-    },
-    
-    onAutoBackupEnabledChange(newValue: boolean) {
-      this.updateSetting('autoBackupEnabled', newValue)
-      console.log('自动备份开关已更新:', newValue)
-      
-      if (!newValue) {
-        this.updateSetting('autoBackupInterval', 0)
-      } else {
-        if (this.settings.autoBackupInterval < 5) {
-          this.updateSetting('autoBackupInterval', 5)
-        }
-      }
-      
-      try {
-        const event = new CustomEvent('auto-backup-interval-changed', {
-          detail: { 
-            interval: newValue ? this.settings.autoBackupInterval : 0
-          }
-        })
-        window.dispatchEvent(event)
-        console.log('已触发 auto-backup-interval-changed 事件')
-      } catch (error) {
-        console.error('触发自动备份时间间隔变化事件失败:', error)
-      }
-      
-      if (newValue) {
-        notify.success(this.t('settings.general.autoBackupEnabled'), this.t('settings.general.autoBackupIntervalSet', { interval: this.settings.autoBackupInterval }))
-      } else {
-        notify.success(this.t('settings.general.autoBackupDisabled'), this.t('settings.general.autoBackupDisabledDetail'))
-      }
-    },
-    
-    onAutoBackupIntervalChange(newInterval: number) {
-      this.updateSetting('autoBackupInterval', newInterval)
-      console.log('自动备份时间间隔已更新:', newInterval, '分钟')
-      
-      try {
-        const event = new CustomEvent('auto-backup-interval-changed', {
-          detail: { 
-            interval: this.settings.autoBackupEnabled ? newInterval : 0
-          }
-        })
-        window.dispatchEvent(event)
-        console.log('已触发 auto-backup-interval-changed 事件')
-      } catch (error) {
-        console.error('触发自动备份时间间隔变化事件失败:', error)
-      }
-      
-      notify.success(this.t('settings.general.autoBackupIntervalUpdated'), this.t('settings.general.autoBackupIntervalSet', { interval: newInterval }))
-    },
-    
-    onMaxBackupCountChange(newCount: number) {
-      this.updateSetting('maxBackupCount', newCount)
-      console.log('保留备份数量已更新:', newCount, '个')
-      notify.success(this.t('settings.general.backupCountUpdated'), this.t('settings.general.backupCountSet', { count: newCount }))
-    },
-    
-    async handleSaveDataBrowse({ result }: { result: any }) {
-      if (result && result.success) {
-        this.saveLocationPath = result.directory
-        this.saveLocationMode = 'custom'
-
-        const newSaveDataPath = result.directory + '/SaveData'
-        const saveManagerUpdated = saveManager.setDataDirectory(newSaveDataPath)
-        if (saveManagerUpdated) {
-          console.log('SaveManager数据目录已更新为:', newSaveDataPath)
-        }
-
-        const message = result.message || this.t('settings.general.saveDataDirectoryUpdated')
-        let detailMessage = this.t('settings.general.saveDataDirectorySet', { directory: result.directory })
-        
-        if (result.copiedFiles && result.copiedFiles > 0) {
-          detailMessage += `\n\n${this.t('settings.general.saveDataFilesCopied', { count: result.copiedFiles })}`
-          detailMessage += `\n${message}`
-        } else {
-          detailMessage += `\n\n${message}`
-        }
-        
-        notify.success(this.t('settings.general.saveDataDirectoryUpdated'), detailMessage)
-        
-        if (result.copiedFiles && result.copiedFiles > 0) {
-          console.log('存档数据复制完成:', {
-            directory: result.directory,
-            copiedFiles: result.copiedFiles,
-            message: result.message
-          })
-        }
-      } else if (result && !result.success) {
-        const errorMessage = result.error || this.t('settings.general.saveDataUnknownError')
-        notify.error(this.t('settings.general.saveDataFailed'), errorMessage)
-        console.error('设置存档目录失败:', result.error)
-      }
-    },
-    
-    /**
-     * 打开当前存档对应的自动备份目录。
-     * 目录在系统用户文件夹里，界面上不好猜路径，所以从这里直接打开。
-     */
-    async openSaveBackupFolder() {
-      try {
-        if (!window.electronAPI?.getSaveBackupDirectory || !window.electronAPI?.openFolder) {
-          notify.info(this.t('settings.general.folderPath'), this.t('settings.general.browserEnvironmentNote'))
-          return
-        }
-        const backupPath = await window.electronAPI.getSaveBackupDirectory()
-        const result = await window.electronAPI.openFolder(backupPath)
-        if (result.success) {
-          notify.success(this.t('settings.general.folderOpened'), this.t('settings.autoBackup.openedDetail', { path: backupPath }))
-        } else {
-          notify.error(this.t('settings.general.folderOpenFailed'), this.t('settings.general.folderOpenFailedDetail', { error: result.error }))
-        }
-      } catch (error: any) {
-        notify.error(this.t('settings.general.folderOpenFailed'), this.t('settings.general.folderOpenFailedDetail', { error: error.message }))
-      }
-    },
-
-    async openSaveDataFolder() {
-      try {
-        if (window.electronAPI && window.electronAPI.openFolder) {
-          const saveDataPath = window.electronAPI.getSaveDataDirectory
-            ? await window.electronAPI.getSaveDataDirectory()
-            : 'SaveData'
-          
-          console.log('尝试打开存档文件夹:', saveDataPath)
-          
-          try {
-            if (window.electronAPI.ensureDirectory) {
-              const ensureResult = await window.electronAPI.ensureDirectory(saveDataPath)
-              if (ensureResult.success) {
-                console.log('存档目录已确保存在:', saveDataPath)
-              }
-            }
-          } catch (error) {
-            console.warn('创建存档目录失败:', error)
-          }
-          
-          const result = await window.electronAPI.openFolder(saveDataPath)
-          if (result.success) {
-            console.log('存档文件夹已打开')
-            notify.success(this.t('settings.general.folderOpened'), this.t('settings.general.folderOpenedDetail', { path: saveDataPath }))
-          } else {
-            console.error('打开存档文件夹失败:', result.error)
-            notify.error(this.t('settings.general.folderOpenFailed'), this.t('settings.general.folderOpenFailedDetail', { error: result.error }))
-          }
-        } else {
-          notify.info(this.t('settings.general.folderPath'), `SaveData\n\n${this.t('settings.general.browserEnvironmentNote')}`)
-        }
-      } catch (error: any) {
-        console.error('打开存档文件夹失败:', error)
-        notify.error(this.t('settings.general.folderOpenFailed'), this.t('settings.general.folderOpenFailedDetail', { error: error.message }))
       }
     },
     

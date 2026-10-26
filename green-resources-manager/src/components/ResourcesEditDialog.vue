@@ -323,7 +323,8 @@ import {
   FormField_Tags,
   FormField_Text,
   FormField_Textarea,
-  FormField_Date
+  FormField_Date,
+  FormField_YesNo
 } from '@resources/base/FormField.ts'
 import {ResourceField} from '@resources/base/ResourceField.ts'
 import {BaseResources} from '@resources/base/ResourcesDataBase.ts'
@@ -976,6 +977,8 @@ export default {
               }
             } else if (field instanceof FormField_Checkbox && typeof resourceValue === 'boolean') {
               initData[key] = resourceValue
+            } else if (field instanceof FormField_YesNo) {
+              initData[key] = resourceValue === '是' || resourceValue === true ? '是' : '否'
             } else if (field instanceof FormField_Number && (typeof resourceValue === 'number' || typeof resourceValue === 'string')) {
               initData[key] = typeof resourceValue === 'number' ? resourceValue : Number(resourceValue) || 0
             } else if (typeof resourceValue === 'string' || typeof resourceValue === 'number' || typeof resourceValue === 'boolean') {
@@ -1002,6 +1005,8 @@ export default {
             : (typeof resourceValue === 'string' && resourceValue.trim() !== '' ? [resourceValue] : [])
         } else if (field instanceof FormField_Checkbox) {
           initData[def.key] = Boolean(resourceValue)
+        } else if (field instanceof FormField_YesNo) {
+          initData[def.key] = resourceValue === '是' || resourceValue === true ? '是' : '否'
         } else if (field instanceof FormField_Number) {
           initData[def.key] = typeof resourceValue === 'number' ? resourceValue : Number(resourceValue) || 0
         } else if (typeof resourceValue === 'string' || typeof resourceValue === 'number' || typeof resourceValue === 'boolean' || Array.isArray(resourceValue)) {
@@ -1195,7 +1200,7 @@ export default {
     },
     /**
      * 编辑框里的封面预览地址。
-     * 电影封面常常是 videos/covers 这种相对路径。直接拼 file:// 会指到网页目录，图片加载失败就变成房子占位图。
+     * 电影封面常常是 Video/Covers 这种相对路径。直接拼 file:// 会指到网页目录，图片加载失败就变成房子占位图。
      * 先把路径拼到存档目录，读成 data URL，再交给 img。
      * @param filePath 表单里的封面路径
      * @returns {string}
