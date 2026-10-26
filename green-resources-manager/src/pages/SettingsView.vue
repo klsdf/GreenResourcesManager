@@ -446,7 +446,8 @@ export default {
             backgroundColor: this.settings.novelBackgroundColor || '#ffffff',
             textColor: this.settings.novelTextColor || '#333333',
             wordsPerPage: this.settings.novelWordsPerPage || 1000,
-            showProgress: this.settings.novelShowProgress !== undefined ? this.settings.novelShowProgress : true
+            showProgress: this.settings.novelShowProgress !== undefined ? this.settings.novelShowProgress : true,
+            readMode: this.settings.novelReadMode === 'infinite' ? 'infinite' : 'paged'
           }
         }
         
@@ -491,7 +492,8 @@ export default {
             backgroundColor: this.settings.novelBackgroundColor || '#ffffff',
             textColor: this.settings.novelTextColor || '#333333',
             wordsPerPage: this.settings.novelWordsPerPage || 1000,
-            showProgress: this.settings.novelShowProgress !== undefined ? this.settings.novelShowProgress : true
+            showProgress: this.settings.novelShowProgress !== undefined ? this.settings.novelShowProgress : true,
+            readMode: this.settings.novelReadMode === 'infinite' ? 'infinite' : 'paged'
           }
         }
         
@@ -504,6 +506,7 @@ export default {
         delete cleanSettings.novelTextColor
         delete cleanSettings.novelWordsPerPage
         delete cleanSettings.novelShowProgress
+        delete cleanSettings.novelReadMode
         // 保留安全键快捷键设置
         cleanSettings.safetyKeyShortcut = this.settings.safetyKeyShortcut || 'Esc'
         
@@ -607,6 +610,7 @@ export default {
             novelBackgroundColor: '#ffffff',
             novelTextColor: '#333333',
             novelWordsPerPage: 1000,
+            novelReadMode: 'paged',
             novelShowProgress: true,
             // 网站设置。external 用系统浏览器，internal 在软件里新开标签页。
             websiteOpenMode: 'external',
@@ -1026,6 +1030,7 @@ export default {
                 this.settings.novelBackgroundColor = this.settings.novel.readerSettings.backgroundColor || '#ffffff'
                 this.settings.novelTextColor = this.settings.novel.readerSettings.textColor || '#333333'
                 this.settings.novelWordsPerPage = this.settings.novel.readerSettings.wordsPerPage || 1000
+                this.settings.novelReadMode = this.settings.novel.readerSettings.readMode === 'infinite' ? 'infinite' : 'paged'
                 this.settings.novelShowProgress = this.settings.novel.readerSettings.showProgress !== undefined ? this.settings.novel.readerSettings.showProgress : true
               }
             }
@@ -1127,6 +1132,9 @@ export default {
             }
             if (!this.settings.novelWordsPerPage) {
               this.settings.novelWordsPerPage = 1000
+            }
+            if (this.settings.novelReadMode !== 'paged' && this.settings.novelReadMode !== 'infinite') {
+              this.settings.novelReadMode = 'paged'
             }
             if (this.settings.novelShowProgress === undefined) {
               this.settings.novelShowProgress = true

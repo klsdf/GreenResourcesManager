@@ -22,7 +22,8 @@ class NovelManager {
         backgroundColor: '#ffffff',
         textColor: '#333333',
         showProgress: true,
-        wordsPerPage: 1000
+        wordsPerPage: 1000,
+        readMode: 'paged'
       }
     }
     this.settings = { ...this.defaultSettings }
@@ -419,7 +420,8 @@ class NovelManager {
             backgroundColor: allSettings.novelBackgroundColor || '#ffffff',
             textColor: allSettings.novelTextColor || '#333333',
             showProgress: allSettings.novelShowProgress !== false,
-            wordsPerPage: allSettings.novelWordsPerPage || 1000
+            wordsPerPage: allSettings.novelWordsPerPage || 1000,
+            readMode: allSettings.novelReadMode === 'infinite' || allSettings.novel?.readerSettings?.readMode === 'infinite' ? 'infinite' : 'paged'
           }
         }
         return novelSettings

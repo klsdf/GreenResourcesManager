@@ -8,6 +8,14 @@
         :options="novelOpenModeOptions"
         @update:model-value="updateSetting('novelDefaultOpenMode', $event)"
       />
+
+      <SettingSelect
+        :title="$lt('阅读方式')"
+        :description="$lt('分页模式一次显示一页。无极模式可以连续向下滚动，滚到一页末尾会自动接上后面的内容，并且只保留附近几页。')"
+        :model-value="settings.novelReadMode"
+        :options="readModeOptions"
+        @update:model-value="updateSetting('novelReadMode', $event)"
+      />
       
       <SettingSlider
         :title="$lt('字体大小')"
@@ -110,6 +118,11 @@ export default {
         { value: 'internal', label: '应用内阅读器' },
         { value: 'external', label: '外部应用' }
       ],
+      /** 文本小说的两种读法。分页是原来的点一下翻一页，无极是连续向下滚。 */
+      readModeOptions: [
+        { value: 'paged', label: '分页模式' },
+        { value: 'infinite', label: '无极模式' }
+      ],
       fontFamilyOptions: [
         { value: 'Microsoft YaHei, sans-serif', label: '微软雅黑' },
         { value: 'SimSun, serif', label: '宋体' },
@@ -136,6 +149,7 @@ export default {
           novelBackgroundColor: this.settings.novelBackgroundColor,
           novelTextColor: this.settings.novelTextColor,
           novelWordsPerPage: this.settings.novelWordsPerPage,
+          novelReadMode: this.settings.novelReadMode,
           novelShowProgress: this.settings.novelShowProgress
         })
         
