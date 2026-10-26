@@ -81,6 +81,33 @@ export class Video extends BaseResources {
 		defaultValue: 0
 	})
 
+	/**
+	 * 上次看到的秒数。
+	 * 播放页按文件路径写回这个值，下次打开从这里继续，而不是总是从头播放。
+	 */
+	playbackSeconds: ResourceField<number> = new ResourceField<number>({
+		saveable: true,
+		defaultValue: 0
+	})
+
+	/**
+	 * 看到的百分比，0 到 100。
+	 * 卡片上的进度条读这个值。和秒数分开存，是因为列表上不需要再算片长。
+	 */
+	watchProgress: ResourceField<number> = new ResourceField<number>({
+		saveable: true,
+		defaultValue: 0
+	})
+
+	/**
+	 * 片长，单位是秒。
+	 * 资源上的 duration 是分钟，恢复播放时要用秒来判断是不是停在片尾。
+	 */
+	playbackDuration: ResourceField<number> = new ResourceField<number>({
+		saveable: true,
+		defaultValue: 0
+	})
+
 	visitedSessions: ResourceField<string[]> = new ResourceField<string[]>({
 		saveable: true,
 		defaultValue: []
@@ -119,6 +146,9 @@ export class Video extends BaseResources {
 			resourcePath: this.resourcePath.value || '',
 			thumbnail: this.thumbnail.value || '',
 			duration: this.duration.value ?? 0,
+			playbackSeconds: Number(this.playbackSeconds.value) || 0,
+			watchProgress: Number(this.watchProgress.value) || 0,
+			playbackDuration: Number(this.playbackDuration.value) || 0,
 			visitedSessions: Array.isArray(this.visitedSessions.value) ? [...this.visitedSessions.value] : [],
 			addedDate: this.addedDate.value || '',
 			rating: this.rating.value || 0,
@@ -178,6 +208,10 @@ export class Video extends BaseResources {
 			field: 'duration',
 			formatter: 'formatDuration'
 		},
+		progress: {
+			field: 'watchProgress',
+			unit: '%'
+		},
 		specialItems: [
 			{
 				field: 'actors',
@@ -236,6 +270,12 @@ export class Video extends BaseResources {
 			}
 		],
 		dataRecords: [
+			{
+				field: 'watchProgress',
+				label: '观看进度',
+				formatter: undefined,
+				defaultValue: '0%'
+			},
 			{
 				field: 'watchCount',
 				label: '观看次数',

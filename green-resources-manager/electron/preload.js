@@ -338,6 +338,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   tabOpenNovelViewer: (path, title, fileType) => ipcRenderer.invoke('tab-open-novel-viewer', { path, title, fileType }),
   // 在新标签页中打开视频播放器，传入 path（视频文件路径）与 title（视频名称）
   tabOpenVideoPlayer: (path, title) => ipcRenderer.invoke('tab-open-video-player', { path, title }),
+  videoOpenSession: (request) => ipcRenderer.invoke('video-open-session', request),
+  videoSeekSession: (request) => ipcRenderer.invoke('video-seek-session', request),
+  videoEscalateSession: (request) => ipcRenderer.invoke('video-escalate-session', request),
+  videoPauseSession: (request) => ipcRenderer.invoke('video-pause-session', request),
+  videoCloseSession: (request) => ipcRenderer.invoke('video-close-session', request),
+  videoScreenshot: (request) => ipcRenderer.invoke('video-screenshot', request),
+  videoListSiblings: (filePath) => ipcRenderer.invoke('video-list-siblings', filePath),
   // 在新标签页中打开独立音乐播放器，传入 path、title、id、pageId（来源页面）与 theme
   tabOpenAudioPlayer: (payload) => ipcRenderer.invoke('tab-open-audio-player', payload),
   

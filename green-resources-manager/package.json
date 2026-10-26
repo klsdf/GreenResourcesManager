@@ -45,6 +45,7 @@
     "electron-updater": "^6.6.2",
     "epubjs": "^0.3.93",
     "express": "^5.2.1",
+    "hls.js": "^1.7.3",
     "pdfjs-dist": "5.4.394",
     "pinia": "^3.0.4",
     "prism-themes": "^1.9.0",
@@ -89,6 +90,10 @@
       {
         "from": "src/third-party",
         "to": "third-party"
+      },
+      {
+        "from": "third-party/ffmpeg",
+        "to": "third-party/ffmpeg"
       },
       {
         "from": "configs",

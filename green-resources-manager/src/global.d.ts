@@ -267,6 +267,31 @@ declare global {
       openVideoWindow: (filePath: string, options?: any) => Promise<{ success: boolean; error?: string }>
       /** 在主窗口新标签页中打开视频播放器 */
       tabOpenVideoPlayer: (filePath: string, title?: string) => Promise<{ success: boolean; tabId?: string; error?: string }>
+      /** 按文件探测并开始一次播放。直接播放返回 file 地址，否则返回本机 HLS 地址。 */
+      videoOpenSession: (request: { filePath: string; startSeconds?: number; quality?: string }) => Promise<{
+        success: boolean
+        sessionId?: string
+        mode?: 'direct' | 'remux' | 'audio' | 'transcode'
+        url?: string
+        duration?: number
+        videoCodec?: string
+        audioCodec?: string
+        container?: string
+        startSeconds?: number
+        error?: string
+      }>
+      /** 转码播放时从新的秒数重新开始。 */
+      videoSeekSession: (request: { sessionId: string; seconds: number }) => Promise<{ success: boolean; handled?: boolean; url?: string; startSeconds?: number; error?: string }>
+      /** 直接播放黑屏时改为转码。 */
+      videoEscalateSession: (request: { sessionId: string; seconds: number }) => Promise<{ success: boolean; url?: string; startSeconds?: number; error?: string }>
+      /** 暂停时停掉 ffmpeg。 */
+      videoPauseSession: (request: { sessionId: string }) => Promise<{ success: boolean; error?: string }>
+      /** 关闭播放会话。 */
+      videoCloseSession: (request: { sessionId: string }) => Promise<{ success: boolean }>
+      /** 截取当前画面。 */
+      videoScreenshot: (request: { sessionId: string; seconds: number }) => Promise<{ success: boolean; filepath?: string; error?: string }>
+      /** 列出同一目录的视频。 */
+      videoListSiblings: (filePath: string) => Promise<{ success: boolean; files?: Array<{ name: string; path: string }>; error?: string }>
       /** 在主窗口新标签页中打开独立音乐播放器 */
       tabOpenAudioPlayer: (payload: {
         path?: string

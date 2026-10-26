@@ -98,6 +98,15 @@ export class VideoFolder extends BaseResources {
 		defaultValue: {}
 	})
 
+	/**
+	 * 每一集看到哪里。
+	 * 键是视频路径，值是秒数和百分比。文件夹本身不因为看完一集就被标成看完。
+	 */
+	playbackByFile: ResourceField<Record<string, { seconds: number, progress: number, duration: number }>> = new ResourceField<Record<string, { seconds: number, progress: number, duration: number }>>({
+		saveable: true,
+		defaultValue: {}
+	})
+
 	visitedSessions: ResourceField<string[]> = new ResourceField<string[]>({
 		saveable: true,
 		defaultValue: []
@@ -135,6 +144,9 @@ export class VideoFolder extends BaseResources {
 			resourcePath: this.resourcePath.value || '',
 			thumbnail: this.thumbnail.value || '',
 			videoThumbnails: copyVideoThumbnailMap(this.videoThumbnails.value),
+			playbackByFile: this.playbackByFile.value && typeof this.playbackByFile.value === 'object'
+				? { ...this.playbackByFile.value }
+				: {},
 			videoCount: (this as any).videoCount ?? 0,
 			visitedSessions: Array.isArray(this.visitedSessions.value) ? [...this.visitedSessions.value] : [],
 			addedDate: this.addedDate.value || '',

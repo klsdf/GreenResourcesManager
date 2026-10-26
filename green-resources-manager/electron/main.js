@@ -102,6 +102,7 @@ const systemHandlers = require('./ipc/system-handlers')
 const settingsHandlers = require('./ipc/settings-handlers')
 const mediaHandlers = require('./ipc/media-handlers')
 const tabHandlers = require('./ipc/tab-handlers')
+const videoPlayerHandlers = require('./ipc/video-player-handlers')
 // 引入工具模块
 const fileUtils = require('./utils/file-utils')
 const pathUtils = require('./utils/path-utils')
@@ -324,6 +325,7 @@ if (!gotTheLock) {
     
     // 注册标签页相关的 IPC 处理器
     tabHandlers.registerTabHandlers(ipcMain, mainWindow, isDev)
+    videoPlayerHandlers.registerVideoPlayerHandlers(ipcMain)
 
     // SQLite demo 数据查询（供「数据库」页面展示）
     ipcMain.handle('sqlite-get-all-tables-data', () => sqlite.getAllTablesData())

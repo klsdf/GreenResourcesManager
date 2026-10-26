@@ -98,6 +98,8 @@ class SaveManager {
         autoOpenScreenshotFolder: false,
         smartWindowDetection: true,
         videoPlayMode: 'external',
+        /** 转码档位。流畅优先保证能跟上播放，标准尽量保住 1080p。 */
+        videoTranscodeQuality: 'standard',
         /** 网站打开方式。external 用系统浏览器，internal 在软件新标签页打开。 */
         websiteOpenMode: 'external',
         /** 云存档。打开后把存档数据库复制到本机 OneDrive 文件夹。 */

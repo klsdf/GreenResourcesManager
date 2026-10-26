@@ -140,16 +140,14 @@ function registerTabHandlers(ipcMain, mainWindow, isDev) {
       const query = `?path=${pathEncoded}&title=${titleEncoded}`
 
       if (isDev) {
-        viewerUrl = `http://localhost:5173/html/video-player.html${query}`
+        viewerUrl = `http://localhost:5173/video-player.html${query}`
       } else {
         const appPath = app.getAppPath()
         const possiblePaths = [
-          path.join(appPath, 'dist', 'html', 'video-player.html'),
           path.join(appPath, 'dist', 'video-player.html'),
-          path.join(appPath, 'public', 'html', 'video-player.html'),
-          path.join(appPath, 'html', 'video-player.html'),
-          path.join(__dirname, '../../html/video-player.html'),
-          path.join(__dirname, '../../public/html/video-player.html')
+          path.join(appPath, 'video-player.html'),
+          path.join(__dirname, '../../video-player.html'),
+          path.join(__dirname, '../../dist/video-player.html')
         ]
         const htmlPath = possiblePaths.find((p) => fs.existsSync(p))
         if (!htmlPath) {

@@ -232,6 +232,7 @@ export default {
         smartWindowDetection: true,
         // 视频播放设置
         videoPlayMode: 'external',
+        videoTranscodeQuality: 'standard',
         // 小说设置
         novelDefaultOpenMode: 'internal',
         novelFontSize: 16,
@@ -240,6 +241,7 @@ export default {
         novelBackgroundColor: '#ffffff',
         novelTextColor: '#333333',
         novelWordsPerPage: 1000,
+        novelReadMode: 'paged',
         novelShowProgress: true,
         // 网站默认仍用系统浏览器。选「软件新标签页」后才在应用内打开。
         websiteOpenMode: 'external',
@@ -602,6 +604,7 @@ export default {
             smartWindowDetection: true,
             // 视频播放设置
             videoPlayMode: 'external',
+            videoTranscodeQuality: 'standard',
             // 小说设置
             novelDefaultOpenMode: 'internal',
             novelFontSize: 16,

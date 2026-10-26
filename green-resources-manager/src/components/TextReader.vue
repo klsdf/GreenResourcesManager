@@ -140,6 +140,12 @@ export default {
     let suspendScroll = 0
     /** 正在接页时为真，避免同一次滚动里把窗口连续挪很多页。 */
     let sliding = false
+    /**
+     * 是否已经离开过窗口顶部。
+     * 刚打开或刚跳到某一页时，滚动位置本来就是 0，这不是在向上要前一页。
+     * 只有用户先往下读过，再滚回顶部，才把前面的页接回来。
+     */
+    let extendUpArmed = false
     /** 滚动事件合成到下一帧再处理，避免每个像素都重排。 */
     let scrollRaf = 0
 
@@ -240,11 +246,13 @@ export default {
             }
             if (currentPage.value < 1) currentPage.value = 1
 
+            // 先把窗口定好再结束加载。若在加载中去滚到页首，正文还没画出来，打开时会多等一帧。
             if (readMode.value === 'infinite') {
-              await showFromPage(currentPage.value)
-            } else {
-              updateReadingProgress()
+              const seeded = seedWindowDown(currentPage.value, totalPages.value, MAX_MOUNTED_TEXT_PAGES)
+              mountedStart.value = seeded.start
+              mountedEnd.value = seeded.end
             }
+            updateReadingProgress()
           } else {
             error.value = result.error || '加载失败'
             novelContent.value = ''
@@ -395,6 +403,7 @@ export default {
       const total = Math.max(totalPages.value, 1)
       const target = Math.min(Math.max(1, Math.floor(page) || 1), total)
       currentPage.value = target
+      extendUpArmed = false
       await showWindow(seedWindowDown(target, total, MAX_MOUNTED_TEXT_PAGES), true)
       updateReadingProgress()
     }
@@ -455,9 +464,10 @@ export default {
       const el = contentEl.value
       if (!el || el.clientHeight <= 0) return
       syncCurrentPageFromScroll(el)
+      if (el.scrollTop > TEXT_PAGE_EDGE_PX) extendUpArmed = true
       const distanceBottom = el.scrollHeight - el.scrollTop - el.clientHeight
       const nearBottom = distanceBottom <= TEXT_PAGE_EDGE_PX && mountedEnd.value < totalPages.value
-      const nearTop = el.scrollTop <= TEXT_PAGE_EDGE_PX && mountedStart.value > 1
+      const nearTop = extendUpArmed && el.scrollTop <= TEXT_PAGE_EDGE_PX && mountedStart.value > 1
       const currentWindow = { start: mountedStart.value, end: mountedEnd.value }
       const mountedCount = mountedEnd.value - mountedStart.value + 1
       if (nearBottom) {
@@ -634,6 +644,7 @@ export default {
 .text-reader {
   display: flex;
   flex-direction: column;
+  flex: 1;
   height: 100%;
   min-height: 0;
   overflow: hidden;
