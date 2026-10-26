@@ -59,6 +59,11 @@ export default {
         filePath: {
             type: String,
             required: true
+        },
+        /** EPUB 内部位置。有的话打开时直接跳到这里，而不是从开头排。 */
+        initialCfi: {
+            type: String,
+            default: ''
         }
     },
     data(){
@@ -250,12 +255,16 @@ export default {
         },
         // 进度条跳转更新
         showProgress(){
+            if (!this.bookAvailable || !this.locations || !this.rendition) return
             // 获取当前位置信息
             const currentLoction = this.rendition.currentLocation()
+            const cfi = currentLoction?.start?.cfi || ''
             // 获取当前位置进度百分比
-            this.progress = this.bookAvailable ? this.locations.percentageFromCfi(currentLoction.start.cfi) : 0
+            this.progress = cfi ? this.locations.percentageFromCfi(cfi) : 0
             // 转化成0-100的数字
             this.progress = Math.round(this.progress*100)
+            if (cfi) this.$emit('location-changed', cfi)
+            this.$emit('progress-changed', this.progress)
             // 更新进度条样式
             this.$nextTick(() => {
                 if(this.$refs.progress){
@@ -359,8 +368,11 @@ export default {
                     width: containerWidth,
                     height: containerHeight
                 })
-                // 通过Rendition.display渲染电子书
-                this.rendition.display()
+                // 翻页后再报位置。目录生成前的第一次排版先不报，避免把开头当成新进度盖掉上次的位置。
+                this.rendition.on('relocated', () => {
+                    if (!this.bookAvailable) return
+                    this.showProgress()
+                })
                 // 获取Theme对象
                 this.themes = this.rendition.themes
                 // 设置默认字体
@@ -371,21 +383,33 @@ export default {
                 this.setTheme(this.defaultTheme)
                 // 设置默认字体颜色
                 this.setFontColor(this.defaultFontColor)
-                // 获取locations对象 epubjs的钩子函数实现
+                // 先生成目录和位置表，再打开上次的位置。百分比要等位置表出来才能算。
                 this.book.ready.then(()=>{
                     this.navigation = this.book.navigation
                     // 向父组件发送navigation数据
                     this.$emit('navigation-updated', this.navigation)
                    
                     return this.book.locations.generate()
-                }).then(result=>{
-                    // console.log(result);
+                }).then(async ()=>{
                     this.locations = this.book.locations
+                    try {
+                        if (this.initialCfi) {
+                            await this.rendition.display(this.initialCfi)
+                        } else {
+                            await this.rendition.display()
+                        }
+                    } catch (error) {
+                        console.warn('恢复 EPUB 位置失败，从开头打开:', error)
+                        await this.rendition.display()
+                    }
                     this.bookAvailable = true
                     // 再次发送navigation数据，确保父组件收到
                     this.$emit('navigation-updated', this.navigation)
                     // 发送rendition就绪事件
                     this.$emit('rendition-ready', this.rendition)
+                    // 位置已经落到上次读到的地方，这时再允许外层记进度。
+                    this.$emit('ready')
+                    this.showProgress()
                 }).catch(error => {
                     console.error('加载 EPUB 失败:', error)
                 })

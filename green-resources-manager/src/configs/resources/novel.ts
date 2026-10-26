@@ -86,6 +86,24 @@ export class Novel extends BaseResources {
 		defaultValue: 0
 	})
 
+	/**
+	 * 文本和 PDF 的当前页，从 1 开始。
+	 * 单独记页码，是因为百分比对不上「第几页」。下次打开要回到这一页，而不是只知道大概读了多少。
+	 */
+	currentPage: ResourceField<number> = new ResourceField<number>({
+		saveable: true,
+		defaultValue: 1
+	})
+
+	/**
+	 * EPUB 内部位置。
+	 * EPUB 没有稳定的页码，只存百分比下次会对不准，所以把阅读器给出的位置原样留下。
+	 */
+	epubCfi: ResourceField<string> = new ResourceField<string>({
+		saveable: true,
+		defaultValue: ''
+	})
+
 	/** 累计阅读时长，单位是分钟。0 表示还没有时长，不代表没打开过。 */
 	readTime: ResourceField<number> = new ResourceField<number>({
 		saveable: true,
@@ -122,6 +140,8 @@ export class Novel extends BaseResources {
 			visitedSessions: Array.isArray(this.visitedSessions.value) ? [...this.visitedSessions.value] : [],
 			totalWords: Number(this.totalWords.value) || 0,
 			readProgress: Number(this.readProgress.value) || 0,
+			currentPage: Number(this.currentPage.value) > 0 ? Math.floor(Number(this.currentPage.value)) : 1,
+			epubCfi: this.epubCfi.value || '',
 			readTime: Number(this.readTime.value) || 0,
 			addedDate: this.addedDate.value || '',
 			rating: this.rating.value || 0,

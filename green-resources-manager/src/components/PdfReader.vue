@@ -108,7 +108,7 @@ export default {
       default: 1.0
     }
   },
-  emits: ['page-changed', 'scale-changed'],
+  emits: ['page-changed', 'progress-changed', 'scale-changed'],
   setup(props, { emit }) {
     const loading = ref(true)
     const error = ref<string | null>(null)
@@ -238,7 +238,8 @@ export default {
 
         pdfDoc.value = pdf
         totalPages.value = pdf.numPages
-        currentPage.value = Math.min(props.initialPage, pdf.numPages)
+        currentPage.value = Math.min(Math.max(props.initialPage, 1), pdf.numPages)
+        emitReadingPosition()
 
         // 初始化可见页面
         updateVisiblePages()
@@ -366,7 +367,7 @@ export default {
         updateVisiblePages()
         await nextTick()
         await renderVisiblePages()
-        emit('page-changed', currentPage.value)
+        emitReadingPosition()
         
         // 滚动到当前页
         scrollToPage(currentPage.value)
@@ -380,7 +381,7 @@ export default {
         updateVisiblePages()
         await nextTick()
         await renderVisiblePages()
-        emit('page-changed', currentPage.value)
+        emitReadingPosition()
         
         // 滚动到当前页
         scrollToPage(currentPage.value)
@@ -421,6 +422,17 @@ export default {
       scale.value = 1.0
       emit('scale-changed', scale.value)
       await renderVisiblePages()
+    }
+
+    /**
+     * 把当前页和读完的百分比一起报出去。
+     * PDF 的进度按页数算，读到最后一页就是 100。
+     */
+    const emitReadingPosition = () => {
+      const total = totalPages.value
+      const progress = total > 0 ? Math.round((currentPage.value / total) * 100) : 0
+      emit('page-changed', currentPage.value)
+      emit('progress-changed', progress)
     }
 
     // 处理滚动事件（用于虚拟滚动优化，这里先简化实现）

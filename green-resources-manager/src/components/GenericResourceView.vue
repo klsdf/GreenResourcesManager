@@ -208,11 +208,12 @@
         </div>
         <div class="reader-content" ref="readerContent">
           <!-- PDF 文件使用 PDF 阅读器 -->
-          <PdfReader
+            <PdfReader
             v-if="getNovelFileType(currentReadingNovel) === 'pdf'"
             :file-path="getNovelFilePath(currentReadingNovel)"
             :initial-page="getNovelCurrentPage(currentReadingNovel) || 1"
             @page-changed="handlePdfPageChanged"
+            @progress-changed="handleTextProgressChanged"
           />
           <!-- TXT 文件使用文本阅读器 -->
           <TextReader
@@ -257,9 +258,13 @@
             <EbookReader
               ref="ebookReaderRef"
               :file-path="ebookReaderV2FilePath"
+              :initial-cfi="getNovelEpubCfiByPath(ebookReaderV2FilePath)"
               @close="closeEbookReaderV2"
+              @ready="handleEbookReady"
               @navigation-updated="handleNavigationUpdated"
               @rendition-ready="handleRenditionReady"
+              @progress-changed="handleEbookProgressChanged"
+              @location-changed="handleEbookLocationChanged"
             />
           </div>
         </div>
@@ -1928,8 +1933,8 @@ export default defineComponent({
     // 关闭漫画查看器
     const closeComicViewer = () => {
       showComicViewer.value = false
-      currentPageIndex.value = 0
-      
+      // 不把页码清回 0。阅读器还在收起的一瞬间如果收到 0，会把已经记下的进度盖成第一页。
+
       // 只清空阅读器相关的状态，保留currentAlbum用于详情页显示
       // 如果是从详情页打开的，保持详情页状态
       // 如果是从卡片直接打开的，清空详情页状态
@@ -1939,9 +1944,37 @@ export default defineComponent({
       }
     }
 
-    // 处理漫画查看器页面变化
+    /**
+     * 把一个字段写回资源。
+     * 类上的字段放在 value 里，旧数据直接挂在实例上时就改那一层。
+     * @param item 资源实例
+     * @param key 字段名
+     * @param value 要写下的值
+     */
+    const assignResourceField = (item: any, key: string, value: any) => {
+      if (item?.[key] && typeof item[key] === 'object' && 'value' in item[key]) {
+        item[key].value = value
+      } else if (item) {
+        item[key] = value
+      }
+    }
+
+    /**
+     * 漫画翻页后记下页码和百分比。
+     * 下标从 0 开始，存档里的页码从 1 开始，和独立标签页用同一套。
+     * @param newIndex 当前图片在列表里的位置
+     */
     const handleComicViewerPageChange = (newIndex: number) => {
       currentPageIndex.value = newIndex
+      const album = currentAlbum.value
+      if (!album) return
+      const albumId = String(BaseResources.extractPrimitiveValue(album.id?.value ?? album.id) ?? '')
+      const item = items.value.find((i: any) => String(i.id?.value ?? i.id ?? '') === albumId) || album
+      const page = newIndex + 1
+      const total = pages.value.length
+      assignResourceField(item, 'currentPage', page)
+      assignResourceField(item, 'readProgress', total > 0 ? Math.round((page / total) * 100) : 0)
+      scheduleResourceSave(item)
     }
 
     // 小说阅读器相关方法
@@ -1950,12 +1983,23 @@ export default defineComponent({
       currentReadingNovel.value = null
     }
 
+    /** EPUB 已经跳回上次的位置之后才允许记进度。 */
+    const ebookProgressArmed = ref(false)
+
     const closeEbookReaderV2 = () => {
       showEbookReaderV2.value = false
       ebookReaderV2FilePath.value = ''
       ebookNavigation.value = null
       ebookBookAvailable.value = false
       ebookRendition.value = null
+      ebookProgressArmed.value = false
+    }
+
+    /**
+     * EPUB 目录和上次的位置都准备好了，后面的翻页可以写入存档。
+     */
+    const handleEbookReady = () => {
+      ebookProgressArmed.value = true
     }
 
     // EPUB 阅读器 V2 相关状态
@@ -2009,6 +2053,40 @@ export default defineComponent({
       return BaseResources.extractPrimitiveValue(novel.currentPage?.value || novel.currentPage) || 1
     }
 
+    /**
+     * 按文件路径取出 EPUB 上次的位置。
+     * 内置阅读器打开时手里是路径，位置记在对应的那本小说上。
+     * @param filePath 小说文件路径
+     * @returns EPUB 位置。没有时是空字符串
+     */
+    const getNovelEpubCfiByPath = (filePath: string): string => {
+      const novel = items.value.find((n: any) => getNovelFilePath(n) === filePath)
+      if (!novel) return ''
+      return BaseResources.extractPrimitiveValue(novel.epubCfi?.value || novel.epubCfi) || ''
+    }
+
+    /**
+     * 把小说的页码、百分比或 EPUB 位置写回列表里的那一条，并安排落盘。
+     * 独立标签页走数据库；这里是内置阅读器，资源就在当前列表里，直接改这一条。
+     * @param patch 这次要记下的位置
+     * @param filePath 没有当前小说对象时，用路径把那一条找出来
+     */
+    const persistNovelReading = (patch: { currentPage?: number, readProgress?: number, epubCfi?: string }, filePath = '') => {
+      const novel = currentReadingNovel.value
+      const novelId = novel ? String(BaseResources.extractPrimitiveValue(novel.id?.value ?? novel.id) ?? '') : ''
+      const path = filePath || (novel ? getNovelFilePath(novel) : ebookReaderV2FilePath.value)
+      const item = items.value.find((i: any) => {
+        const id = String(i.id?.value ?? i.id ?? '')
+        if (novelId && id === novelId) return true
+        return path && getNovelFilePath(i) === path
+      })
+      if (!item) return
+      if (patch.currentPage != null) assignResourceField(item, 'currentPage', patch.currentPage)
+      if (patch.readProgress != null) assignResourceField(item, 'readProgress', patch.readProgress)
+      if (patch.epubCfi) assignResourceField(item, 'epubCfi', patch.epubCfi)
+      scheduleResourceSave(item)
+    }
+
     const getNovelNameByPath = (filePath: string): string => {
       if (!filePath) return '未知小说'
       const novel = items.value.find((n: any) => {
@@ -2022,47 +2100,57 @@ export default defineComponent({
 
     // 处理 PDF 页面变化
     const handlePdfPageChanged = async (pageNum: number) => {
-      if (!currentReadingNovel.value) return
-      
-      const novelId = BaseResources.extractPrimitiveValue(currentReadingNovel.value.id?.value || currentReadingNovel.value.id)
-      const item = items.value.find((i: any) => (i.id?.value || i.id) === novelId)
-      if (item) {
-        if (item.currentPage && typeof item.currentPage === 'object' && 'value' in item.currentPage) {
-          item.currentPage.value = pageNum
-        } else {
-          item.currentPage = pageNum
-        }
-      }
+      persistNovelReading({ currentPage: pageNum })
     }
 
     // 处理文本阅读器页面变化
     const handleTextPageChanged = async (pageNum: number) => {
-      if (!currentReadingNovel.value) return
-      
-      const novelId = BaseResources.extractPrimitiveValue(currentReadingNovel.value.id?.value || currentReadingNovel.value.id)
-      const item = items.value.find((i: any) => (i.id?.value || i.id) === novelId)
-      if (item) {
-        if (item.currentPage && typeof item.currentPage === 'object' && 'value' in item.currentPage) {
-          item.currentPage.value = pageNum
-        } else {
-          item.currentPage = pageNum
-        }
-      }
+      persistNovelReading({ currentPage: pageNum })
     }
 
     // 处理文本阅读器进度变化
     const handleTextProgressChanged = async (progress: number) => {
-      if (!currentReadingNovel.value) return
-      
-      const novelId = BaseResources.extractPrimitiveValue(currentReadingNovel.value.id?.value || currentReadingNovel.value.id)
-      const item = items.value.find((i: any) => (i.id?.value || i.id) === novelId)
-      if (item) {
-        if (item.readProgress && typeof item.readProgress === 'object' && 'value' in item.readProgress) {
-          item.readProgress.value = progress
-        } else {
-          item.readProgress = progress
-        }
-      }
+      persistNovelReading({ readProgress: progress })
+    }
+
+    /**
+     * 内置 EPUB 阅读器的百分比。位置还没恢复完时不写，避免开头覆盖上次的进度。
+     * @param progress 0 到 100
+     */
+    const handleEbookProgressChanged = (progress: number) => {
+      if (!ebookProgressArmed.value) return
+      persistNovelReading({ readProgress: progress }, ebookReaderV2FilePath.value)
+    }
+
+    /**
+     * 内置 EPUB 阅读器的内部位置。
+     * @param cfi 阅读器给出的位置
+     */
+    const handleEbookLocationChanged = (cfi: string) => {
+      if (!ebookProgressArmed.value || !cfi) return
+      persistNovelReading({ epubCfi: cfi }, ebookReaderV2FilePath.value)
+    }
+
+    /**
+     * 独立标签页写完进度后，把列表里同一条资源的页码和百分比改掉。
+     * 卡片不用重新进页面就能看到进度。这里只改内存，数据库已经由阅读器写过。
+     * @param payload 阅读器通知的位置
+     */
+    const applyIncomingReadingProgress = (payload: { id?: string, resourcePath?: string, currentPage?: number, readProgress?: number, epubCfi?: string }) => {
+      if (!payload) return
+      const targetId = String(payload.id || '')
+      const targetPath = String(payload.resourcePath || '').replace(/\//g, '\\').replace(/\\+$/, '').toLowerCase()
+      const item = items.value.find((i: any) => {
+        const id = String(i.id?.value ?? i.id ?? '')
+        if (targetId && id === targetId) return true
+        const path = String(BaseResources.extractPrimitiveValue(i.resourcePath?.value ?? i.resourcePath) || '')
+          .replace(/\//g, '\\').replace(/\\+$/, '').toLowerCase()
+        return !!targetPath && path === targetPath
+      })
+      if (!item) return
+      if (payload.currentPage != null) assignResourceField(item, 'currentPage', payload.currentPage)
+      if (payload.readProgress != null) assignResourceField(item, 'readProgress', payload.readProgress)
+      if (payload.epubCfi) assignResourceField(item, 'epubCfi', payload.epubCfi)
     }
 
     // 使用筛选 composable 的 filteredItems（已经是响应式的）

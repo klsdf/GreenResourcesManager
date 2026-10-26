@@ -64,6 +64,21 @@ export class Manga extends BaseResources {
 		defaultValue: 0
 	})
 
+	/**
+	 * 读到的页码，从 1 开始。
+	 * 漫画阅读器内部用 0 开始的下标。存的时候加 1，打开的时候再减 1，避免和「第 1 页」对不上。
+	 */
+	currentPage: ResourceField<number> = new ResourceField<number>({
+		saveable: true,
+		defaultValue: 1
+	})
+
+	/** 阅读进度，0 到 100。用当前页除以总页数，卡片上的进度条读这个值。 */
+	readProgress: ResourceField<number> = new ResourceField<number>({
+		saveable: true,
+		defaultValue: 0
+	})
+
 	// 每次查看的时间记录（ISO 字符串数组，按时间升序）
 	visitedSessions: ResourceField<string[]> = new ResourceField<string[]>({
 		saveable: true,
@@ -107,6 +122,8 @@ export class Manga extends BaseResources {
 			resourcePath: this.resourcePath.value || '',
 			coverPath: this.coverPath.value || '',
 			pagesCount: this.pagesCount.value || 0,
+			currentPage: Number(this.currentPage.value) > 0 ? Math.floor(Number(this.currentPage.value)) : 1,
+			readProgress: Number(this.readProgress.value) || 0,
 			visitedSessions: Array.isArray(this.visitedSessions.value) ? [...this.visitedSessions.value] : [],
 			addedDate: this.addedDate.value || '',
 			rating: this.rating.value || 0,
@@ -171,6 +188,10 @@ export class Manga extends BaseResources {
 				return `${count} 页`
 			}
 		},
+		progress: {
+			field: 'readProgress',
+			unit: '%'
+		},
 		stats: [
 			{
 				type: 'count' as const,
@@ -212,6 +233,18 @@ export class Manga extends BaseResources {
 				label: '总页数',
 				formatter: undefined,
 				defaultValue: '0'
+			},
+			{
+				field: 'currentPage',
+				label: '当前页',
+				formatter: undefined,
+				defaultValue: '1'
+			},
+			{
+				field: 'readProgress',
+				label: '阅读进度',
+				formatter: undefined,
+				defaultValue: '0%'
 			},
 			{
 				field: 'viewCount',

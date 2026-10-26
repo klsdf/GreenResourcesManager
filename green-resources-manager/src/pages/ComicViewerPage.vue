@@ -19,7 +19,8 @@
       :standalone="true"
       :album="album"
       :pages="pages"
-      :initial-page-index="0"
+      :initial-page-index="initialPageIndex"
+      @page-change="onPageChange"
       @close="closeTab"
     />
   </div>
@@ -27,6 +28,7 @@
 
 <script>
 import ComicViewer from '../components/ComicViewer.vue'
+import { loadReadingPosition, queueReadingPosition, flushReadingPosition, clampReadingPage, readingPercent } from '../utils/readingProgress.ts'
 
 /**
  * 漫画阅读器独立标签页
@@ -40,6 +42,10 @@ export default {
     return {
       album: null,
       pages: [],
+      /** 阅读器要的下标，从 0 开始。存档里的页码从 1 开始，打开前再换算。 */
+      initialPageIndex: 0,
+      /** 这次打开的漫画路径，关页时用它把最后一页写完。 */
+      resourcePath: '',
       loading: true,
       loadingText: '正在加载漫画...',
       errorMessage: ''
@@ -57,10 +63,16 @@ export default {
     }
 
     this.album = { name: title, resourcePath }
+    this.resourcePath = resourcePath
     document.title = title
 
     try {
       await this.loadAlbumPages(resourcePath)
+      // 页数出来之后才能把上次的页码收进范围内，再交给阅读器。
+      const position = await loadReadingPosition(resourcePath)
+      const page = clampReadingPage(position.currentPage, this.pages.length)
+      this.initialPageIndex = Math.max(0, page - 1)
+      window.addEventListener('beforeunload', this.flushProgress)
     } catch (error) {
       console.error('[ComicViewerPage] 加载漫画失败:', error)
       this.errorMessage = `加载漫画失败: ${error.message || '未知错误'}`
@@ -68,7 +80,32 @@ export default {
       this.loading = false
     }
   },
+  beforeUnmount() {
+    window.removeEventListener('beforeunload', this.flushProgress)
+    this.flushProgress()
+  },
   methods: {
+    /**
+     * 翻页后记下页码和百分比。
+     * 阅读器给的是从 0 开始的下标，存档用从 1 开始的页码。
+     * @param index 当前图片在列表里的位置
+     */
+    onPageChange(index) {
+      const page = index + 1
+      const total = this.pages.length
+      queueReadingPosition(this.resourcePath, {
+        currentPage: page,
+        readProgress: readingPercent(page, total),
+        totalPages: total
+      })
+    },
+    /**
+     * 马上写下最后一次翻页。关闭标签时计时器可能还没到。
+     */
+    flushProgress() {
+      if (!this.resourcePath) return
+      flushReadingPosition(this.resourcePath)
+    },
     // 加载专辑的图片文件列表（与 GenericResourceView.loadAlbumPages 保持一致）
     async loadAlbumPages(resourcePath) {
       const trimmed = (resourcePath || '').trim()
@@ -120,6 +157,7 @@ export default {
 
     // 关闭当前标签页
     async closeTab() {
+      await this.flushProgress()
       if (!window.electronAPI?.tabClose || !window.electronAPI?.tabGetAll) return
       try {
         const result = await window.electronAPI.tabGetAll()

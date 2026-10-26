@@ -541,7 +541,10 @@ export const openAlbumHandler: ActionHandler = async (resource, context) => {
       context.setCurrentAlbum(resource)
     }
     if (context.setCurrentPageIndex) {
-      context.setCurrentPageIndex(0)
+      // 页码从 1 开始存。阅读器要的是从 0 开始的下标，所以减 1。没有记录时从第一页打开。
+      const savedPage = Number(BaseResources.extractPrimitiveValue(resource.currentPage?.value ?? resource.currentPage))
+      const page = Number.isFinite(savedPage) && savedPage > 0 ? Math.floor(savedPage) : 1
+      context.setCurrentPageIndex(page - 1)
     }
     if (context.clearPages) {
       context.clearPages()

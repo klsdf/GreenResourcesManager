@@ -34,6 +34,24 @@
           >
         </div>
 
+        <!-- 阅读方式：分页一次一页，无极连续向下滚，并且只保留附近几页 -->
+        <div class="setting-group">
+          <label>{{ $lt('阅读方式') }}</label>
+          <div class="read-mode-switch">
+            <button
+              type="button"
+              :class="{ active: settings.readMode !== 'infinite' }"
+              @click="setReadMode('paged')"
+            >{{ $lt('分页模式') }}</button>
+            <button
+              type="button"
+              :class="{ active: settings.readMode === 'infinite' }"
+              @click="setReadMode('infinite')"
+            >{{ $lt('无极模式') }}</button>
+          </div>
+          <p class="setting-hint">{{ $lt('无极模式会连续向下滚动，并只显示附近几页。') }}</p>
+        </div>
+
         <!-- 每页字数 -->
         <div class="setting-group">
           <label>{{ $lt('每页字数') }} <span class="value">{{ settings.wordsPerPage }}</span></label>
@@ -118,6 +136,7 @@
         :words-per-page="settings.wordsPerPage"
         @page-changed="onPageChanged"
         @progress-changed="onProgressChanged"
+        @read-mode-changed="onReadModeChanged"
       />
 
       <!-- PDF 阅读器 -->
@@ -126,12 +145,17 @@
         :file-path="filePath"
         :initial-page="initialPage"
         @page-changed="onPageChanged"
+        @progress-changed="onProgressChanged"
       />
 
       <!-- EPUB 阅读器 -->
       <EbookReader
         v-else-if="fileType === 'epub'"
         :file-path="filePath"
+        :initial-cfi="initialCfi"
+        @ready="markEpubReady"
+        @location-changed="onLocationChanged"
+        @progress-changed="onProgressChanged"
         @close="closeTab"
       />
 
@@ -148,11 +172,12 @@
 import TextReader from '../components/TextReader.vue'
 import PdfReader from '../components/PdfReader.vue'
 import EbookReader from '../components/epub-reader-v2/EbookReader.vue'
+import { loadReadingPosition, queueReadingPosition, flushReadingPosition } from '../utils/readingProgress.ts'
 
 /**
  * 小说阅读器独立标签页
  * 通过 URL 查询参数接收 path（文件路径）、title（资源名称）、fileType（txt/pdf/epub）
- * TXT 类型支持左侧侧边栏实时调整字体/字号/行高/颜色/每页字数等阅读设置
+ * TXT 类型支持左侧侧边栏实时调整字体/字号/行高/颜色/每页字数，以及分页或无极阅读方式
  */
 export default {
   name: 'NovelViewerPage',
@@ -162,7 +187,14 @@ export default {
       filePath: '',
       fileType: 'txt',
       title: '小说阅读器',
+      /** 文本和 PDF 打开时要跳到的页，从 1 开始。 */
       initialPage: 1,
+      /** 这次阅读里最新的页码，进度事件里一起写回。 */
+      latestPage: 1,
+      /** EPUB 上次的内部位置。 */
+      initialCfi: '',
+      /** EPUB 目录生成并跳回原位之后才允许记进度，避免开头把上次的位置盖掉。 */
+      epubCanSave: false,
       loading: true,
       errorMessage: '',
       showSidebar: true,
@@ -172,7 +204,9 @@ export default {
         fontFamily: 'Microsoft YaHei, sans-serif',
         backgroundColor: '#ffffff',
         textColor: '#333333',
-        wordsPerPage: 1000
+        wordsPerPage: 1000,
+        /** 分页一次一页；无极可以连续向下滚。默认分页，避免老习惯被改掉。 */
+        readMode: 'paged'
       },
       fontOptions: [
         { label: '微软雅黑', value: 'Microsoft YaHei, sans-serif' },
@@ -227,11 +261,22 @@ export default {
     this.title = title
     document.title = title
 
+    // 先取出上次的位置，再让阅读器挂载。挂载后再改初始页，阅读器不会回头。
+    const position = await loadReadingPosition(rawPath)
+    this.initialPage = position.currentPage || 1
+    this.latestPage = this.initialPage
+    this.initialCfi = position.epubCfi || ''
+
     // 加载已保存的阅读设置
     await this.loadSettings()
 
+    window.addEventListener('beforeunload', this.flushProgress)
     this.loading = false
-    console.log('[NovelViewerPage] 加载小说:', { filePath: this.filePath, fileType, title })
+    console.log('[NovelViewerPage] 加载小说:', { filePath: this.filePath, fileType, title, initialPage: this.initialPage })
+  },
+  beforeUnmount() {
+    window.removeEventListener('beforeunload', this.flushProgress)
+    this.flushProgress()
   },
   methods: {
     async loadSettings() {
@@ -246,7 +291,8 @@ export default {
             fontFamily: rs.fontFamily || 'Microsoft YaHei, sans-serif',
             backgroundColor: rs.backgroundColor || '#ffffff',
             textColor: rs.textColor || '#333333',
-            wordsPerPage: rs.wordsPerPage || 1000
+            wordsPerPage: rs.wordsPerPage || 1000,
+            readMode: rs.readMode === 'infinite' ? 'infinite' : 'paged'
           }
         }
       } catch (error) {
@@ -269,19 +315,71 @@ export default {
         }
       }, 300)
     },
+    /**
+     * 切换文本小说的阅读方式，并写入阅读设置。
+     * 阅读器底部的开关也会走这里，两边保持同一个值。
+     * @param mode paged 为分页，infinite 为无极
+     */
+    setReadMode(mode) {
+      const next = mode === 'infinite' ? 'infinite' : 'paged'
+      if (this.settings.readMode === next) return
+      this.settings.readMode = next
+      this.persistSettings()
+    },
+    /**
+     * 阅读器底部切换了方式。侧边栏跟着亮起，并一起记住。
+     * @param mode 阅读器报上来的方式
+     */
+    onReadModeChanged(mode) {
+      this.setReadMode(mode)
+    },
     applyTheme(idx) {
       const preset = this.themePresets[idx]
       this.settings.backgroundColor = preset.backgroundColor
       this.settings.textColor = preset.textColor
       this.persistSettings()
     },
-    onPageChanged(page) {
-      console.log('[NovelViewerPage] 页码变化:', page)
+    /**
+     * EPUB 已经跳回上次的位置，之后的翻页才写入存档。
+     */
+    markEpubReady() {
+      this.epubCanSave = true
     },
+    /**
+     * 记下文本或 PDF 的页码。EPUB 不靠页码恢复。
+     * @param page 阅读器当前页，从 1 开始
+     */
+    onPageChanged(page) {
+      this.latestPage = page
+      if (this.fileType === 'epub') return
+      queueReadingPosition(this.filePath, { currentPage: page })
+    },
+    /**
+     * 记下读完的百分比。文本和 PDF 同时带上当前页。
+     * @param progress 0 到 100
+     */
     onProgressChanged(progress) {
-      console.log('[NovelViewerPage] 阅读进度:', progress)
+      if (this.fileType === 'epub' && !this.epubCanSave) return
+      const position = { readProgress: progress }
+      if (this.fileType !== 'epub') position.currentPage = this.latestPage || this.initialPage
+      queueReadingPosition(this.filePath, position)
+    },
+    /**
+     * 记下 EPUB 内部位置，下次打开用它跳回原处。
+     * @param cfi 阅读器给出的位置
+     */
+    onLocationChanged(cfi) {
+      if (!this.epubCanSave || !cfi) return
+      queueReadingPosition(this.filePath, { epubCfi: cfi })
+    },
+    /**
+     * 马上把还没写完的进度落盘。关闭标签页时不能再等那一下停顿。
+     */
+    flushProgress() {
+      flushReadingPosition(this.filePath)
     },
     async closeTab() {
+      await this.flushProgress()
       if (!window.electronAPI?.tabClose || !window.electronAPI?.tabGetAll) return
       try {
         const result = await window.electronAPI.tabGetAll()
@@ -402,6 +500,34 @@ export default {
   cursor: pointer;
   border: 2px solid #fff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.read-mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.read-mode-switch button {
+  height: 32px;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 4px;
+  background: var(--bg-primary, #fff);
+  color: var(--text-primary, #333);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.read-mode-switch button.active {
+  border-color: var(--accent-color, #66c0f4);
+  box-shadow: 0 0 0 2px var(--accent-color, #66c0f4);
+}
+
+.setting-hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-secondary, #666);
 }
 
 .setting-group select {
