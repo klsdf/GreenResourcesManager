@@ -44,6 +44,7 @@
         >
         <span class="resource-list__icon" aria-hidden="true">{{ iconFor(item) }}</span>
         <span class="resource-list__name" :title="nameOf(item)">{{ nameOf(item) }}</span>
+        <span v-if="noteFor && noteFor(item)" class="resource-list__note">{{ noteFor(item) }}</span>
         <span v-if="itemIsRunning(item)" class="resource-list__running">{{ $lt('运行中') }}</span>
         <span v-if="itemFileMissing(item)" class="resource-list__missing" :title="$lt('本地文件不存在')">⚠️</span>
         <span v-if="itemIsFavorite(item)" class="resource-list__star" :title="$lt('已收藏')">⭐</span>
@@ -68,9 +69,9 @@
         <button
           type="button"
           class="resource-list__action"
-          :title="itemIsRunning(item) ? $lt('停止') : $lt('打开')"
+          :title="itemIsRunning(item) ? $lt('停止') : (typeForItem?.(item) === 'collection' ? '进入' : $lt('打开'))"
           @click.stop="$emit('action', item)"
-        >{{ itemIsRunning(item) ? '⏹️' : '▶️' }}</button>
+        >{{ itemIsRunning(item) ? '⏹️' : (typeForItem?.(item) === 'collection' ? '📂' : '▶️') }}</button>
       </span>
     </div>
   </div>
@@ -102,6 +103,8 @@ interface Props {
   fileExistsFor?: (item: any) => boolean
   isMultiSelectMode?: boolean
   isItemSelected?: (item: any) => boolean
+  /** 搜索打穿合集时，在名称旁边标出所属合集 */
+  noteFor?: (item: any) => string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -126,7 +129,8 @@ const TYPE_ICONS: Record<string, string> = {
   audio: '🎵',
   website: '🌐',
   other: '📦',
-  folder: '📁'
+  folder: '📁',
+  collection: '📁'
 }
 
 /** 配置里只写了字段名的列，用这套中文表补表头 */
@@ -705,6 +709,12 @@ function handleRowClick(item: any) {
   flex: 0 0 auto;
   font-size: 1.05rem;
   line-height: 1;
+}
+
+.resource-list__note {
+  margin-left: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
 }
 
 .resource-list__name {

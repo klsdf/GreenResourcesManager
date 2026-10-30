@@ -297,8 +297,8 @@ function registerIpcHandlers(ipcMain, fileUtils, pathUtils) {
     return await fileUtils.getFileStats(filePath)
   })
 
-  ipcMain.handle('read-text-file', async (event, filePath) => {
-    return await fileUtils.readTextFile(filePath)
+  ipcMain.handle('read-text-file', async (event, filePath, encoding) => {
+    return await fileUtils.readTextFile(filePath, encoding)
   })
 
   // 读取音频同级的 .lrc 歌词。文件名大小写不敏感，兼容 UTF-8 / UTF-16 / GBK。

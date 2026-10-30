@@ -56,6 +56,7 @@
           ⭐
         </div>
       </div>
+      <div v-if="type === 'collection'" class="folder-indicator" title="合集">📁</div>
       <div class="media-overlay" v-if="showActionButton && !isMultiSelectMode">
         <div class="action-button" @click.stop="$emit('action', item)">
           <span class="action-icon">{{ actionIcon }}</span>
@@ -73,6 +74,7 @@
         >
         <span v-if="scale >= 30" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">{{ cardTitle || displayName }}</span>
       </h3>
+      <div v-if="note && scale >= 40" class="media-collection-note">{{ note }}</div>
       
       <!-- 配置驱动的通用信息显示 -->
       <!-- 副标题 -->
@@ -322,7 +324,7 @@ export default {
     type: {
       type: String,
       required: true,
-      validator: value => ['game', 'image', 'singleimage', 'novel', 'video', 'audio', 'folder', 'anime'].includes(value)
+      validator: value => ['game', 'image', 'singleimage', 'novel', 'video', 'audio', 'folder', 'anime', 'collection'].includes(value)
     },
     isRunning: {
       type: Boolean,
@@ -347,6 +349,16 @@ export default {
     isSelected: {
       type: Boolean,
       default: false
+    },
+    /** 搜索打穿合集时，标在卡片上的所属合集。 */
+    note: {
+      type: String,
+      default: ''
+    },
+    /** 合集自己没有封面时，用第一个成员的封面。 */
+    fallbackCover: {
+      type: String,
+      default: ''
     }
   },
   emits: ['click', 'contextmenu', 'action', 'toggle-select'],
@@ -376,6 +388,7 @@ export default {
       return configIcon ?? '▶️'
     },
     showActionButton() {
+      if (this.type === 'collection') return false
       // 对于压缩包类型的游戏，不显示 action 按钮
       if (this.type === 'game') {
         return !this.isArchive
@@ -713,6 +726,11 @@ export default {
         return resourcePath || ''
       }
       
+      if (this.type === 'collection' && this.fallbackCover) {
+        const ownCover = getFieldValue(this.item.coverPath)
+        if (!ownCover) return this.fallbackCover
+      }
+
       // 优先使用 coverPath
       const coverPath = getFieldValue(this.item.coverPath)
       
@@ -1732,6 +1750,15 @@ $running-color-dark: #10b981;
 
 .media-info {
   padding: calc(15px * var(--card-scale, 1));
+}
+
+.media-collection-note {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .media-title {

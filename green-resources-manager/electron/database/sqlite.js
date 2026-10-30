@@ -11,7 +11,7 @@ const { resolveSaveDataDirectory } = require('../utils/save-location')
 // 资源表名列表（使用 id + jsonData + timestamp + version 存储）
 const RESOURCE_TABLES = [
   'games', 'manga', 'audio', 'novel', 'video',
-  'software', 'website', 'singleImage', 'other', 'videoFolder'
+  'software', 'website', 'singleImage', 'other', 'videoFolder', 'collection'
 ]
 
 /** 页面 id 到逻辑资源类型的映射，资源自身没带 resourceType 时用它推断。 */
@@ -775,7 +775,8 @@ function mapResourceTypeToTableName(resourceType) {
     'video-folder': 'videoFolder',
     'animation': 'videoFolder',  // VideoFolder 类的 defaultValue
     'anime': 'videoFolder',
-    'anime-series': 'videoFolder'
+    'anime-series': 'videoFolder',
+    'collection': 'collection'
   }
 
   return mapping[resourceType] || resourceType

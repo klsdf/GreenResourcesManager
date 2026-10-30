@@ -8,6 +8,7 @@ import { Novel } from './novel'
 import { Website } from './website'
 import { Audio } from './audio'
 import { Other } from './other'
+import { Collection } from './collection'
 import { ResourceField } from './base/ResourceField'
 import { FormField, FormField_Date, FormField_Tags, FormField_Text, FormField_YesNo } from './base/FormField'
 import { createFormField, editorKindOf, isSimpleEditor, type PageFieldDef, type PageFieldEditor } from '../pages/pageFieldSchema'
@@ -131,7 +132,8 @@ const SAVED_TYPE_TO_CLASS: Record<string, any> = {
   novel: Novel,
   website: Website,
   audio: Audio,
-  other: Other
+  other: Other,
+  collection: Collection
 }
 
 /** 旧页面类型对应的资源类，用来给还没配过字段的页面生成默认字段。 */
@@ -165,7 +167,8 @@ const SAVED_TYPE_TO_CARD: Record<string, string> = {
   novel: 'novel',
   website: 'website',
   audio: 'audio',
-  other: 'other'
+  other: 'other',
+  collection: 'collection'
 }
 
 /** 页面可以勾选的字段。来自现有资源类里已经有编辑框的字段，按字段名合并。 */

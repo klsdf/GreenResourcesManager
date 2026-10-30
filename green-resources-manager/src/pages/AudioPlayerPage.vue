@@ -27,10 +27,9 @@
         </label>
 
         <div v-if="filteredPlaylist.length" class="mp-list">
-          <button
+          <div
             v-for="(track, index) in filteredPlaylist"
-            :key="track.id"
-            type="button"
+            :key="track.id + track.path"
             class="mp-list-item"
             :class="{ active: track.id === currentTrack?.id }"
             @click="playFromFiltered(index)"
@@ -47,7 +46,13 @@
               <span class="mp-list-artist">{{ track.artist }}</span>
             </span>
             <span class="mp-list-duration">{{ formatTime(track.duration) }}</span>
-          </button>
+            <button
+              type="button"
+              class="mp-list-remove"
+              :title="$lt('从播放列表移除')"
+              @click.stop="removeTrack(track)"
+            >×</button>
+          </div>
         </div>
 
         <div v-else class="mp-empty">
@@ -258,15 +263,16 @@
 import { formatDuration } from '../utils/formatters'
 import { findActiveLyricIndex, parseLrc } from '../utils/lrc'
 import { lt } from '../locales/lt'
+import { loadAudioPlaylist, resolvePlaybackQueue, saveAudioPlaylist } from '../utils/audioPlaylist.ts'
 
-const AUDIO_FILE_PATTERN = /\.(mp3|wav|flac|aac|ogg|m4a|wma|opus|ape|alac|aiff|aif|mid|midi)$/i
 const VOLUME_STORAGE_KEY = 'grm-music-volume'
 const MODE_STORAGE_KEY = 'grm-music-mode'
 const PLAY_MODES = ['loop', 'one', 'shuffle']
 
 /**
  * 独立音乐播放器标签页
- * 从页面 URL 接收当前音频，并从所在资源页读取整张播放列表。
+ * 从页面 URL 接收当前要播的歌。
+ * 播放列表只包含已经添加的歌；点播放的那首如果不在列表里，就只播这一首。
  */
 export default {
   name: 'AudioPlayerPage',
@@ -293,6 +299,8 @@ export default {
       coverCache: {},
       /** 快速切歌时用来丢弃已经过期的异步加载结果 */
       loadToken: 0,
+      /** 当前列表是读者存下来的播放列表。临时单曲不写回，避免把存好的列表清掉。 */
+      usingSavedPlaylist: false,
       removeKeydownListener: null
     }
   },
@@ -393,41 +401,60 @@ export default {
   },
   methods: {
     async loadPlaylist() {
-      const pageIds = [this.pageId, 'audio'].filter((id, index, list) => id && list.indexOf(id) === index)
-      const rawResources = []
+      const clicked = await this.findClickedTrack()
+      const saved = await loadAudioPlaylist()
+      const queue = resolvePlaybackQueue(saved, clicked)
+      this.playlist = queue.tracks.map((track) => this.normalizeTrack(track))
+      this.currentIndex = queue.startIndex
+      this.usingSavedPlaylist = queue.fromSaved && queue.tracks.length > 0
+    },
 
+    /**
+     * 找出这次点开的那一首，补上资料库里的艺术家和封面。
+     * 只取匹配的这一条，不用整页音频充当播放列表。
+     * @returns 点开的歌。没有路径时是 null
+     */
+    async findClickedTrack() {
+      if (!this.initialPath && !this.initialId) return null
+      const fallback = this.normalizeTrack({
+        id: this.initialId,
+        name: this.initialTitle || fileNameOf(this.initialPath),
+        resourcePath: this.initialPath
+      })
+      const pageIds = [this.pageId, 'audio'].filter((id, index, list) => id && list.indexOf(id) === index)
       if (window.electronAPI?.sqliteGetPageData) {
         for (const pageId of pageIds) {
           try {
             const result = await window.electronAPI.sqliteGetPageData(pageId)
-            if (result?.ok && Array.isArray(result.data) && result.data.length > 0) {
-              rawResources.push(...result.data)
-              break
+            if (!result?.ok || !Array.isArray(result.data)) continue
+            const match = result.data.find((item) => this.isClickedResource(item))
+            if (match) {
+              const track = this.normalizeTrack(match)
+              if (track.path) return track
             }
           } catch (error) {
-            console.warn('[AudioPlayerPage] 读取页面音频列表失败:', pageId, error)
+            console.warn('[AudioPlayerPage] 读取当前音频失败:', pageId, error)
           }
         }
       }
+      return fallback.path ? fallback : null
+    },
 
-      let tracks = rawResources
-        .filter((item) => AUDIO_FILE_PATTERN.test(String(item.resourcePath || item.filePath || '')))
-        .map((item) => this.normalizeTrack(item))
-
-      if (tracks.length === 0 && this.initialPath) {
-        tracks = [this.normalizeTrack({
-          id: this.initialId,
-          name: this.initialTitle || fileNameOf(this.initialPath),
-          resourcePath: this.initialPath
-        })]
-      }
-
-      this.playlist = tracks
-      this.currentIndex = this.findInitialIndex()
+    /**
+     * 页面数据里的这一条是不是这次点开的歌。
+     * @param item 资料库里的一条音频
+     * @returns 编号或路径对上时为真
+     */
+    isClickedResource(item) {
+      const id = String(item?.id || '')
+      if (this.initialId && id === this.initialId) return true
+      const path = String(item?.resourcePath || item?.filePath || '').replace(/\\/g, '/').toLowerCase()
+      const wanted = this.initialPath.replace(/\\/g, '/').toLowerCase()
+      return Boolean(wanted) && path === wanted
     },
 
     normalizeTrack(item) {
-      const path = String(item.resourcePath || item.filePath || '')
+      const path = String(item.resourcePath || item.filePath || item.path || '')
       const fallbackName = path.split(/[\\/]/).pop() || lt('未知音频')
       return {
         id: String(item.id || path || fallbackName),
@@ -442,22 +469,6 @@ export default {
         playCount: Array.isArray(item.visitedSessions) ? item.visitedSessions.length : 0,
         addedDate: String(item.addedDate || '')
       }
-    },
-
-    findInitialIndex() {
-      if (this.playlist.length === 0) return -1
-      if (this.initialId) {
-        const byId = this.playlist.findIndex((track) => track.id === this.initialId)
-        if (byId !== -1) return byId
-      }
-      if (this.initialPath) {
-        const normalized = this.initialPath.replace(/\\/g, '/').toLowerCase()
-        const byPath = this.playlist.findIndex(
-          (track) => track.path.replace(/\\/g, '/').toLowerCase() === normalized
-        )
-        if (byPath !== -1) return byPath
-      }
-      return 0
     },
 
     async loadCurrent(autoplay) {
@@ -702,6 +713,42 @@ export default {
       this.isPlaying = false
       if (this.currentTrack) {
         this.errorMessage = `${lt('无法播放')}：${this.currentTrack.name}`
+      }
+    },
+
+    /**
+     * 从当前列表拿掉一首歌。
+     * 这份列表是存下来的播放列表时，删除会写回去。只是临时播放的那一首则不动已保存的列表。
+     * @param track 要移除的歌
+     */
+    async removeTrack(track) {
+      const index = this.playlist.findIndex((item) => item.id === track.id && item.path === track.path)
+      if (index < 0) return
+      const removingCurrent = index === this.currentIndex
+      this.playlist.splice(index, 1)
+      if (this.usingSavedPlaylist) {
+        const saved = await saveAudioPlaylist(this.playlist)
+        if (!saved) {
+          this.errorMessage = lt('保存播放列表失败')
+        }
+      }
+      if (this.playlist.length === 0) {
+        this.currentIndex = -1
+        this.usingSavedPlaylist = false
+        this.isPlaying = false
+        const audio = this.$refs.audio
+        if (audio) {
+          audio.pause()
+          audio.removeAttribute('src')
+          audio.load()
+        }
+        return
+      }
+      if (index < this.currentIndex) {
+        this.currentIndex -= 1
+      } else if (removingCurrent) {
+        this.currentIndex = Math.min(index, this.playlist.length - 1)
+        await this.loadCurrent(true)
       }
     },
 
@@ -1010,6 +1057,28 @@ function toFileUrl(filePath) {
 
 .mp-list-item:hover {
   background: var(--mp-panel-strong);
+}
+
+.mp-list-remove {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--mp-muted);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.mp-list-item:hover .mp-list-remove,
+.mp-list-item.active .mp-list-remove {
+  opacity: 1;
+}
+
+.mp-list-remove:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: inherit;
 }
 
 .mp-list-item.active {

@@ -21,5 +21,7 @@ contextBridge.exposeInMainWorld('shellExtract', {
   /** 关闭进度窗口，同时停掉还没完成的解压。 */
   close: () => ipcRenderer.invoke('shell-extract-close'),
   /** 把主窗口带到前面。右键启动时主窗口是藏着的。 */
-  showMain: () => ipcRenderer.invoke('shell-extract-show-main')
+  showMain: () => ipcRenderer.invoke('shell-extract-show-main'),
+  /** 把一段文字放进剪贴板。失败报错时用来复制工具输出。 */
+  copyText: (text) => ipcRenderer.invoke('shell-extract-copy', text)
 })

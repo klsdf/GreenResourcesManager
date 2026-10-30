@@ -8,6 +8,17 @@
       </div>
 
       <div class="sidebar-body">
+        <!-- 文本编码放在左侧，乱码时不用再到底部翻页栏里找 -->
+        <div class="setting-group">
+          <label>{{ $lt('文本编码') }}</label>
+          <select :value="textEncoding" @change="onTextEncodingChange">
+            <option v-for="option in encodingOptions" :key="option.value" :value="option.value">
+              {{ option.value === 'auto' && detectedEncodingLabel ? $lt('自动') + ' · ' + detectedEncodingLabel : $lt(option.label) }}
+            </option>
+          </select>
+          <p class="setting-hint">{{ $lt('乱码时改成 GBK（ANSI）。这个选择只对当前这本小说生效。') }}</p>
+        </div>
+
         <!-- 字号 -->
         <div class="setting-group">
           <label>{{ $lt('字号') }} <span class="value">{{ settings.fontSize }}px</span></label>
@@ -134,9 +145,12 @@
         :initial-page="initialPage"
         :reader-settings="settings"
         :words-per-page="settings.wordsPerPage"
+        :encoding="textEncoding"
+        :show-encoding-panel="false"
         @page-changed="onPageChanged"
         @progress-changed="onProgressChanged"
         @read-mode-changed="onReadModeChanged"
+        @encoding-state="onEncodingState"
       />
 
       <!-- PDF 阅读器 -->
@@ -193,6 +207,18 @@ export default {
       latestPage: 1,
       /** EPUB 上次的内部位置。 */
       initialCfi: '',
+      /** 当前这本 TXT 使用的编码。不放进阅读设置，避免换字号时写成所有小说共用。 */
+      textEncoding: 'auto',
+      /** 自动识别出来的编码名称，例如 GBK。 */
+      detectedEncodingLabel: '',
+      /** 左侧编码下拉的选项。和阅读器内部的列表一致。 */
+      encodingOptions: [
+        { value: 'auto', label: '自动' },
+        { value: 'utf-8', label: 'UTF-8' },
+        { value: 'gb18030', label: 'GBK（ANSI）' },
+        { value: 'big5', label: 'Big5' },
+        { value: 'utf-16le', label: 'UTF-16' }
+      ],
       /** EPUB 目录生成并跳回原位之后才允许记进度，避免开头把上次的位置盖掉。 */
       epubCanSave: false,
       loading: true,
@@ -332,6 +358,25 @@ export default {
      */
     onReadModeChanged(mode) {
       this.setReadMode(mode)
+    },
+    /**
+     * 左侧改了这本小说的编码。阅读器收到后会按新编码重读。
+     * @param event 下拉框变更
+     */
+    onTextEncodingChange(event) {
+      const next = event.target?.value || 'auto'
+      if (next === this.textEncoding) return
+      this.textEncoding = next
+    },
+    /**
+     * 阅读器报上当前编码和自动识别结果，用来刷新左侧下拉框。
+     * @param state 编码、实际识别到的编码和显示名
+     */
+    onEncodingState(state) {
+      this.detectedEncodingLabel = state?.detectedLabel || ''
+      if (state?.encoding && state.encoding !== this.textEncoding) {
+        this.textEncoding = state.encoding
+      }
     },
     applyTheme(idx) {
       const preset = this.themePresets[idx]

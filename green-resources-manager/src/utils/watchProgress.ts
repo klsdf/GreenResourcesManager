@@ -147,8 +147,15 @@ export function mergeWatchPosition(
   if (previous && typeof previous === 'object' && !Array.isArray(previous)) {
     Object.assign(map, previous)
   }
+  const previousEntry = map[key]
+  const previousSeconds = clampWatchSeconds(previousEntry?.seconds)
   map[key] = { seconds, progress, duration }
   merged.playbackByFile = map
+  // 只累计小幅前进。播放器几秒写一次位置，正常观看会落在这个范围内；拖动进度条跨一大段则不计入整季时长。
+  const step = seconds - previousSeconds
+  if (step > 0 && step <= 20) {
+    merged.watchTime = clampWatchSeconds(merged.watchTime) + step
+  }
   return merged
 }
 

@@ -112,6 +112,24 @@ export class VideoFolder extends BaseResources {
 		defaultValue: []
 	})
 
+	/**
+	 * 整季被点开播放的次数。
+	 * 单集只是播放清单，次数记在这一季上，不记在某一集上。
+	 */
+	playCount: ResourceField<number> = new ResourceField<number>({
+		saveable: true,
+		defaultValue: 0
+	})
+
+	/**
+	 * 整季累计观看秒数。
+	 * 播放器每隔几秒上报位置时，只把小幅前进的秒数加进来。快进一大段不算进观看时长。
+	 */
+	watchTime: ResourceField<number> = new ResourceField<number>({
+		saveable: true,
+		defaultValue: 0
+	})
+
 	get lastViewed(): string | null {
 		const arr = this.visitedSessions.value
 		return Array.isArray(arr) && arr.length > 0 ? arr[arr.length - 1] : null
@@ -149,6 +167,8 @@ export class VideoFolder extends BaseResources {
 				: {},
 			videoCount: (this as any).videoCount ?? 0,
 			visitedSessions: Array.isArray(this.visitedSessions.value) ? [...this.visitedSessions.value] : [],
+			playCount: Number(this.playCount.value) || 0,
+			watchTime: Number(this.watchTime.value) || 0,
 			addedDate: this.addedDate.value || '',
 			rating: this.rating.value || 0,
 			comment: this.comment.value || '',
@@ -263,6 +283,18 @@ export class VideoFolder extends BaseResources {
 				label: '视频数量',
 				formatter: undefined,
 				defaultValue: '0'
+			},
+			{
+				field: 'playCount',
+				label: '播放次数',
+				formatter: undefined,
+				defaultValue: '0'
+			},
+			{
+				field: 'watchTime',
+				label: '观看时长',
+				formatter: 'formatPlayTime',
+				defaultValue: '0 分钟'
 			},
 			{
 				field: 'addedDate',

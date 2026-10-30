@@ -521,6 +521,18 @@ export default {
           novelListPageSize: cleanSettings.novel?.listPageSize
         })
         
+        // 播放列表不在这个表单里改。保存前从数据库再读一次，避免用打开设置页时的旧副本把它盖掉。
+        if (window.electronAPI?.sqliteGetSettings) {
+          try {
+            const fresh = await window.electronAPI.sqliteGetSettings()
+            if (Array.isArray(fresh?.settings?.musicPlaylist)) {
+              cleanSettings.musicPlaylist = fresh.settings.musicPlaylist
+            }
+          } catch (playlistError) {
+            console.warn('[SettingsView] 保留播放列表失败:', playlistError)
+          }
+        }
+
         // 保存设置
         const success = await saveManager.saveSettings(cleanSettings)
         

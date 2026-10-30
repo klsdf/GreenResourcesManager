@@ -512,11 +512,39 @@ async function getFileStats(filePath) {
 }
 
 /**
- * 读取文本文件内容
- * @param {string} filePath - 文件路径
- * @returns {Promise<Object>} { success: boolean, content?: string, fileSize?: number, wordCount?: number, encoding?: string, error?: string }
+ * 阅读器可以选择的文本编码。
+ * auto 先认 BOM 和合法 UTF-8，其余按 GB18030。简体 Windows 的 ANSI 就是 GBK，GB18030 能覆盖它。
  */
-async function readTextFile(filePath) {
+const NOVEL_TEXT_ENCODINGS = ['auto', 'utf-8', 'gb18030', 'big5', 'utf-16le']
+
+/**
+ * 把界面或旧记录里的编码收成阅读器认识的值。
+ * GBK、GB2312、ANSI 都落到 gb18030，避免同一种简体编码在列表里出现三份。
+ * @param {unknown} encoding - 调用方传来的编码
+ * @returns {string} auto、utf-8、gb18030、big5 或 utf-16le
+ */
+function normalizeNovelTextEncoding(encoding) {
+  const value = String(encoding || 'auto').trim().toLowerCase().replace(/_/g, '-')
+  if (value === 'gbk' || value === 'gb2312' || value === 'ansi' || value === 'cp936' || value === 'gb-18030') {
+    return 'gb18030'
+  }
+  if (value === 'utf8' || value === 'utf-8') return 'utf-8'
+  if (value === 'unicode' || value === 'utf16' || value === 'utf-16' || value === 'utf16le' || value === 'utf-16le') {
+    return 'utf-16le'
+  }
+  if (value === 'big5' || value === 'big-5') return 'big5'
+  if (NOVEL_TEXT_ENCODINGS.includes(value)) return value
+  return 'auto'
+}
+
+/**
+ * 读取文本文件内容。
+ * 不传编码时按自动识别。GBK 小说不能再固定用 UTF-8 读，否则正文会变成乱码。
+ * @param {string} filePath - 文件路径
+ * @param {string} [encoding] - auto、utf-8、gb18030、big5 或 utf-16le。GBK 会当成 gb18030
+ * @returns {Promise<Object>} { success: boolean, content?: string, fileSize?: number, wordCount?: number, encoding?: string, requestedEncoding?: string, error?: string }
+ */
+async function readTextFile(filePath, encoding) {
   try {
     if (!filePath) {
       return { success: false, error: '文件路径不能为空' }
@@ -531,8 +559,10 @@ async function readTextFile(filePath) {
     const stats = fs.statSync(filePath)
     const fileSize = stats.size
     
-    // 读取文件内容
-    const content = fs.readFileSync(filePath, 'utf8')
+    // 先拿原始字节。直接按 utf8 读会把 GBK 小说解成乱码，后面无法再换编码。
+    const buffer = fs.readFileSync(filePath)
+    const decoded = decodeNovelBuffer(buffer, encoding)
+    const content = decoded.text
     
     // 计算字数（更适合中文文本的统计）
     // 移除空白字符和换行符，然后统计字符数
@@ -543,7 +573,9 @@ async function readTextFile(filePath) {
       filePath: filePath,
       totalChars: content.length,
       cleanChars: wordCount,
-      fileSize: fileSize
+      fileSize: fileSize,
+      encoding: decoded.encoding,
+      requestedEncoding: decoded.requestedEncoding
     })
     
     return {
@@ -551,7 +583,8 @@ async function readTextFile(filePath) {
       content: content,
       fileSize: fileSize,
       wordCount: wordCount,
-      encoding: 'utf-8'
+      encoding: decoded.encoding,
+      requestedEncoding: decoded.requestedEncoding
     }
   } catch (error) {
     console.error('读取文本文件失败:', error)
@@ -575,20 +608,57 @@ function isValidUtf8(buffer) {
 }
 
 /**
- * 把小说文本解码成字符串。
- * 先认 BOM，再认合法 UTF-8，剩下的按 GB18030。这样 GBK 小说也能数出字数。
+ * 判断这串字节更像哪种编码。
+ * 先看 BOM，再看能不能严格当成 UTF-8。中文小说里不合法的 UTF-8 多半是 GBK。
  * @param {Buffer} buffer - 文件内容
- * @returns {string} 解码后的文本
+ * @returns {string} utf-8、utf-16le、utf-16be 或 gb18030
  */
-function decodeNovelText(buffer) {
+function detectNovelTextEncoding(buffer) {
   if (buffer.length >= 3 && buffer[0] === 0xEF && buffer[1] === 0xBB && buffer[2] === 0xBF) {
-    return buffer.subarray(3).toString('utf8')
+    return 'utf-8'
   }
   if (buffer.length >= 2 && buffer[0] === 0xFF && buffer[1] === 0xFE) {
-    return buffer.subarray(2).toString('utf16le')
+    return 'utf-16le'
   }
   if (buffer.length >= 2 && buffer[0] === 0xFE && buffer[1] === 0xFF) {
-    const swapped = Buffer.from(buffer.subarray(2))
+    return 'utf-16be'
+  }
+  if (isValidUtf8(buffer)) return 'utf-8'
+  return 'gb18030'
+}
+
+/**
+ * 按指定编码把字节解成字符串。
+ * 自动识别时先探测；手动指定时就按那个编码解，方便读者在乱码时改一档。
+ * @param {Buffer} buffer - 文件内容
+ * @param {string} encoding - 想用的编码。空值表示自动
+ * @returns {{ text: string, encoding: string, requestedEncoding: string }} 正文、实际用的编码、读者选的编码
+ */
+function decodeNovelBuffer(buffer, encoding) {
+  const requestedEncoding = normalizeNovelTextEncoding(encoding)
+  const actualEncoding = requestedEncoding === 'auto' ? detectNovelTextEncoding(buffer) : requestedEncoding
+  return {
+    text: decodeBufferWithEncoding(buffer, actualEncoding),
+    encoding: actualEncoding,
+    requestedEncoding
+  }
+}
+
+/**
+ * 用一种已经确定的编码解码。
+ * UTF-8 和 UTF-16 会去掉文件开头的 BOM，避免正文第一个字是看不见的标记。
+ * @param {Buffer} buffer - 文件内容
+ * @param {string} encoding - utf-8、gb18030、big5、utf-16le 或 utf-16be
+ * @returns {string} 解码后的文本
+ */
+function decodeBufferWithEncoding(buffer, encoding) {
+  if (encoding === 'utf-16le') {
+    const start = buffer.length >= 2 && buffer[0] === 0xFF && buffer[1] === 0xFE ? 2 : 0
+    return buffer.subarray(start).toString('utf16le')
+  }
+  if (encoding === 'utf-16be') {
+    const start = buffer.length >= 2 && buffer[0] === 0xFE && buffer[1] === 0xFF ? 2 : 0
+    const swapped = Buffer.from(buffer.subarray(start))
     for (let i = 0; i + 1 < swapped.length; i += 2) {
       const byte = swapped[i]
       swapped[i] = swapped[i + 1]
@@ -596,10 +666,24 @@ function decodeNovelText(buffer) {
     }
     return swapped.toString('utf16le')
   }
-  if (isValidUtf8(buffer)) {
-    return buffer.toString('utf8')
+  if (encoding === 'gb18030') {
+    return new TextDecoder('gb18030').decode(buffer)
   }
-  return new TextDecoder('gb18030').decode(buffer)
+  if (encoding === 'big5') {
+    return new TextDecoder('big5').decode(buffer)
+  }
+  const start = buffer.length >= 3 && buffer[0] === 0xEF && buffer[1] === 0xBB && buffer[2] === 0xBF ? 3 : 0
+  return buffer.subarray(start).toString('utf8')
+}
+
+/**
+ * 把小说文本解码成字符串。
+ * 先认 BOM，再认合法 UTF-8，剩下的按 GB18030。这样 GBK 小说也能数出字数。
+ * @param {Buffer} buffer - 文件内容
+ * @returns {string} 解码后的文本
+ */
+function decodeNovelText(buffer) {
+  return decodeNovelBuffer(buffer, 'auto').text
 }
 
 /**
@@ -1043,6 +1127,8 @@ module.exports = {
   getFileProductName,
   getFileStats,
   readTextFile,
+  normalizeNovelTextEncoding,
+  decodeNovelBuffer,
   countNovelWords,
   searchMatchingFiles,
   saveCoverToFolder,

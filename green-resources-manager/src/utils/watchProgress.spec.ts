@@ -42,5 +42,28 @@ describe('视频播放位置', () => {
     const position = readWatchPosition(merged, 'd:/anime/show/02.mkv')
     expect(position.seconds).toBe(12)
     expect(position.progress).toBe(8)
+    expect(merged.watchTime).toBe(12)
+  })
+
+  it('番剧继续播放时把前进的几秒累加到整季时长，快进一大段不计入', () => {
+    const first = mergeWatchPosition(
+      {
+        id: 'f1',
+        resourcePath: 'D:/Anime/Show',
+        watchTime: 12,
+        playbackByFile: {
+          'd:\\anime\\show\\02.mkv': { seconds: 12, progress: 8, duration: 1500 }
+        }
+      },
+      'D:/Anime/Show/02.mkv',
+      { seconds: 18, progress: 10, duration: 1500 }
+    )
+    expect(first.watchTime).toBe(18)
+    const skipped = mergeWatchPosition(
+      first,
+      'D:/Anime/Show/02.mkv',
+      { seconds: 200, progress: 20, duration: 1500 }
+    )
+    expect(skipped.watchTime).toBe(18)
   })
 })

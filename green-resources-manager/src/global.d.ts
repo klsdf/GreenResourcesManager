@@ -229,7 +229,7 @@ declare global {
       readFileAsDataUrl: (filePath: string) => Promise<string | null>
       
       // 文本文件操作
-      readTextFile: (filePath: string) => Promise<{ success: boolean; content?: string; fileSize?: number; wordCount?: number; encoding?: string; error?: string }>
+      readTextFile: (filePath: string, encoding?: string) => Promise<{ success: boolean; content?: string; fileSize?: number; wordCount?: number; encoding?: string; requestedEncoding?: string; error?: string }>
       /** 读取音频同目录下同名的 .lrc 歌词（兼容 UTF-8 / UTF-16 / GBK） */
       readAudioLyrics: (audioPath: string) => Promise<{ success: boolean; content?: string; path?: string; error?: string }>
       /** 统计 txt、md、epub 的字数，不返回正文 */

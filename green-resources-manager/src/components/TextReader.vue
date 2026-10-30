@@ -1,5 +1,25 @@
 <template>
   <div class="text-reader">
+    <!-- 没接到外层左侧栏时，编码放在正文左边。外层已经有阅读设置时由那边显示。 -->
+    <aside v-if="showEncodingPanel" class="encoding-side">
+      <label class="encoding-side-label" for="text-encoding">{{ $lt('文本编码') }}</label>
+      <select
+        id="text-encoding"
+        class="encoding-select"
+        :value="textEncoding"
+        :title="$lt('选择文本编码。乱码时可以改成 GBK（ANSI）')"
+        @change="onEncodingChange"
+      >
+        <option
+          v-for="option in encodingOptions"
+          :key="option.value"
+          :value="option.value"
+        >{{ option.value === 'auto' && detectedEncoding ? $lt('自动') + ' · ' + encodingName(detectedEncoding) : $lt(option.label) }}</option>
+      </select>
+      <p class="encoding-side-hint">{{ $lt('乱码时改成 GBK（ANSI）。这个选择只对当前这本小说生效。') }}</p>
+    </aside>
+
+    <div class="text-reader-main">
     <!-- 文本内容区域。无极模式也在这个容器里滚动，这样父级页面不会跟着正文一起被撑高。 -->
     <div class="text-content" ref="contentEl" :style="contentStyle" @scroll="onContentScroll">
       <div v-if="loading" class="loading-content">
@@ -34,26 +54,11 @@
       <button class="btn-nav" @click="previousPage" :disabled="!canGoPrevious" :title="$lt('上一页')">
         <span class="btn-icon">←</span> {{ $lt('上一页') }} </button>
       <div class="nav-center">
-        <div class="mode-switch" role="group" :aria-label="$lt('阅读方式')">
-          <button
-            type="button"
-            class="mode-btn"
-            data-mode="paged"
-            :class="{ active: readMode === 'paged' }"
-            @click="chooseReadMode('paged')"
-          >{{ $lt('分页模式') }}</button>
-          <button
-            type="button"
-            class="mode-btn"
-            data-mode="infinite"
-            :class="{ active: readMode === 'infinite' }"
-            @click="chooseReadMode('infinite')"
-          >{{ $lt('无极模式') }}</button>
-        </div>
         <span class="page-info"> {{ $lt('第') }} {{ currentPage }} / {{ totalPages }} {{ $lt('页') }} </span>
       </div>
       <button class="btn-nav" @click="nextPage" :disabled="!canGoNext" :title="$lt('下一页')"> {{ $lt('下一页') }} <span class="btn-icon">→</span>
       </button>
+    </div>
     </div>
   </div>
 </template>
@@ -104,9 +109,25 @@ export default {
         backgroundColor: '#ffffff',
         textColor: '#333333'
       })
+    },
+    /**
+     * 外层左侧栏选中的编码。
+     * 空字符串表示外层还没指定，阅读器自己用这本书上次记住的编码。
+     */
+    encoding: {
+      type: String,
+      default: ''
+    },
+    /**
+     * 为真时在正文左边显示编码。
+     * 独立阅读页的左侧已经有阅读设置，这时关掉，避免左右各出现一次。
+     */
+    showEncodingPanel: {
+      type: Boolean,
+      default: true
     }
   },
-  emits: ['page-changed', 'progress-changed', 'read-mode-changed'],
+  emits: ['page-changed', 'progress-changed', 'read-mode-changed', 'encoding-state'],
   setup(props, { emit }) {
     /** 正在读文件时为真，用来挡住空白正文。 */
     const loading = ref(false)
@@ -127,6 +148,26 @@ export default {
      * 外层如果已经带了方式，以它为准，避免和侧边栏各记各的。
      */
     const readMode = ref<TextReadMode>(normalizeTextReadMode(props.readerSettings?.readMode))
+    /**
+     * 这本小说用哪种编码来读。
+     * 自动会识别 UTF-8 和 GBK。乱码时可以改成 GBK（ANSI）。
+     */
+    const textEncoding = ref('auto')
+    /** 这次实际解出来的编码。自动识别时显示在「自动」后面。 */
+    const detectedEncoding = ref('')
+    /**
+     * 阅读器里可以选的编码。
+     * GBK 用 gb18030 解，简体 Windows 的 ANSI 属于这一类。
+     */
+    const encodingOptions = [
+      { value: 'auto', label: '自动' },
+      { value: 'utf-8', label: 'UTF-8' },
+      { value: 'gb18030', label: 'GBK（ANSI）' },
+      { value: 'big5', label: 'Big5' },
+      { value: 'utf-16le', label: 'UTF-16' }
+    ]
+    /** 避免慢的上一次读取盖住刚换的编码。 */
+    let loadToken = 0
     /** 无极模式窗口的第一页。 */
     const mountedStart = ref(1)
     /** 无极模式窗口的最后一页。 */
@@ -203,25 +244,109 @@ export default {
     })
 
     /**
-     * 把阅读方式写进全局设置，下次打开还用这一次的选择。
-     * 只改这一个字段，字号和颜色保持原样。
-     * @param mode 要记住的阅读方式
+     * 把这本书的编码选择收成阅读器认识的值。
+     * 旧记录里的 GBK、ANSI 都当成 gb18030。
+     * @param value 存下来或界面传来的编码
+     * @returns 合法编码。认不出时用自动
      */
-    const persistReadMode = async (mode: TextReadMode) => {
+    const normalizeEncoding = (value: unknown) => {
+      const text = String(value || 'auto').trim().toLowerCase()
+      if (text === 'gbk' || text === 'gb2312' || text === 'ansi') return 'gb18030'
+      if (text === 'utf8') return 'utf-8'
+      return encodingOptions.some((option) => option.value === text) ? text : 'auto'
+    }
+
+    /**
+     * 把实际编码显示成读者能看懂的名字。
+     * @param encoding 解码时用的编码
+     * @returns 界面上的短名字
+     */
+    const encodingName = (encoding: string) => {
+      if (encoding === 'gb18030') return 'GBK'
+      if (encoding === 'big5') return 'Big5'
+      if (encoding === 'utf-16le' || encoding === 'utf-16be') return 'UTF-16'
+      return 'UTF-8'
+    }
+
+    /**
+     * 这本书在本地记住的编码键。
+     * 按路径记，是因为一本是 GBK、另一本是 UTF-8，不能所有小说共用一个编码。
+     * @param filePath 小说文件路径
+     * @returns localStorage 键
+     */
+    const encodingStorageKey = (filePath: string) => {
+      return 'grm-novel-encoding:' + filePath.trim().replace(/\//g, '\\').toLowerCase()
+    }
+
+    /**
+     * 读出这本书上次选的编码。没有记录时用自动识别。
+     */
+    const loadSavedEncoding = () => {
       try {
-        const settings = await saveManager.loadSettings()
-        if (!settings.novel) settings.novel = {}
-        if (!settings.novel.readerSettings) settings.novel.readerSettings = {}
-        settings.novel.readerSettings.readMode = mode
-        await saveManager.saveSettings(settings)
-      } catch (persistError) {
-        console.warn('保存阅读方式失败:', persistError)
+        textEncoding.value = normalizeEncoding(localStorage.getItem(encodingStorageKey(props.filePath)))
+      } catch (storageError) {
+        console.warn('读取小说编码失败:', storageError)
+        textEncoding.value = 'auto'
       }
     }
 
     /**
+     * 记住这本书的编码，下次打开不用再选。
+     * @param encoding 读者选的编码
+     */
+    const saveEncoding = (encoding: string) => {
+      try {
+        localStorage.setItem(encodingStorageKey(props.filePath), encoding)
+      } catch (storageError) {
+        console.warn('保存小说编码失败:', storageError)
+      }
+    }
+
+    /**
+     * 把当前编码和识别结果交给外层左侧栏。
+     * 自动识别出 GBK 时，左侧才能写成「自动 · GBK」。
+     */
+    const publishEncoding = () => {
+      emit('encoding-state', {
+        encoding: textEncoding.value,
+        detected: detectedEncoding.value,
+        detectedLabel: detectedEncoding.value ? encodingName(detectedEncoding.value) : ''
+      })
+    }
+
+    /**
+     * 换成另一种编码并重读。值和现在一样时不重新加载。
+     * @param value 界面传来的编码
+     */
+    const applyEncoding = (value: unknown) => {
+      const next = normalizeEncoding(value)
+      if (next === textEncoding.value) return
+      textEncoding.value = next
+      saveEncoding(next)
+      publishEncoding()
+      if (props.filePath) void loadContent()
+    }
+
+    /**
+     * 读者换了编码后按新编码重读这本书。
+     * 页码先留着，读完再按新的总页数收一收。
+     * @param event 下拉框的变更事件
+     */
+    const onEncodingChange = (event: Event) => {
+      applyEncoding((event.target as HTMLSelectElement | null)?.value)
+    }
+
+    /**
+     * 左侧阅读设置里改了编码时，跟底部原来的下拉框走同一条路。
+     */
+    watch(() => props.encoding, (value) => {
+      if (value == null || value === '') return
+      applyEncoding(value)
+    })
+
+    /**
      * 加载文本内容。
-     * 全文读入后只按当前页或当前窗口切片显示。
+     * 全文读入后只按当前页或当前窗口切片显示。编码用当前选择，默认自动识别 GBK 和 UTF-8。
      */
     const loadContent = async () => {
       if (!props.filePath) {
@@ -229,14 +354,17 @@ export default {
         return
       }
 
+      const token = ++loadToken
       try {
         loading.value = true
         error.value = null
-        console.log('正在加载文本内容:', props.filePath)
+        console.log('正在加载文本内容:', props.filePath, textEncoding.value)
 
         if (window.electronAPI && window.electronAPI.readTextFile) {
-          const result = await window.electronAPI.readTextFile(props.filePath)
+          const result = await window.electronAPI.readTextFile(props.filePath, textEncoding.value)
+          if (token !== loadToken) return
           if (result.success && result.content) {
+            detectedEncoding.value = result.encoding || ''
             novelContent.value = result.content
             totalPages.value = Math.max(1, Math.ceil(novelContent.value.length / wordsPerPage.value))
             console.log('文本内容加载成功，总页数:', totalPages.value)
@@ -254,6 +382,7 @@ export default {
             }
             updateReadingProgress()
           } else {
+            detectedEncoding.value = ''
             error.value = result.error || '加载失败'
             novelContent.value = ''
           }
@@ -262,11 +391,15 @@ export default {
           novelContent.value = ''
         }
       } catch (err: any) {
+        if (token !== loadToken) return
         console.error('加载文本内容失败:', err)
         error.value = err.message || '加载失败'
         novelContent.value = ''
       } finally {
-        loading.value = false
+        if (token === loadToken) {
+          loading.value = false
+          publishEncoding()
+        }
       }
     }
 
@@ -508,19 +641,6 @@ export default {
     }
 
     /**
-     * 切换阅读方式。
-     * 分页仍是一次一页；无极从当前页向后挂一段，可以接着往下滚。
-     * @param mode 用户点的方式
-     */
-    const chooseReadMode = (mode: TextReadMode) => {
-      const next = normalizeTextReadMode(mode)
-      if (next === readMode.value) return
-      readMode.value = next
-      void persistReadMode(next)
-      emit('read-mode-changed', next)
-    }
-
-    /**
      * 方式变了之后重铺内容。
      * 正文还没读出来时先只记下方式，等加载完再铺。
      */
@@ -573,6 +693,7 @@ export default {
     // 监听 filePath 变化
     watch(() => props.filePath, () => {
       currentPage.value = props.initialPage
+      loadSavedEncoding()
       loadContent()
     })
 
@@ -607,6 +728,7 @@ export default {
 
     onMounted(async () => {
       await loadGlobalSettings()
+      loadSavedEncoding()
       await loadContent()
     })
 
@@ -628,12 +750,16 @@ export default {
       textStyle,
       contentStyle,
       readMode,
+      textEncoding,
+      detectedEncoding,
+      encodingOptions,
+      encodingName,
       contentEl,
       loadContent,
+      onEncodingChange,
       previousPage,
       nextPage,
       updateReadingProgress,
-      chooseReadMode,
       onContentScroll
     }
   }
@@ -643,12 +769,43 @@ export default {
 <style scoped>
 .text-reader {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   flex: 1;
   height: 100%;
   min-height: 0;
   overflow: hidden;
   background: var(--bg-primary);
+}
+
+.encoding-side {
+  width: 168px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 12px;
+  border-right: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.encoding-side-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.encoding-side-hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.text-reader-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .text-content {
@@ -681,31 +838,16 @@ export default {
   min-width: 0;
 }
 
-.mode-switch {
-  display: inline-flex;
+.encoding-select {
+  width: 100%;
+  height: 32px;
   border: 1px solid var(--border-color);
-  border-radius: 999px;
-  overflow: hidden;
+  border-radius: 4px;
   background: var(--bg-primary);
-}
-
-.mode-btn {
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  padding: 4px 12px;
-  cursor: pointer;
+  color: var(--text-primary);
+  padding: 0 8px;
   font-size: 12px;
-  line-height: 1.4;
-}
-
-.mode-btn.active {
-  background: var(--accent-color);
-  color: var(--text-on-accent, #1a1a1a);
-}
-
-.mode-btn:hover:not(.active) {
-  background: var(--bg-tertiary);
+  cursor: pointer;
 }
 
 .btn-nav {

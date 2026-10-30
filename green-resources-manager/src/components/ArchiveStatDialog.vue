@@ -4,7 +4,7 @@
   最上方的提醒一直放着，因为这个入口是用来补上使用软件之前的记录，不是拿来反复改存档的。
 -->
 <template>
-  <div v-if="visible" class="archive-overlay" @click.self="close">
+  <div v-if="visible" class="archive-overlay" @mousedown="handleOverlayMouseDown">
     <div class="archive-dialog" role="dialog" aria-modal="true">
       <div class="archive-header">
         <h3>{{ $lt('修改数据') }}</h3>
@@ -137,6 +137,15 @@ function loadForm() {
  */
 function close() {
   emit('close')
+}
+
+/**
+ * 只在遮罩上按下时关闭。
+ * 在输入框里按下再拖到外面松开，点击会落在遮罩上。若听 click，松手就会把没保存的修改关掉。
+ * @param event 鼠标按下事件
+ */
+function handleOverlayMouseDown(event: MouseEvent) {
+  if (event.target === event.currentTarget) close()
 }
 
 /**

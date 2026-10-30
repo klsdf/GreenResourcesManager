@@ -245,7 +245,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectNovelFile: () => ipcRenderer.invoke('select-novel-file'),
   
   // 读取文本文件内容
-  readTextFile: (filePath) => ipcRenderer.invoke('read-text-file', filePath),
+  readTextFile: (filePath, encoding) => ipcRenderer.invoke('read-text-file', filePath, encoding),
   // 读取音频同目录下的同名 .lrc 歌词
   readAudioLyrics: (audioPath) => ipcRenderer.invoke('read-audio-lyrics', audioPath),
   // 只统计小说字数，不把整本书内容传回页面

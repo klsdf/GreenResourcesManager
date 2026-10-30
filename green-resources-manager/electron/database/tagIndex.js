@@ -27,7 +27,8 @@ const TAG_FIELDS = {
   website: ['tags'],
   software: ['tags'],
   singleImage: ['tags'],
-  other: ['tags']
+  other: ['tags'],
+  collection: ['tags']
 }
 
 /** 逻辑资源类型 → 数据库物理表名 */
@@ -41,7 +42,8 @@ const TYPE_TO_TABLE = {
   website: 'website',
   software: 'software',
   singleImage: 'singleImage',
-  other: 'other'
+  other: 'other',
+  collection: 'collection'
 }
 
 /** 物理表名 → 逻辑资源类型 */

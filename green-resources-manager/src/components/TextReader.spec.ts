@@ -65,17 +65,19 @@ describe('文本阅读器无极模式', () => {
     expect(pages[pages.length - 1].attributes('data-page')).toBe(String(25 + MAX_MOUNTED_TEXT_PAGES - 1))
   })
 
-  it('从分页切到无极后，窗口从当前页开始，并且会记住这个选择', async () => {
+  it('左侧改成无极后，窗口从当前页开始，底部不再放模式按钮', async () => {
     const wrapper = await mountReader()
-    await wrapper.find('[data-mode="infinite"]').trigger('click')
+    expect(wrapper.find('[data-mode="infinite"]').exists()).toBe(false)
+
+    await wrapper.setProps({
+      readerSettings: { readMode: 'infinite', fontSize: 16, lineHeight: 1.6, fontFamily: 'sans-serif', backgroundColor: '#fff', textColor: '#333' }
+    })
     await flushPromises()
 
     const pages = wrapper.findAll('[data-page]')
     expect(pages).toHaveLength(MAX_MOUNTED_TEXT_PAGES)
     expect(pages[0].attributes('data-page')).toBe('1')
     expect(pages[pages.length - 1].attributes('data-page')).toBe(String(MAX_MOUNTED_TEXT_PAGES))
-    expect(saveSettings).toHaveBeenCalled()
-    const saved = saveSettings.mock.calls.at(-1)?.[0]
-    expect(saved.novel.readerSettings.readMode).toBe('infinite')
+    expect(wrapper.text()).toContain('1 / 40')
   })
 })

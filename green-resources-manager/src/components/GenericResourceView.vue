@@ -38,6 +38,10 @@
       @dragenter="handleDragEnter"
       @dragleave="handleDragLeave"
     >
+      <div v-if="currentCollectionId" class="collection-bar">
+        <button type="button" class="collection-bar__back" @click="leaveCollection">返回</button>
+        <span class="collection-bar__crumb">{{ pageTitle }} / {{ currentCollectionName }}</span>
+      </div>
       <!-- 使用 FunGrid 组件进行布局 -->
       <FunGrid
         v-if="displayMode !== 'list' && paginatedItems.length > 0"
@@ -63,7 +67,9 @@
           :is-running="isResourceRunning(item)"
           :is-multi-select-mode="isMultiSelectMode"
           :is-selected="isItemSelected(item)"
-          @click="() => (this as any).showDetail(item)"
+          :note="membershipNote(item)"
+          :fallback-cover="collectionCover(item)"
+          @click="() => (this as any).openListedItem(item)"
           @contextmenu.prevent="handleContextMenu($event, item)"
           @action="handleResourceAction"
           @toggle-select="() => toggleSelectItem(item)"
@@ -77,7 +83,8 @@
         :file-exists-for="getFileExists"
         :is-multi-select-mode="isMultiSelectMode"
         :is-item-selected="isItemSelected"
-        @click="(item: any) => (this as any).showDetail(item)"
+        :note-for="membershipNote"
+        @click="(item: any) => (this as any).openListedItem(item)"
         @contextmenu="handleContextMenu"
         @action="handleResourceAction"
         @toggle-select="toggleSelectItem"
@@ -154,7 +161,7 @@
       :visible="showEditDialog"
       mode="edit"
       :resource-class="editResourceClass"
-      :enabled-field-keys="pageFieldKeys"
+      :enabled-field-keys="editEnabledFieldKeys"
       :page-field-defs="pageFieldDefs"
       :resource-data="editForm"
       :is-electron-environment="isElectronEnvironment"
@@ -318,6 +325,74 @@
       @confirm="handleBatchDeleteConfirm"
     />
     
+    <div v-if="showCreateCollectionDialog" class="modal-overlay" @click="closeCreateCollectionDialog">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>创建合集</h3>
+          <button class="btn-close" @click="closeCreateCollectionDialog">✕</button>
+        </div>
+        <div class="modal-body">
+          <label class="collection-field">
+            <span>合集名称</span>
+            <input v-model="newCollectionName" type="text" class="collection-field__input" placeholder="例如：某一季、某一系列" @keyup.enter="confirmCreateCollection">
+          </label>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" @click="closeCreateCollectionDialog">取消</button>
+          <button class="btn-confirm" @click="confirmCreateCollection">创建并进入</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showMemberPicker" class="modal-overlay" @click="closeMemberPicker">
+      <div class="modal-content collection-picker" @click.stop>
+        <div class="modal-header">
+          <h3>加入已有资源</h3>
+          <button class="btn-close" @click="closeMemberPicker">✕</button>
+        </div>
+        <div class="modal-body">
+          <input v-model="memberPickerQuery" type="text" class="collection-field__input" placeholder="搜索本页资源">
+          <p class="collection-picker__hint">这里只列出还没放进当前合集的资源。已经在别的合集里的，加进来后会从那边移出。</p>
+          <div class="collection-picker__list">
+            <label v-for="candidate in memberPickerCandidates" :key="candidate.id" class="collection-picker__row">
+              <input type="checkbox" :checked="memberPickerSelected.has(candidate.id)" @change="toggleMemberPicker(candidate.id)">
+              <span>{{ candidate.name }}</span>
+              <span v-if="candidate.ownerName" class="collection-picker__owner">当前在「{{ candidate.ownerName }}」</span>
+            </label>
+            <p v-if="memberPickerCandidates.length === 0" class="collection-picker__empty">没有可以加入的资源</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" @click="closeMemberPicker">取消</button>
+          <button class="btn-confirm" @click="confirmAddMembers">加入</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showCollectionPicker" class="modal-overlay" @click="closeCollectionPicker">
+      <div class="modal-content collection-picker" @click.stop>
+        <div class="modal-header">
+          <h3>加入合集</h3>
+          <button class="btn-close" @click="closeCollectionPicker">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="collection-picker__list">
+            <button
+              v-for="collection in collectionChoices"
+              :key="collection.id"
+              type="button"
+              class="collection-picker__choice"
+              @click="confirmAddSelectionToCollection(collection.id)"
+            >{{ collection.name }}</button>
+            <p v-if="collectionChoices.length === 0" class="collection-picker__empty">还没有合集。先在工具栏创建。</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" @click="closeCollectionPicker">取消</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 强制结束程序确认对话框 -->
     <div v-if="showTerminateConfirmDialog" class="modal-overlay" @click="closeTerminateConfirmDialog">
       <div class="modal-content" @click.stop>
@@ -400,6 +475,8 @@ import { executeActionHandler, getActionHandler, isComicArchivePath, type Action
 import { useGameRunningStore } from '../stores/game-running'
 import { BaseResources } from '@resources/base/ResourcesDataBase.ts'
 import notify from '../utils/NotificationService.ts'
+import { lt } from '../locales/lt.ts'
+import { addTrackToSavedPlaylist, normalizePlaylistTrack } from '../utils/audioPlaylist.ts'
 import saveManager from '../utils/SaveManager.ts'
 import { calculateAndUpdateResourceSize, calculateResourceSizesBatch, type FolderSizeCache } from '../utils/ResourceSizeService.ts'
 import { detectGameEngine } from '../utils/GameEngineDetector.ts'
@@ -420,6 +497,8 @@ import type { FilterItem } from '../types/filter'
 import coverManager from '../utils/CoverManager.ts'
 import { fingerprintFileSize, fingerprintKindForResource, fingerprintPageCount, isSameFingerprintIdentity, readFingerprint, writeFingerprint } from '../utils/resourceFingerprint.ts'
 import { cardTypeForResource, classForKind, collectFieldCatalog, defaultAcceptedKindIds, extensionsForSearch, findBasicKind, folderImportOptions, getResourceClassBySavedType, matchAcceptedKind, savedTypeOfClass } from '../configs/resources/resourceKindCatalog'
+import { Collection } from '@resources/collection.ts'
+import { indexMembership, isCollectionRecord, listCollectionScope, memberIdsOf, resourceIdOf as collectionResourceId, writeMemberIds } from '../utils/collectionScope'
 import {
   buildSameResourceDescriptor,
   matchesSameResource,
@@ -658,6 +737,9 @@ export default defineComponent({
     const instantiateSavedResource = (data: any) => {
       const savedType = data?.resourceType || data?.resource_type
       const matchedClass = getResourceClassBySavedType(savedType) || ResourceClass
+      if (String(savedType || '').trim().toLowerCase() === 'collection') {
+        return Collection.fromJSON(data)
+      }
       return matchedClass.fromJSON(data)
     }
 
@@ -695,6 +777,65 @@ export default defineComponent({
 
     // 响应式数据
     const items = ref<any[]>([])
+    /** 当前进入的合集 id。空字符串表示还在页面根目录。 */
+    const currentCollectionId = ref('')
+    /** 创建合集时填写的名称。 */
+    const newCollectionName = ref('')
+    /** 是否显示创建合集的名称框。 */
+    const showCreateCollectionDialog = ref(false)
+    /** 是否显示「加入已有资源」。 */
+    const showMemberPicker = ref(false)
+    /** 加入已有资源时的搜索词。 */
+    const memberPickerQuery = ref('')
+    /** 加入已有资源时勾中的 id。 */
+    const memberPickerSelected = ref<Set<string>>(new Set())
+    /** 多选之后选择要放进哪个合集。 */
+    const showCollectionPicker = ref(false)
+
+    /**
+     * 把一条资源放进指定合集，并从同一页的其他合集里移出。
+     * 一个资源同一页只属于一个合集，所以后加入的合集会把旧归属清掉。
+     * @param collectionId 目标合集
+     * @param memberId 资源 id
+     */
+    const moveResourceIntoCollection = (collectionId: string, memberId: string) => {
+      if (!collectionId || !memberId || collectionId === memberId) return
+      for (const item of items.value) {
+        if (!isCollectionRecord(item)) continue
+        const id = collectionResourceId(item)
+        const members = memberIdsOf(item).filter(existing => existing !== memberId)
+        if (id === collectionId) {
+          writeMemberIds(item, [...members, memberId])
+        } else if (members.length !== memberIdsOf(item).length) {
+          writeMemberIds(item, members)
+        }
+      }
+    }
+
+    /**
+     * 正在看某个合集时，新加进本页的资源直接成为它的成员。
+     * 这样在合集里面拖入或添加，不会跑回根目录才看得见。
+     * @param resource 刚放进列表的资源
+     */
+    const rememberInCurrentCollection = (resource: any) => {
+      if (!currentCollectionId.value || isCollectionRecord(resource)) return
+      moveResourceIntoCollection(currentCollectionId.value, collectionResourceId(resource))
+    }
+
+    /**
+     * 资源被删掉时，从所有合集名单里去掉它。
+     * 删的是合集本身时，成员留在页面上，只是不再归组。
+     * @param resourceId 被删除的 id
+     */
+    const detachDeletedResource = (resourceId: string) => {
+      if (currentCollectionId.value === resourceId) currentCollectionId.value = ''
+      for (const item of items.value) {
+        if (!isCollectionRecord(item)) continue
+        const members = memberIdsOf(item)
+        if (!members.includes(resourceId)) continue
+        writeMemberIds(item, members.filter(id => id !== resourceId))
+      }
+    }
     const isElectronEnvironment = ref(!!(typeof window !== 'undefined' && (window as any).electronAPI))
     const searchQuery = ref('')
     const sortBy = ref('name-asc')
@@ -805,6 +946,7 @@ export default defineComponent({
       const SavedClass = getResourceClassBySavedType(saved.resourceType) || ResourceClass
       const resource = SavedClass.fromJSON(saved)
       items.value.push(resource)
+      rememberInCurrentCollection(resource)
       return resource
     }
 
@@ -1098,6 +1240,7 @@ export default defineComponent({
             
             // 添加到列表
           items.value.push(resource)
+          rememberInCurrentCollection(resource)
           if (adoptedResourceId) claimedResourceIds.add(adoptedResourceId)
           addedCount++
         }
@@ -1179,6 +1322,11 @@ export default defineComponent({
       
       if (!isElectronEnvironment.value || !window.electronAPI || !window.electronAPI.sqliteSavePageResources) {
         throw new Error('不在 Electron 环境或数据库 API 不可用，无法保存')
+      }
+      for (const item of items.value) {
+        if (!isCollectionRecord(item)) continue
+        const alive = new Set(items.value.filter(entry => !isCollectionRecord(entry)).map(collectionResourceId))
+        writeMemberIds(item, memberIdsOf(item).filter(id => alive.has(id)))
       }
       const saveableData = items.value.map(item => BaseResources.composeSaveData(item, (item as any).getSaveData()))
       // 先收成纯 JSON。响应式代理直接传给主进程时无法克隆，番剧详情上的视频列表就会让整次保存失败。
@@ -1512,6 +1660,7 @@ export default defineComponent({
 
       try {
         for (const itemId of selectedItems.value) {
+          detachDeletedResource(String(itemId))
           const index = items.value.findIndex((i: any) => (i.id?.value || i.id) === itemId)
           if (index > -1) {
             items.value.splice(index, 1)
@@ -1533,11 +1682,15 @@ export default defineComponent({
 
     const contextMenuItems = computed(() => {
       if (isMultiSelectMode.value) {
-        return [
+        const batchItems = [
           { key: 'batchAddTag', icon: '🏷️', label: '批量增加tag' },
           { key: 'batchDeleteTag', icon: '🏷️', label: '批量删除tag' },
           { key: 'batchDelete', icon: '🗑️', label: '批量删除文件' }
         ]
+        if (currentCollectionId.value) {
+          return [{ key: 'removeFromCollection', icon: '📤', label: '移出合集' }, ...batchItems]
+        }
+        return [{ key: 'addToCollection', icon: '📁', label: '加入合集' }, ...batchItems]
       } else {
         const menuClass = contextMenuTarget.value?.constructor || ResourceClass
         const resourcePath = BaseResources.extractPrimitiveValue(
@@ -1548,6 +1701,7 @@ export default defineComponent({
         const menuItems = (menuClass.contextMenuItems || []).filter((item: { onlyComicArchive?: boolean }) => {
           return !item.onlyComicArchive || showComicArchiveActions
         })
+        if (isCollectionRecord(contextMenuTarget.value)) return menuItems
         return [...menuItems, { key: 'scraper', icon: '📥', label: '刮削' }]
       }
     })
@@ -1708,6 +1862,10 @@ export default defineComponent({
 
     // 处理资源操作（根据 actionConfig 启动资源；可选 options.handlerName 指定要执行的 handler，如 'launchWithLocale'）
     const handleResourceAction = async (resource: any, options?: { handlerName?: string }) => {
+      if (isCollectionRecord(resource)) {
+        openListedItem(resource)
+        return
+      }
       // 从资源实例获取实际的资源类型
       const actualResourceType = BaseResources.extractPrimitiveValue(
         resource.resourceType?.value || resource.resourceType
@@ -2435,6 +2593,245 @@ export default defineComponent({
       emit('filter-data-updated', filterComposable.getFilterData())
     }
 
+    /**
+     * 侧栏是否勾了筛选。
+     * 有搜索词或筛选时，根目录要把合集里的资源也列出来，否则收进去就搜不到。
+     */
+    const collectionPunchThrough = computed(() => {
+      if (String(searchQuery.value || '').trim()) return true
+      const states = filterComposable.filterStates
+      if (!states) return false
+      return Object.values(states).some((state: any) => {
+        const selected = state?.selected?.value || []
+        const excluded = state?.excluded?.value || []
+        return selected.length > 0 || excluded.length > 0
+      })
+    })
+
+    /**
+     * 当前这一屏的卡片。
+     * 分页和空状态都看这份，而不是库里的全部资源。
+     */
+    const listedItems = computed(() => listCollectionScope(
+      items.value,
+      filteredItems.value || [],
+      currentCollectionId.value,
+      collectionPunchThrough.value && !currentCollectionId.value
+    ))
+
+    /** 页面名称，面包屑用。 */
+    const pageTitle = computed(() => pageConfig.value?.name || '资源')
+
+    /** 正在看的合集名称。合集被删掉后回到根目录。 */
+    const currentCollectionName = computed(() => {
+      const current = items.value.find(item => collectionResourceId(item) === currentCollectionId.value)
+      if (!current || !isCollectionRecord(current)) return ''
+      return String(BaseResources.extractPrimitiveValue(current.name?.value ?? current.name) || '未命名合集')
+    })
+
+    /**
+     * 搜索打穿时，标出这条资源属于哪个合集。人在合集里面时不再重复标注。
+     * @param item 卡片上的资源
+     */
+    const membershipNote = (item: any) => {
+      if (!collectionPunchThrough.value || currentCollectionId.value || isCollectionRecord(item)) return ''
+      const name = indexMembership(items.value).nameByMember.get(collectionResourceId(item))
+      return name ? `属于「${name}」` : ''
+    }
+
+    /**
+     * 合集没设封面时，用第一个成员的封面。
+     * @param item 合集或普通资源
+     */
+    const collectionCover = (item: any) => {
+      if (!isCollectionRecord(item)) return ''
+      const own = String(BaseResources.extractPrimitiveValue(item.coverPath?.value ?? item.coverPath) || '')
+      if (own) return ''
+      const firstId = memberIdsOf(item)[0]
+      if (!firstId) return ''
+      const member = items.value.find(entry => collectionResourceId(entry) === firstId)
+      if (!member) return ''
+      const coverFields = [member.coverPath, member.thumbnail, member.cover, member.thumbnailPath]
+      for (const field of coverFields) {
+        const value = String(BaseResources.extractPrimitiveValue(field) || '').trim()
+        if (value) return value
+      }
+      return ''
+    }
+
+    /**
+     * 单击卡片。合集进入二级目录，其他资源仍打开详情。
+     * @param item 被点的卡片
+     */
+    const openListedItem = (item: any) => {
+      if (isCollectionRecord(item)) {
+        currentCollectionId.value = collectionResourceId(item)
+        searchQuery.value = ''
+        return
+      }
+      if ((resourcePage as any).showDetail) {
+        (resourcePage as any).showDetail(item)
+      }
+    }
+
+    /** 从合集返回页面根目录。 */
+    const leaveCollection = () => {
+      currentCollectionId.value = ''
+    }
+
+    /** 打开创建合集的名称框。已经在合集里面时不能再创建下一层。 */
+    const openCreateCollectionDialog = () => {
+      if (currentCollectionId.value) return
+      newCollectionName.value = ''
+      showCreateCollectionDialog.value = true
+    }
+
+    const closeCreateCollectionDialog = () => {
+      showCreateCollectionDialog.value = false
+    }
+
+    /**
+     * 创建合集并进入它。
+     * 合集先是空的，成员从本页已有资源里加。
+     */
+    const confirmCreateCollection = async () => {
+      const name = newCollectionName.value.trim()
+      if (!name) {
+        notify.toast('warning', '创建合集', '请先填写合集名称')
+        return
+      }
+      const collection = new Collection()
+      collection.name.value = name
+      collection.addedDate.value = new Date().toISOString()
+      items.value.unshift(collection)
+      showCreateCollectionDialog.value = false
+      currentCollectionId.value = collectionResourceId(collection)
+      try {
+        await saveData()
+      } catch (error: any) {
+        notify.toast('error', '创建合集', error?.message || '保存失败')
+      }
+    }
+
+    /** 本页可以放进当前合集的资源。 */
+    const memberPickerCandidates = computed(() => {
+      const current = items.value.find(item => collectionResourceId(item) === currentCollectionId.value)
+      const already = new Set(memberIdsOf(current))
+      const owners = indexMembership(items.value)
+      const query = memberPickerQuery.value.trim().toLowerCase()
+      return items.value
+        .filter(item => !isCollectionRecord(item))
+        .map(item => {
+          const id = collectionResourceId(item)
+          const name = String(BaseResources.extractPrimitiveValue(item.name?.value ?? item.name) || '未命名')
+          return { id, name, ownerName: owners.nameByMember.get(id) || '' }
+        })
+        .filter(item => item.id && !already.has(item.id))
+        .filter(item => !query || item.name.toLowerCase().includes(query))
+    })
+
+    const openMemberPicker = () => {
+      if (!currentCollectionId.value) return
+      memberPickerQuery.value = ''
+      memberPickerSelected.value = new Set()
+      showMemberPicker.value = true
+    }
+
+    const closeMemberPicker = () => {
+      showMemberPicker.value = false
+    }
+
+    /**
+     * 勾选或取消一条待加入的资源。
+     * @param id 资源 id
+     */
+    const toggleMemberPicker = (id: string) => {
+      const next = new Set(memberPickerSelected.value)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      memberPickerSelected.value = next
+    }
+
+    /** 把勾中的资源放进当前合集。 */
+    const confirmAddMembers = async () => {
+      const collectionId = currentCollectionId.value
+      if (!collectionId || memberPickerSelected.value.size === 0) {
+        closeMemberPicker()
+        return
+      }
+      for (const memberId of memberPickerSelected.value) {
+        moveResourceIntoCollection(collectionId, memberId)
+      }
+      closeMemberPicker()
+      try {
+        await saveData()
+        notify.toast('success', '已加入合集', `加入了 ${memberPickerSelected.value.size} 个资源`)
+      } catch (error: any) {
+        notify.toast('error', '加入合集', error?.message || '保存失败')
+      }
+    }
+
+    /** 根目录上已有的合集，供多选加入时挑选。 */
+    const collectionChoices = computed(() => {
+      return items.value.filter(isCollectionRecord).map(item => ({
+        id: collectionResourceId(item),
+        name: String(BaseResources.extractPrimitiveValue(item.name?.value ?? item.name) || '未命名合集')
+      })).filter(item => item.id)
+    })
+
+    const closeCollectionPicker = () => {
+      showCollectionPicker.value = false
+    }
+
+    /** 多选之后打开合集名单。没有合集时先提示去创建。 */
+    const openCollectionPicker = () => {
+      if (selectedItems.value.size === 0) {
+        notify.toast('warning', '加入合集', '请先选择资源')
+        return
+      }
+      if (collectionChoices.value.length === 0) {
+        notify.toast('warning', '加入合集', '还没有合集，请先创建')
+        return
+      }
+      showCollectionPicker.value = true
+    }
+
+    /**
+     * 把当前多选放进一个合集。合集自己不能成为成员。
+     * @param collectionId 目标合集
+     */
+    const confirmAddSelectionToCollection = async (collectionId: string) => {
+      let count = 0
+      for (const id of selectedItems.value) {
+        const item = items.value.find(entry => collectionResourceId(entry) === id)
+        if (!item || isCollectionRecord(item)) continue
+        moveResourceIntoCollection(collectionId, id)
+        count++
+      }
+      closeCollectionPicker()
+      if (count === 0) return
+      try {
+        await saveData()
+        notify.toast('success', '已加入合集', `加入了 ${count} 个资源`)
+      } catch (error: any) {
+        notify.toast('error', '加入合集', error?.message || '保存失败')
+      }
+    }
+
+    /** 把多选的资源从当前合集移回根目录，不删除资源。 */
+    const removeSelectionFromCollection = async () => {
+      const current = items.value.find(item => collectionResourceId(item) === currentCollectionId.value)
+      if (!current) return
+      const removing = selectedItems.value
+      writeMemberIds(current, memberIdsOf(current).filter(id => !removing.has(id)))
+      try {
+        await saveData()
+        notify.toast('success', '已移出合集', '这些资源回到了页面根目录')
+      } catch (error: any) {
+        notify.toast('error', '移出合集', error?.message || '保存失败')
+      }
+    }
+
     const resourcePage = createResourcePage({
       pageConfig: {
         pageType: pageConfig.value?.id || 'games',
@@ -2442,7 +2839,7 @@ export default defineComponent({
         defaultPageSize: pageConfig.value?.defaultPageSize || 20
       },
       items: items,
-      filteredItems: filteredItems,
+      filteredItems: listedItems,
       searchQuery: searchQuery,
       sortBy: sortBy,
       crudConfig: {
@@ -2483,6 +2880,7 @@ export default defineComponent({
           }
           
           items.value.push(newItem)
+          rememberInCurrentCollection(newItem)
           
           // 保存数据
           await saveData()
@@ -2547,6 +2945,7 @@ export default defineComponent({
         onDelete: async (id: string) => {
           const index = items.value.findIndex((i: any) => (i.id?.value || i.id) === id)
           if (index > -1) {
+            detachDeletedResource(id)
             items.value.splice(index, 1)
             
             // 保存数据
@@ -2604,6 +3003,76 @@ export default defineComponent({
       const formId = form?.id?.value || form?.id
       const item = items.value.find((entry: any) => (entry.id?.value || entry.id) === formId)
       return item?.constructor || addResourceClass.value || ResourceClass
+    })
+
+    /**
+     * 编辑合集时只留名称、简介、标签和封面。
+     * 页面上的引擎、时长、路径是成员自己的字段，不应该出现在合集上。
+     */
+    const editEnabledFieldKeys = computed(() => {
+      const form: any = resourcePage.editForm.value
+      if (isCollectionRecord(form)) return ['name', 'description', 'tags', 'coverPath']
+      return pageFieldKeys.value
+    })
+
+    /**
+     * 工具栏在「添加」后面放「创建合集」。
+     * 进入合集后改成返回和加入已有资源，不再创建下一层。
+     */
+    const collectionToolbar = computed(() => {
+      const base = resourcePage.toolbarConfig || { items: [] }
+      const itemsInBar = Array.isArray(base.items) ? [...base.items] : []
+      if (currentCollectionId.value) {
+        const withoutCreate = itemsInBar.filter((item: any) => item?.action !== 'showCreateCollectionDialog')
+        return {
+          ...base,
+          items: [
+            { type: 'button', label: '返回上一级', action: 'leaveCollection', buttonType: 'secondary' },
+            { type: 'button', label: '加入已有资源', action: 'showMemberPicker', icon: '➕', buttonType: 'primary' },
+            ...withoutCreate
+          ]
+        }
+      }
+      const already = itemsInBar.some((item: any) => item?.action === 'showCreateCollectionDialog')
+      if (already) return base
+      const addIndex = itemsInBar.findIndex((item: any) => item?.type === 'button')
+      const createButton = { type: 'button', label: '创建合集', action: 'showCreateCollectionDialog', icon: '📁', buttonType: 'primary' }
+      if (addIndex < 0) {
+        return { ...base, items: [createButton, ...itemsInBar] }
+      }
+      const next = [...itemsInBar]
+      next.splice(addIndex + 1, 0, createButton)
+      return { ...base, items: next }
+    })
+
+    /**
+     * 空合集用自己的说明。页面原来的「库是空的」只在根目录一条资源都没有时出现。
+     */
+    const collectionEmptyState = computed(() => {
+      const base = resourcePage.emptyStateConfig
+      if (!currentCollectionId.value || collectionPunchThrough.value) return base
+      const current = items.value.find(item => collectionResourceId(item) === currentCollectionId.value)
+      if (memberIdsOf(current).length > 0) return base
+      return {
+        ...base,
+        noResultsIcon: '📁',
+        noResultsTitle: '这个合集还是空的',
+        noResultsDescription: '用「加入已有资源」把本页已有的资源加进来'
+      }
+    })
+
+    watch(currentCollectionId, () => {
+      resourcePage.resetToFirstPage?.()
+    })
+
+    /**
+     * 正在看的合集被删掉之后回到根目录。
+     * 否则面包屑还停在一个已经不存在的 id 上，列表会是空的。
+     */
+    watch(() => items.value.map(item => collectionResourceId(item)).join('|'), () => {
+      if (!currentCollectionId.value) return
+      const current = items.value.find(item => collectionResourceId(item) === currentCollectionId.value)
+      if (!current || !isCollectionRecord(current)) currentCollectionId.value = ''
     })
 
     // 获取文件存在性状态（辅助函数）
@@ -2775,6 +3244,7 @@ export default defineComponent({
       }
       const resource = instantiateSavedResource(saved)
       items.value.push(resource)
+      rememberInCurrentCollection(resource)
       return resource
     }
 
@@ -3153,6 +3623,39 @@ export default defineComponent({
       notify.toast('success', '已保存', '记录已更新')
     }
 
+    /**
+     * 把一首音频放进播放列表，不开始播放。
+     * 点「播放」时如果这首已经在列表里，播放器会连同列表里的其他歌一起播。
+     * @param item 音频资源
+     */
+    const addAudioToPlaylist = async (item: any) => {
+      const track = normalizePlaylistTrack({
+        id: BaseResources.extractPrimitiveValue(item?.id?.value ?? item?.id),
+        name: BaseResources.extractPrimitiveValue(item?.name?.value ?? item?.name),
+        artist: BaseResources.extractPrimitiveValue(item?.artist?.value ?? item?.artist),
+        resourcePath: BaseResources.extractPrimitiveValue(item?.resourcePath?.value ?? item?.resourcePath),
+        coverPath: BaseResources.extractPrimitiveValue(item?.coverPath?.value ?? item?.coverPath),
+        duration: BaseResources.extractPrimitiveValue(item?.duration?.value ?? item?.duration),
+        description: BaseResources.extractPrimitiveValue(item?.description?.value ?? item?.description),
+        tags: item?.tags?.value ?? item?.tags,
+        actors: item?.actors?.value ?? item?.actors
+      })
+      if (!track) {
+        notify.toast('error', lt('添加失败'), lt('这首音频没有文件路径'))
+        return
+      }
+      const result = await addTrackToSavedPlaylist(track)
+      if (!result.saved) {
+        notify.toast('error', lt('添加失败'), lt('播放列表没有保存成功'))
+        return
+      }
+      if (result.added) {
+        notify.toast('success', lt('已添加'), lt('已将「{name}」添加到播放列表').replace('{name}', track.name))
+      } else {
+        notify.toast('info', lt('已在列表中'), lt('「{name}」已经在播放列表里').replace('{name}', track.name))
+      }
+    }
+
     const handleDetailActionImpl = (actionKey: string, item: any) => {
       switch (actionKey) {
         case 'launch':
@@ -3168,6 +3671,9 @@ export default defineComponent({
           handleResourceAction(item, { handlerName: 'openComicArchiveSpecified' })
           break
         case 'open':
+        case 'addToPlaylist':
+          void addAudioToPlaylist(item)
+          break
         case 'play':
         case 'read':
         case 'visit':
@@ -3333,6 +3839,8 @@ export default defineComponent({
     contextMenuHandlers.batchAddTag = () => handleBatchAddTag()
     contextMenuHandlers.batchDeleteTag = () => handleBatchDeleteTag()
     contextMenuHandlers.batchDelete = () => handleBatchDelete()
+    contextMenuHandlers.addToCollection = () => openCollectionPicker()
+    contextMenuHandlers.removeFromCollection = () => removeSelectionFromCollection()
 
     /**
      * 正在检查文件是否还在。
@@ -3387,6 +3895,10 @@ export default defineComponent({
       }
 
       for (const item of items.value) {
+        if (isCollectionRecord(item)) {
+          setFileExists(item, true)
+          continue
+        }
         const filePath = getResourceFilePath(item)
         setFileExists(item, !!filePath && pathExists.get(filePath) === true)
       }
@@ -4578,6 +5090,22 @@ export default defineComponent({
         const saveManagerModule = await import('../utils/SaveManager.ts')
         const settings = await saveManagerModule.default.loadSettings()
         const playMode = settings?.videoPlayMode === 'internal' ? 'internal' : 'external'
+        const series = resourcePage.selectedItem.value
+        if (series && isVideoFolderResource(series)) {
+          const currentCount = Number(BaseResources.extractPrimitiveValue(series.playCount?.value ?? series.playCount) || 0)
+          if (series.playCount && typeof series.playCount === 'object' && 'value' in series.playCount) {
+            series.playCount.value = currentCount + 1
+          }
+          const original = items.value.find((item: any) => collectionResourceId(item) === collectionResourceId(series))
+          if (original && original !== series && original.playCount && typeof original.playCount === 'object') {
+            original.playCount.value = currentCount + 1
+          }
+          try {
+            await saveResourcesDelta(original || series)
+          } catch (error) {
+            console.warn('[GenericResourceView] 保存番剧播放次数失败:', error)
+          }
+        }
         if (playMode === 'internal') {
           await videoPlaybackComposable.playVideoInternal({ name: video.name, filePath: video.path })
         } else {
@@ -4894,6 +5422,12 @@ export default defineComponent({
       // 支持直接调用 showAddDialogHandler 和其他预设方法
       if (item.action === 'showAddDialog') {
         resourcePage.showAddDialogHandler()
+      } else if (item.action === 'showCreateCollectionDialog') {
+        openCreateCollectionDialog()
+      } else if (item.action === 'leaveCollection') {
+        leaveCollection()
+      } else if (item.action === 'showMemberPicker') {
+        openMemberPicker()
       } else if (item.action === 'filterBySearch') {
         // 搜索操作不需要额外处理，搜索框已经绑定了 searchQuery
       } else if (item.action === 'showBatchImportDialog') {
@@ -5152,6 +5686,7 @@ export default defineComponent({
 
           // 添加到列表
           items.value.push(resource)
+          rememberInCurrentCollection(resource)
           addedResources.push(resource)
           if (adoptedResourceId) claimedResourceIds.add(adoptedResourceId)
           addedCount++
@@ -5234,6 +5769,7 @@ export default defineComponent({
 
           // 添加到列表
           items.value.push(resource)
+          rememberInCurrentCollection(resource)
           addedCount++
         }
 
@@ -5289,7 +5825,7 @@ export default defineComponent({
      * 用筛选结果而不是库里的全部，避免把搜索藏起来的资源也选进批量删除。
      */
     const selectAllListed = () => {
-      addItemsToSelection(filteredItems.value || [])
+      addItemsToSelection(listedItems.value || [])
     }
 
     return {
@@ -5481,8 +6017,33 @@ export default defineComponent({
       // 明确暴露 filteredItems 和 paginatedItems，确保模板能正确访问
       // 重要：使用 filterComposable.filteredGames（即 filteredItems），而不是 resourcePage.filteredItems
       // 因为 resourcePage.filteredItems 可能没有正确响应筛选变化
-      filteredItems: filterComposable.filteredGames, // 直接使用筛选 composable 的结果
+      filteredItems: listedItems,
       paginatedItems: resourcePage.paginatedItems,
+      toolbarConfig: collectionToolbar,
+      emptyStateConfig: collectionEmptyState,
+      currentCollectionId,
+      currentCollectionName,
+      pageTitle,
+      membershipNote,
+      collectionCover,
+      openListedItem,
+      leaveCollection,
+      showCreateCollectionDialog,
+      newCollectionName,
+      closeCreateCollectionDialog,
+      confirmCreateCollection,
+      showMemberPicker,
+      memberPickerQuery,
+      memberPickerCandidates,
+      memberPickerSelected,
+      closeMemberPicker,
+      toggleMemberPicker,
+      confirmAddMembers,
+      showCollectionPicker,
+      collectionChoices,
+      closeCollectionPicker,
+      confirmAddSelectionToCollection,
+      editEnabledFieldKeys,
       // 编辑对话框相关
       ResourceClass,
       allTags,
@@ -5907,6 +6468,70 @@ export default defineComponent({
     margin: 0;
     transition: color var(--transition-base);
   }
+}
+
+.collection-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 20px 0;
+}
+
+.collection-bar__back {
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.collection-bar__crumb {
+  color: var(--text-secondary);
+}
+
+.collection-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.collection-field__input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.collection-picker__hint,
+.collection-picker__empty,
+.collection-picker__owner {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.collection-picker__list {
+  max-height: 320px;
+  overflow: auto;
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.collection-picker__row,
+.collection-picker__choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  background: transparent;
+  color: var(--text-primary);
+  border: 0;
+  cursor: pointer;
 }
 
 .btn-close {
