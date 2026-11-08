@@ -16,7 +16,10 @@ permissions:
 
 jobs:
   release:
-    runs-on: windows-latest
+    # windows-latest 已换成 Visual Studio 2026。electron-builder 24 自带的 node-gyp
+    # 只认识到 VS 2022，重编 better-sqlite3 时会直接报找不到编译器。
+    # 0.8.1 能打过，是因为当时的镜像还是 VS 2022。固定到 windows-2022，打包环境与上次成功发布一致。
+    runs-on: windows-2022
     timeout-minutes: 60
     defaults:
       run:
