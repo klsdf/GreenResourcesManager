@@ -217,6 +217,8 @@
             <h2>{{ getCurrentViewTitle() }}</h2>
             <p>{{ getCurrentViewDescription() }}</p>
           </div>
+          <!-- 当前页把添加、合集、导入和多选传到这里，和标题同一行。 -->
+          <div id="content-header-actions" class="content-header__actions"></div>
           <button
             v-if="currentPageConfig"
             type="button"
@@ -234,6 +236,9 @@
             <FilterSidebar 
               :filters="currentFilterData.filters" 
               :isLoading="isFilterSidebarLoading"
+              :search-query="filterSearchQuery"
+              :placeholder="filterSearchPlaceholder"
+              @search="onFilterSearch"
               @filter-select="onFilterSelect"
               @filter-exclude="onFilterExclude" 
               @filter-clear="onFilterClear" 
@@ -360,6 +365,10 @@ export default {
       isLogoClicked: false, // logo 是否被点击过
       // 筛选器相关数据
       showFilterSidebar: false,
+      /** 筛选栏顶部的搜索词。资源页改词时会同步回来，换页时清空。 */
+      filterSearchQuery: '',
+      /** 资源页把搜索词改掉之后，用来写回筛选栏输入框。 */
+      resourceSearchStateListener: null as ((event: Event) => void) | null,
       /** 当前页面的配置编辑器是否打开。 */
       showPageConfigEditor: false,
       /** 正在编辑的页面 id。打开时记下来，避免编辑过程中路由变化把编辑器指到别的页。 */
@@ -533,6 +542,15 @@ export default {
       }
       // 兼容旧逻辑：从 pages 中查找
       return this.pages.find(p => p.id === route.name && !p.isHidden)
+    },
+    /**
+     * 筛选栏搜索框的提示语。
+     * 各页原来写在工具栏的搜索项上，例如「搜索游戏...」。
+     */
+    filterSearchPlaceholder(): string {
+      const items = (this.currentPageConfig as { toolbarConfig?: { items?: Array<{ type?: string, placeholder?: string }> } } | undefined)?.toolbarConfig?.items
+      const search = Array.isArray(items) ? items.find(item => item.type === 'search') : undefined
+      return search?.placeholder || '搜索...'
     },
     // 主导航页面ID列表（一级菜单）
     mainNavViewIds() {
@@ -1009,6 +1027,28 @@ export default {
       window.dispatchEvent(new CustomEvent('filter-clear', {
         detail: filterKey
       }))
+    },
+    /**
+     * 把筛选栏里的搜索词交给当前资源页。
+     * 输入框留在筛选栏，匹配名字和标签仍走原来的搜索。
+     * @param value 当前输入
+     */
+    onFilterSearch(value) {
+      const text = typeof value === 'string' ? value : ''
+      this.filterSearchQuery = text
+      window.dispatchEvent(new CustomEvent('resource-search', { detail: text }))
+    },
+    /**
+     * 资源页自己改了搜索词时，把筛选栏输入框改成同一个词。
+     * 例如点进合集时会清空搜索，输入框要跟着空掉。
+     * @param event 带当前搜索词的事件
+     */
+    onResourceSearchState(event: Event) {
+      const text = (event as CustomEvent).detail
+      const next = typeof text === 'string' ? text : ''
+      if (next !== this.filterSearchQuery) {
+        this.filterSearchQuery = next
+      }
     },
     // 全局游戏运行状态管理方法
     addRunningGame(gameInfo) {
@@ -1673,6 +1713,8 @@ export default {
       this.disguiseModeEnabled = (event as CustomEvent<{ enabled?: boolean }>).detail?.enabled === true
     }
     window.addEventListener('disguise-mode-changed', this.disguiseModeListener)
+    this.resourceSearchStateListener = (event: Event) => this.onResourceSearchState(event)
+    window.addEventListener('resource-search-state', this.resourceSearchStateListener)
 
     // 监听应用整体缩放变化（菜单、快捷键、Ctrl+滚轮），显示“缩放至 XX%”提示
     if (window.electronAPI && typeof window.electronAPI.onAppZoomChanged === 'function') {
@@ -1775,6 +1817,7 @@ export default {
           
           const requiresFilter = route.meta?.requiresFilter === true
           this.showFilterSidebar = requiresFilter
+          this.filterSearchQuery = ''
           this.resetFilterData()
           this.isFilterSidebarLoading = requiresFilter
           
@@ -2017,6 +2060,10 @@ export default {
     if (this.disguiseModeListener) {
       window.removeEventListener('disguise-mode-changed', this.disguiseModeListener)
       this.disguiseModeListener = null
+    }
+    if (this.resourceSearchStateListener) {
+      window.removeEventListener('resource-search-state', this.resourceSearchStateListener)
+      this.resourceSearchStateListener = null
     }
     
     // 关闭插件视图
@@ -2278,8 +2325,7 @@ export default {
   min-height: 0;
   background: var(--bg-secondary);
   border-right: 1px solid var(--border-color);
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
   transition: background-color 0.3s ease;
   flex-shrink: 0;
 }

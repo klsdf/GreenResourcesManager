@@ -39,6 +39,15 @@
             :placeholder="$lt('例如：12')"
           />
         </div>
+        <div class="form-group">
+          <label>{{ $lt('每行卡片数') }}</label>
+          <p class="field-hint">{{ $lt('一行放几张卡片。卡片平分这一行，不用再设宽度。') }}</p>
+          <fun-input
+            type="number"
+            v-model.number="editingPage.displayLayoutConfig.columnsPerRow"
+            :placeholder="$lt('例如：4')"
+          />
+        </div>
         <h4 class="section-title">{{ $lt('接受的资源') }}</h4>
         <p class="field-hint">{{ $lt('只按文件本身来分，比如可执行文件、图片、视频。和这个页面有没有发行商、标签无关。改这里不会改动已经保存的内容。至少留一种。同一种文件会按下面从左到右的顺序归类。') }}</p>
         <div class="check-grid">
@@ -112,24 +121,6 @@
           <button class="btn-secondary" type="button" :disabled="!filterToAdd" @click="addFilter">{{ $lt('添加筛选器') }}</button>
         </div>
 
-        <h4 class="section-title">{{ $lt('布局设置') }}</h4>
-        <div class="form-group">
-          <label>{{ $lt('最小卡片宽度') }}</label>
-          <fun-input
-            type="number"
-            v-model.number="editingPage.displayLayoutConfig.minWidth"
-            :placeholder="$lt('例如：150')"
-          />
-        </div>
-        <div class="form-group">
-          <label>{{ $lt('最大卡片宽度') }}</label>
-          <fun-input
-            type="number"
-            v-model.number="editingPage.displayLayoutConfig.maxWidth"
-            :placeholder="$lt('例如：400')"
-          />
-        </div>
-        
         <h4 class="section-title">{{ $lt('空状态设置') }}</h4>
         <div class="form-group">
           <label>{{ $lt('空状态图标') }}</label>
@@ -258,10 +249,13 @@ import { BASIC_RESOURCE_KINDS, collectFieldCatalog, defaultAcceptedKindIds, defa
 import { BUILTIN_SORT_FIELDS, SIMPLE_PAGE_FIELD_EDITORS, collapseSortOptions, createCustomFieldKey, defsForPage, expandSortOptions, isSimpleEditor, type PageFieldDef, type PageFieldEditor, type SortChoice } from '../configs/pages/pageFieldSchema'
 import alertService from '../utils/AlertService.ts'
 import { pageConfigLoader } from '../configs/pages/PageConfigLoader'
+import { normalizeCardsPerRow } from '../composables/useDisplayLayout'
 
 interface DisplayLayoutConfig {
   minWidth: number
   maxWidth: number
+  /** 一行放几张卡片。2 到 10，没写时按 4 张。 */
+  columnsPerRow: number
 }
 
 interface EmptyStateConfig {
@@ -324,7 +318,8 @@ export default defineComponent({
       defaultPageSize: 12,
       displayLayoutConfig: {
         minWidth: 150,
-        maxWidth: 400
+        maxWidth: 400,
+        columnsPerRow: 4
       },
       emptyStateConfig: {
         icon: '',
@@ -364,6 +359,7 @@ export default defineComponent({
       const presets = [
         { id: 'missing-resources', title: '丢失的资源' },
         { id: 'rating', title: '星级' },
+        { id: 'folder', title: '文件夹' },
         { id: 'running-status', title: '正在使用' }
       ]
       const fieldPresets = editingPage.value.pageFieldDefs
@@ -582,6 +578,13 @@ export default defineComponent({
           filterType: 'rating',
           params: {}
         })
+      } else if (presetId === 'folder') {
+        editingPage.value.filterConfig.push({
+          key: 'folder',
+          title: '文件夹',
+          filterType: 'folder',
+          params: {}
+        })
       } else if (presetId === 'running-status') {
         editingPage.value.filterConfig.push({
           key: 'running-status',
@@ -625,9 +628,10 @@ export default defineComponent({
             ),
             filterConfig: Array.isArray(config.filterConfig) ? JSON.parse(JSON.stringify(config.filterConfig)) : [],
             defaultPageSize: config.defaultPageSize || 12,
-            displayLayoutConfig: config.displayLayoutConfig || {
-              minWidth: 150,
-              maxWidth: 400
+            displayLayoutConfig: {
+              minWidth: config.displayLayoutConfig?.minWidth ?? 150,
+              maxWidth: config.displayLayoutConfig?.maxWidth ?? 400,
+              columnsPerRow: normalizeCardsPerRow(config.displayLayoutConfig?.columnsPerRow)
             },
             emptyStateConfig: config.emptyStateConfig || {
               icon: config.icon || '',
@@ -665,6 +669,9 @@ export default defineComponent({
           await alertService.warning('页面至少要接受一种资源', '提示')
           return
         }
+        editingPage.value.displayLayoutConfig.columnsPerRow = normalizeCardsPerRow(
+          editingPage.value.displayLayoutConfig.columnsPerRow
+        )
 
         // 只写页面配置。接受的资源、字段和筛选器都不改已经保存的资源记录。
         // resourceTypes 保持原样，旧数据仍按原来的结构读取。

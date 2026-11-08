@@ -249,6 +249,74 @@ export function matchAcceptedKind(fileExt: string, isFolder: boolean, kindIds: s
 }
 
 /**
+ * 从文件名取出扩展名。
+ * 没有点，或点在开头，都当成没有扩展名。
+ * @param fileName 文件名或路径
+ */
+function extensionOfName(fileName: string): string {
+  const base = String(fileName || '').split(/[\\/]/).pop() || ''
+  const dot = base.lastIndexOf('.')
+  if (dot <= 0) return ''
+  return base.slice(dot).toLowerCase()
+}
+
+/**
+ * 不看当前页面勾选了什么，按扩展名认出这是哪种文件。
+ * 合集里允许任何文件。页面没勾的类型也要能进来，所以不能再用页面顺序。
+ * 同一种扩展名如果文件夹类型和单文件类型都写了，优先单文件。pdf 因此是小说，不是图片文件夹。
+ * @param fileExt 带点的扩展名
+ */
+export function matchLooseFile(fileExt: string): BasicResourceKind | undefined {
+  const ext = String(fileExt || '').toLowerCase()
+  if (!ext || ext === '<folder>') return undefined
+  /** 扩展名对得上的类型。文件夹标记本身不算。 */
+  const matches = BASIC_RESOURCE_KINDS.filter(kind =>
+    kind.extensions.some(item => item !== '<folder>' && item.toLowerCase() === ext)
+  )
+  const fileOnly = matches.filter(kind => !kind.extensions.includes('<folder>'))
+  return fileOnly[0] || matches[0]
+}
+
+/**
+ * 单文件类型收成文件夹时用哪一种。
+ * 音频和小说没有单独的文件夹类，文件夹路径仍记在原来的类型上。
+ */
+const FOLDER_KIND_BY_FILE: Record<string, string> = {
+  video: 'videoFolder',
+  image: 'imageFolder',
+  audio: 'audio',
+  novel: 'novel',
+  executable: 'executableFolder'
+}
+
+/**
+ * 看文件夹里面的文件，判断这整个目录该当成哪一种资源。
+ * 谁的文件多就用谁。认不出内容时返回空，调用方再记成其它。
+ * @param childNames 这一层的文件名
+ */
+export function matchLooseFolder(childNames: string[]): BasicResourceKind | undefined {
+  /** 每种文件夹对上了多少个文件。 */
+  const counts = new Map<string, number>()
+  for (const name of childNames || []) {
+    const fileKind = matchLooseFile(extensionOfName(name))
+    const folderId = fileKind ? FOLDER_KIND_BY_FILE[fileKind.id] : ''
+    if (!folderId) continue
+    counts.set(folderId, (counts.get(folderId) || 0) + 1)
+  }
+  /** 目前文件最多的文件夹类型。 */
+  let bestId = ''
+  /** 最多的那个数量。0 表示这一层没有认出来的文件。 */
+  let bestCount = 0
+  for (const [id, count] of counts) {
+    if (count > bestCount) {
+      bestId = id
+      bestCount = count
+    }
+  }
+  return bestId ? findBasicKind(bestId) : undefined
+}
+
+/**
  * 批量搜索时用的扩展名。文件夹标记不能传给文件搜索。
  */
 export function extensionsForSearch(kindIds: string[]): string[] {

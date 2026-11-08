@@ -10,7 +10,8 @@
   ],
   "displayLayoutConfig": {
     "minWidth": 80,
-    "maxWidth": 400
+    "maxWidth": 400,
+    "columnsPerRow": 4
   },
   "sortOptions": [
     {
@@ -91,9 +92,6 @@
       },
       {
         "type": "multi-select"
-      },
-      {
-        "type": "layout"
       },
       {
         "type": "sort"

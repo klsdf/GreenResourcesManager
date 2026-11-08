@@ -377,7 +377,7 @@ declare global {
       sqliteSaveUser: (user: any) => Promise<{ ok: boolean; message?: string }>
 
       // ===== 标签索引（Tag Index）=====
-      tagIndexGetByFields: (queries: Array<{ key: string; resourceType: string; field: string }>) =>
+      tagIndexGetByFields: (queries: Array<{ key: string; resourceType: string; field: string; pageId?: string }>) =>
         Promise<{ ok: boolean; data?: Record<string, TagIndexItem[]>; message?: string }>
       tagIndexGetByField: (resourceType: string, field: string, options?: TagIndexQueryOptions) =>
         Promise<{ ok: boolean; data?: TagIndexItem[]; message?: string }>

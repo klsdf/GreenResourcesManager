@@ -76,12 +76,25 @@ export default defineComponent({
       }
     };
 
+    /**
+     * 筛选栏顶部的搜索词变了，交给这一页原来的搜索。
+     * @param event 带当前搜索词的事件
+     */
+    const handleResourceSearch = (event: Event) => {
+      const text = (event as CustomEvent).detail
+      const view = innerView.value as { handleSearchQueryChanged?: (value: string) => void } | null
+      if (view?.handleSearchQueryChanged) {
+        view.handleSearchQueryChanged(typeof text === 'string' ? text : '')
+      }
+    };
+
     // 在组件挂载时添加事件监听
     onMounted(() => {
       window.addEventListener('filter-select', handleGlobalFilterEvent);
       window.addEventListener('filter-exclude', handleGlobalFilterEvent);
       window.addEventListener('filter-clear', handleGlobalFilterEvent);
       window.addEventListener('filter-request-update', handleFilterUpdateRequest);
+      window.addEventListener('resource-search', handleResourceSearch);
     });
 
     onUnmounted(() => {
@@ -89,6 +102,7 @@ export default defineComponent({
       window.removeEventListener('filter-exclude', handleGlobalFilterEvent);
       window.removeEventListener('filter-clear', handleGlobalFilterEvent);
       window.removeEventListener('filter-request-update', handleFilterUpdateRequest);
+      window.removeEventListener('resource-search', handleResourceSearch);
     });
 
     // 使用 expose API 显式暴露方法给父组件

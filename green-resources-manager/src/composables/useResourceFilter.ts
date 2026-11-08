@@ -241,6 +241,32 @@ export function useResourceFilter<T = any>(
     filterConfigs = [missingResourcesFilter, ...filterConfigs]
   }
 
+  // 文件夹和单个文件混在同一页。每个页面都给「文件夹 / 不是文件夹」，用来把合集、番剧和目录从单文件里分开。
+  const hasFolderFilter = filterConfigs.some(config => config.key === 'folder')
+
+  if (!hasFolderFilter) {
+    const folderFunctions = getFilterFunctions('folder', {})
+    /** 未在页面配置里声明时使用的默认文件夹筛选。 */
+    const folderFilter: FilterConfig<T> = {
+      key: 'folder',
+      title: '文件夹',
+      filterType: 'folder',
+      params: {},
+      extractFn: folderFunctions.extractFn,
+      matchFn: folderFunctions.matchFn
+    }
+    const missingIndex = filterConfigs.findIndex(config => config.key === 'missing-resources')
+    if (missingIndex >= 0) {
+      filterConfigs = [
+        ...filterConfigs.slice(0, missingIndex + 1),
+        folderFilter,
+        ...filterConfigs.slice(missingIndex + 1)
+      ]
+    } else {
+      filterConfigs = [folderFilter, ...filterConfigs]
+    }
+  }
+
   // 星级写在所有资源上，和「丢失的资源」一样每个页面都提供。
   // 页面配置里已经声明过时沿用配置，避免和自动补上的筛选项重复。
   const hasRatingFilter = filterConfigs.some(config => config.key === 'rating')
@@ -324,7 +350,7 @@ export function useResourceFilter<T = any>(
   /** 由标签索引支撑的筛选器 key 集合（这些字段 extractAllFilters 不再扫描） */
   const tagBackedKeys = new Set<string>()
   /** 供标签索引按页加载用的查询列表 */
-  const tagQueries: Array<{ key: string; resourceType: string; field: string }> = []
+  const tagQueries: Array<{ key: string; pageId: string; resourceType: string; field: string }> = []
 
   // 动态创建筛选状态：为每个筛选配置创建 selected 和 excluded 数组
   const filterStates = filterConfigs.reduce((acc, config) => {
@@ -340,10 +366,11 @@ export function useResourceFilter<T = any>(
 
     let itemsRef: Ref<FilterItem[]>
     if (isTagBacked) {
-      // 候选项来自标签索引（同一 resourceType+field 全局共享一份响应式数据）
-      itemsRef = tagIndex.register(tagResourceType, params.field) as Ref<FilterItem[]>
+      // 候选项按当前页面分开。同类型的新页面不能沿用另一页已经打过的标签。
+      const id = `${pageId}::${tagResourceType}:${params.field}`
+      itemsRef = tagIndex.register(pageId, tagResourceType, params.field) as Ref<FilterItem[]>
       tagBackedKeys.add(config.key)
-      tagQueries.push({ key: config.key, resourceType: tagResourceType, field: params.field })
+      tagQueries.push({ key: id, pageId, resourceType: tagResourceType, field: params.field })
     } else {
       itemsRef = ref<FilterItem[]>([])
     }

@@ -19,18 +19,18 @@
 .content-header {
   flex-shrink: 0;
   background: var(--bg-secondary);
-  padding: 16px 40px;
+  padding: 10px 24px;
   border-bottom: 1px solid var(--border-color);
   box-shadow: 0 2px 4px var(--shadow-light);
   transition: background-color var(--transition-slow) ease, border-color var(--transition-slow) ease, box-shadow var(--transition-slow) ease;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: 16px;
 
   h2 {
     color: var(--text-primary);
-    font-size: 1.6rem;
+    font-size: 1.35rem;
     font-weight: 700;
     margin: 0;
     flex-shrink: 0;
@@ -55,7 +55,16 @@
   align-items: baseline;
   gap: 12px;
   min-width: 0;
+  flex: 0 1 auto;
+}
+
+.content-header__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   flex: 1;
+  min-width: 0;
+  gap: 8px;
 }
 
 .page-config-button {

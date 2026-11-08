@@ -1,4 +1,5 @@
 import type { FilterItem } from '../../types/filter'
+import { isCollectionRecord } from '../../utils/collectionScope'
 
 /**
  * Filter 函数库
@@ -77,6 +78,26 @@ function readRating(item: any): number {
 		return 0
 	}
 	return Math.round(rating)
+}
+
+/** 存档类型本身就是一个文件夹，不看路径。合集、番剧都属于这一类。 */
+const FOLDER_SAVED_TYPES = new Set(['collection', 'animation', 'videofolder', 'video-folder', 'anime'])
+
+/**
+ * 这条是不是文件夹。
+ * 合集和番剧直接算文件夹。其它资源看路径：最后一段没有扩展名就是目录，pdf、exe、mkv 这类是单个文件。
+ * @param item 一条资源
+ */
+export function isFolderResource(item: any): boolean {
+	if (isCollectionRecord(item)) return true
+	const saved = String(readFieldValue(item?.resourceType) || '').trim().toLowerCase()
+	if (FOLDER_SAVED_TYPES.has(saved)) return true
+	const path = String(
+		readFieldValue(item?.resourcePath) || readFieldValue(item?.folderPath) || readFieldValue(item?.executablePath) || ''
+	).trim()
+	if (!path) return false
+	const base = path.split(/[/\\]/).pop() || ''
+	return !/\.[A-Za-z0-9]{1,8}$/.test(base)
 }
 
 /**
@@ -173,6 +194,43 @@ export const filterLibrary = {
 				})
 			}
 
+			return true
+		}
+	}),
+
+	/**
+	 * 文件夹筛选器。
+	 * 两个选项互不重叠：合集、番剧和没有扩展名的目录是文件夹，单个文件不是。
+	 * 两项都始终列出，某一项暂时是 0 也留在侧栏里。
+	 */
+	folder: (_params?: Record<string, never>) => ({
+		/**
+		 * 统计文件夹和单个文件各有多少。
+		 */
+		extractFn: (items: any[]): FilterItem[] => {
+			/** 文件夹数量。 */
+			let folders = 0
+			/** 单个文件数量。 */
+			let files = 0
+			items.forEach((item: any) => {
+				if (isFolderResource(item)) folders += 1
+				else files += 1
+			})
+			return [
+				{ name: '文件夹', count: folders },
+				{ name: '不是文件夹', count: files }
+			]
+		},
+
+		/**
+		 * 按选中的那一类留下资源。
+		 * 同时选两项等于都不排除。排除优先于选中。
+		 */
+		matchFn: (item: any, selected: string[], excluded: string[]): boolean => {
+			/** 这条资源在侧栏里对应的名称。 */
+			const label = isFolderResource(item) ? '文件夹' : '不是文件夹'
+			if (excluded.includes(label)) return false
+			if (selected.length > 0) return selected.includes(label)
 			return true
 		}
 	}),

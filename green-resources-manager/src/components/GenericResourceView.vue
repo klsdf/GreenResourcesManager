@@ -11,7 +11,7 @@
       :sort-by="sortBy" 
       :search-query="searchQuery"
       :scale="scale" 
-      :show-layout-control="true"
+      :show-layout-control="false"
       :is-multi-select-mode="isMultiSelectMode"
       :display-mode="displayMode"
       @update:scale="updateScale"
@@ -42,20 +42,36 @@
         <button type="button" class="collection-bar__back" @click="leaveCollection">返回</button>
         <span class="collection-bar__crumb">{{ pageTitle }} / {{ currentCollectionName }}</span>
       </div>
+      <div class="collection-body" :class="{ 'collection-body--split': !!currentCollectionId }">
+      <CollectionSidePanel
+        v-if="currentCollectionRecord"
+        :collection-id="currentCollectionId"
+        :name="collectionPanelName"
+        :description="collectionPanelDescription"
+        :tags="collectionPanelTags"
+        :extra-fields="collectionPanelExtras"
+        :totals="collectionPanelTotals"
+        :member-count="collectionPanelMemberCount"
+        :cover-url="collectionPanelCoverUrl"
+        :rating="collectionPanelRating"
+        :comment="collectionPanelComment"
+        @save="saveCollectionProfile"
+        @rate="saveCollectionRating"
+        @comment="queueCollectionComment"
+      />
+      <div class="collection-main">
       <!-- 使用 FunGrid 组件进行布局 -->
       <FunGrid
         v-if="displayMode !== 'list' && paginatedItems.length > 0"
-        mode="auto-fill"
-        :scale="scale"
-        :baseWidth="displayLayoutBaseWidth"
-        :minScaledWidth="displayLayoutMinWidth"
-        :maxScaledWidth="displayLayoutMaxWidth"
+        mode="fixed"
+        :columns="cardsPerRow"
         gap="20px"
         padding="10px 20px"
         :singleColumnOnMobile="true"
         :customStyle="customLayoutStyle"
         :class="{ 'is-dragging': isDragOver }"
       >
+        <!-- 字号固定为 100。一行几张只改列数，不再按百分比把标题缩小。 -->
         <MediaCard
           v-for="item in paginatedItems"
           :key="item.id?.value || item.id"
@@ -63,7 +79,7 @@
           :type="cardTypeForResource(item, (resourceType || 'game').toLowerCase())"
           :is-electron-environment="isElectronEnvironment"
           :file-exists="getFileExists(item)"
-          :scale="scale"
+          :scale="100"
           :is-running="isResourceRunning(item)"
           :is-multi-select-mode="isMultiSelectMode"
           :is-selected="isItemSelected(item)"
@@ -90,6 +106,8 @@
         @toggle-select="toggleSelectItem"
       />
       <div v-else class="empty-grid" :class="{ 'is-dragging': isDragOver }"></div>
+      </div>
+      </div>
     </div>
     </BaseView>
     
@@ -369,6 +387,22 @@
       </div>
     </div>
 
+    <div v-if="showConvertConfirm" class="modal-overlay" @click="cancelConvertConfirm">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>{{ convertConfirmTitle }}</h3>
+          <button class="btn-close" @click="cancelConvertConfirm">✕</button>
+        </div>
+        <div class="modal-body">
+          <p>{{ convertConfirmMessage }}</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" @click="cancelConvertConfirm">取消</button>
+          <button class="btn-confirm" @click="runConvertConfirm">继续转换</button>
+        </div>
+      </div>
+    </div>
+
     <div v-if="showCollectionPicker" class="modal-overlay" @click="closeCollectionPicker">
       <div class="modal-content collection-picker" @click.stop>
         <div class="modal-header">
@@ -456,6 +490,7 @@ import BatchDeleteTagDialog from './BatchDeleteTagDialog.vue'
 import BatchDeleteConfirmDialog from './BatchDeleteConfirmDialog.vue'
 import BookmarkImportDialog from './BookmarkImportDialog.vue'
 import { createResourcePage } from '../composables/createResourcePage'
+import { normalizeCardsPerRow } from '../composables/useDisplayLayout'
 // // import { FunDropZone } from '../fun-ui'  // 临时移除，避免性能问题  // 临时移除，避免性能问题
 import FunGrid from '../fun-ui/layout/Grid/FunGrid.vue'
 import { useDragAndDrop } from '../composables/useDragAndDrop'
@@ -496,8 +531,13 @@ import ScraperUpdateDialog from './ScraperUpdateDialog.vue'
 import type { FilterItem } from '../types/filter'
 import coverManager from '../utils/CoverManager.ts'
 import { fingerprintFileSize, fingerprintKindForResource, fingerprintPageCount, isSameFingerprintIdentity, readFingerprint, writeFingerprint } from '../utils/resourceFingerprint.ts'
-import { cardTypeForResource, classForKind, collectFieldCatalog, defaultAcceptedKindIds, extensionsForSearch, findBasicKind, folderImportOptions, getResourceClassBySavedType, matchAcceptedKind, savedTypeOfClass } from '../configs/resources/resourceKindCatalog'
+import { BASIC_RESOURCE_KINDS, cardTypeForResource, classForKind, collectFieldCatalog, defaultAcceptedKindIds, extensionsForSearch, findBasicKind, folderImportOptions, getResourceClassBySavedType, matchAcceptedKind, matchLooseFile, matchLooseFolder, savedTypeOfClass } from '../configs/resources/resourceKindCatalog'
+import { normalizeResourcePath, sharedParentDirectory, videoFilesInFolder } from '../utils/videoPresentation'
+import { normalizeReadingPath } from '../utils/readingProgress'
 import { Collection } from '@resources/collection.ts'
+import CollectionSidePanel from './CollectionSidePanel.vue'
+import { COLLECTION_TOTAL_SPECS, collectionTotals, formatCollectionTotal, subtreeResources } from '../utils/collectionTotals'
+import { getCoverUrl } from '../utils/CoverManager'
 import { indexMembership, isCollectionRecord, listCollectionScope, memberIdsOf, resourceIdOf as collectionResourceId, writeMemberIds } from '../utils/collectionScope'
 import {
   buildSameResourceDescriptor,
@@ -587,6 +627,7 @@ export default defineComponent({
     BatchDeleteTagDialog,
     BatchDeleteConfirmDialog,
     BookmarkImportDialog,
+    CollectionSidePanel,
     // FunDropZone,  // 临时移除，避免性能问题
     FunGrid
   },
@@ -693,10 +734,18 @@ export default defineComponent({
       }
       return defaultAcceptedKindIds(legacyResourceTypes.value)
     })
-    /** 批量导入时能搜到的扩展名，跟着这一页接受的资源类型走 */
-    const batchImportSearchExtensions = computed(() => extensionsForSearch(acceptedKindIds.value))
-    /** 文件夹模式能勾的类型。图片页给图片文件夹，音乐页给音频文件夹。 */
-    const batchImportFolderOptions = computed(() => folderImportOptions(acceptedKindIds.value))
+    /**
+     * 合集里导入时放开类型。
+     * 根目录仍只用这一页勾选的类型，避免电影页突然开始收游戏。
+     */
+    const incomingKindIds = computed(() => {
+      if (!currentCollectionId.value) return acceptedKindIds.value
+      return BASIC_RESOURCE_KINDS.map(kind => kind.id)
+    })
+    /** 批量导入时能搜到的扩展名。在合集里时包含全部基本类型。 */
+    const batchImportSearchExtensions = computed(() => extensionsForSearch(incomingKindIds.value))
+    /** 文件夹模式能勾的类型。在合集里时，图片文件夹、视频文件夹等都可以收。 */
+    const batchImportFolderOptions = computed(() => folderImportOptions(incomingKindIds.value))
     /** 最近一次搜索是文件还是文件夹。确认导入时按它决定把路径当成文件还是目录。 */
     const batchImportMode = ref<'file' | 'folder'>('file')
     /** 文件夹结果的相对路径对应哪种基本类型。根目录用点号当键。 */
@@ -718,13 +767,27 @@ export default defineComponent({
 
     /** 添加窗口当前选中的基本资源类型 */
     const addingPageType = ref(acceptedKindIds.value[0] || 'executable')
-    /** 添加窗口使用的资源类。打开方式由这种文件决定，字段再由页面字段名单裁剪 */
-    const addResourceClass = computed(() => classForKind(addingPageType.value, legacyResourceTypes.value) || ResourceClass)
-    /** 添加窗口里可选的基本资源类型 */
+    /**
+     * 添加窗口使用的资源类。
+     * 在合集里选了本页没有的类型时，用这种文件自己的类，不再套成当前页面的默认类。
+     */
+    const addResourceClass = computed(() => {
+      if (addingPageType.value === 'other') return Other
+      const loose = !!currentCollectionId.value && !acceptedKindIds.value.includes(addingPageType.value)
+      if (loose) return findBasicKind(addingPageType.value)?.resourceClass || Other
+      return classForKind(addingPageType.value, legacyResourceTypes.value) || ResourceClass
+    })
+    /**
+     * 添加窗口里可选的基本资源类型。
+     * 合集不限本页类型，并多一个「其它文件」，用来收认不出的格式。
+     */
     const acceptedTypeChoices = computed(() => {
-      return acceptedKindIds.value.map(kindId => ({
+      const ids = currentCollectionId.value
+        ? [...BASIC_RESOURCE_KINDS.map(kind => kind.id), 'other']
+        : acceptedKindIds.value
+      return ids.map(kindId => ({
         id: kindId,
-        label: findBasicKind(kindId)?.label || kindId
+        label: kindId === 'other' ? '其它文件' : (findBasicKind(kindId)?.label || kindId)
       }))
     })
     /** 右键点中的那一条，菜单跟它的资源类走 */
@@ -791,6 +854,17 @@ export default defineComponent({
     const memberPickerSelected = ref<Set<string>>(new Set())
     /** 多选之后选择要放进哪个合集。 */
     const showCollectionPicker = ref(false)
+    /** 是否显示番剧和视频合集互相转换的确认框。 */
+    const showConvertConfirm = ref(false)
+    /** 转换确认框的标题。 */
+    const convertConfirmTitle = ref('')
+    /** 转换确认框的说明。这里要写清会新增或去掉多少条数据。 */
+    const convertConfirmMessage = ref('')
+    /**
+     * 用户点了继续之后要做的转换。
+     * 先扫数量再问，取消时这个函数不会跑，所以不会写出新记录。
+     */
+    let convertConfirmAction: (() => Promise<void>) | null = null
 
     /**
      * 把一条资源放进指定合集，并从同一页的其他合集里移出。
@@ -839,6 +913,16 @@ export default defineComponent({
     const isElectronEnvironment = ref(!!(typeof window !== 'undefined' && (window as any).electronAPI))
     const searchQuery = ref('')
     const sortBy = ref('name-asc')
+
+    /**
+     * 搜索词若由页面自己改掉，通知筛选栏输入框跟着变。
+     * 点进合集时会清空搜索，不能让上面的输入框还留着旧词。
+     */
+    watch(searchQuery, (value) => {
+      window.dispatchEvent(new CustomEvent('resource-search-state', {
+        detail: String(value ?? '')
+      }))
+    })
     
     // 多选模式相关
     const isMultiSelectMode = ref(false)
@@ -951,6 +1035,43 @@ export default defineComponent({
     }
 
     /**
+     * 决定新文件用哪个资源类。
+     * 页面根目录只收勾选过的类型。合集里则按文件本身认；认不出的文件或空文件夹记成其它。
+     * 这样在合集里面可以放入游戏、图片、音频，而不只是当前页面的视频。
+     * @param filePath 拖入或导入的路径
+     * @param fileExt 扩展名，文件夹可以是空字符串
+     * @param isFolder 是不是文件夹
+     */
+    const resolveIncomingResource = async (filePath: string, fileExt: string, isFolder: boolean) => {
+      const pageKind = matchAcceptedKind(fileExt, isFolder, acceptedKindIds.value)
+      if (pageKind) {
+        return {
+          id: pageKind.id,
+          resourceClass: classForKind(pageKind.id, legacyResourceTypes.value)
+        }
+      }
+      if (!currentCollectionId.value) return null
+      if (!isFolder) {
+        const kind = matchLooseFile(fileExt)
+        return kind
+          ? { id: kind.id, resourceClass: kind.resourceClass }
+          : { id: 'other', resourceClass: Other }
+      }
+      /** 文件夹这一层的文件名。用来判断里面主要是视频、图片还是别的。 */
+      let names: string[] = []
+      if (window.electronAPI?.listFiles) {
+        const listed = await window.electronAPI.listFiles(filePath)
+        names = Array.isArray(listed?.files)
+          ? listed.files.map((entry: unknown) => typeof entry === 'string' ? entry : '')
+          : []
+      }
+      const kind = matchLooseFolder(names)
+      return kind
+        ? { id: kind.id, resourceClass: kind.resourceClass }
+        : { id: 'other', resourceClass: Other }
+    }
+
+    /**
      * 处理拖拽文件
      */
     const handleFileDrop = async (files: File[]) => {
@@ -1010,10 +1131,9 @@ export default defineComponent({
               continue
             }
 
-            const matchedKind = matchAcceptedKind(fileExt, isFolder, acceptedKindIds.value)
-            const MatchedResourceClass = matchedKind
-              ? classForKind(matchedKind.id, legacyResourceTypes.value)
-              : null
+            const incoming = await resolveIncomingResource(filePath, fileExt, isFolder)
+            const matchedKind = incoming ? { id: incoming.id } : null
+            const MatchedResourceClass = incoming?.resourceClass || null
 
             if (!matchedKind || !MatchedResourceClass) {
               console.warn(`[GenericResourceView] 文件 ${file.name} 不在这个页面接受的资源里`)
@@ -1680,6 +1800,45 @@ export default defineComponent({
       closeBatchDeleteConfirmDialog()
     }
 
+    /**
+     * 存档里的资源类型。
+     * 打包后类名会变，判断番剧还是单集视频时只看这个字段。
+     * @param item 一条资源
+     */
+    const savedResourceType = (item: any) => {
+      return String(BaseResources.extractPrimitiveValue(item?.resourceType) || '').trim().toLowerCase()
+    }
+
+    /**
+     * 这是不是一部番剧或电视剧。
+     * 整季是一条记录，单集只在详情里，不能单独搜索。
+     * @param item 一条资源
+     */
+    const isSeriesResource = (item: any) => {
+      const saved = savedResourceType(item)
+      return saved === 'animation' || saved === 'videofolder' || saved === 'video-folder' || saved === 'anime'
+    }
+
+    /**
+     * 这是不是可以单独打开的一条视频。
+     * 视频合集里的成员是这种记录，不是整季文件夹。
+     * @param item 一条资源
+     */
+    const isSingleVideoResource = (item: any) => {
+      const saved = savedResourceType(item)
+      return saved === 'movie' || saved === 'video'
+    }
+
+    /**
+     * 读出字符串数组字段。标签、演员这类空值收成空数组。
+     * @param field 字段或原始值
+     */
+    const readStringList = (field: unknown): string[] => {
+      const raw = BaseResources.extractPrimitiveValue(field)
+      if (!Array.isArray(raw)) return []
+      return raw.map(entry => String(entry)).filter(Boolean)
+    }
+
     const contextMenuItems = computed(() => {
       if (isMultiSelectMode.value) {
         const batchItems = [
@@ -1701,8 +1860,30 @@ export default defineComponent({
         const menuItems = (menuClass.contextMenuItems || []).filter((item: { onlyComicArchive?: boolean }) => {
           return !item.onlyComicArchive || showComicArchiveActions
         })
-        if (isCollectionRecord(contextMenuTarget.value)) return menuItems
-        return [...menuItems, { key: 'scraper', icon: '📥', label: '刮削' }]
+        /**
+         * 番剧和视频合集可以互转，插在删除前面。
+         * 合集里至少有一条单独的视频时才显示收成番剧，避免游戏合集上也出现这一项。
+         */
+        const convertItems: { key: string, icon: string, label: string }[] = []
+        if (isSeriesResource(contextMenuTarget.value)) {
+          convertItems.push({ key: 'convertToVideoCollection', icon: '🎬', label: '转换为视频合集' })
+        }
+        if (isCollectionRecord(contextMenuTarget.value)) {
+          const hasVideo = memberIdsOf(contextMenuTarget.value).some(id => {
+            const member = items.value.find(entry => collectionResourceId(entry) === id)
+            return isSingleVideoResource(member)
+          })
+          if (hasVideo) {
+            convertItems.push({ key: 'convertToSeries', icon: '📺', label: '转换为番剧' })
+          }
+        }
+        const merged = [...menuItems]
+        if (convertItems.length > 0) {
+          const removeIndex = merged.findIndex(item => item.key === 'remove')
+          merged.splice(removeIndex >= 0 ? removeIndex : merged.length, 0, ...convertItems)
+        }
+        if (isCollectionRecord(contextMenuTarget.value)) return merged
+        return [...merged, { key: 'scraper', icon: '📥', label: '刮削' }]
       }
     })
 
@@ -2622,12 +2803,215 @@ export default defineComponent({
     /** 页面名称，面包屑用。 */
     const pageTitle = computed(() => pageConfig.value?.name || '资源')
 
+    /** 正在看的合集记录。根目录时是空。 */
+    const currentCollectionRecord = computed(() => {
+      if (!currentCollectionId.value) return null
+      const current = items.value.find(item => collectionResourceId(item) === currentCollectionId.value)
+      return current && isCollectionRecord(current) ? current : null
+    })
+
+    /**
+     * 读合集上的一段文字。
+     * @param field 字段或原始值
+     */
+    const readCollectionText = (field: unknown) => String(BaseResources.extractPrimitiveValue(field) || '')
+
     /** 正在看的合集名称。合集被删掉后回到根目录。 */
     const currentCollectionName = computed(() => {
-      const current = items.value.find(item => collectionResourceId(item) === currentCollectionId.value)
-      if (!current || !isCollectionRecord(current)) return ''
-      return String(BaseResources.extractPrimitiveValue(current.name?.value ?? current.name) || '未命名合集')
+      const current = currentCollectionRecord.value
+      if (!current) return ''
+      return readCollectionText(current.name) || '未命名合集'
     })
+
+    /** 面板里的名称。和面包屑用同一条记录。 */
+    const collectionPanelName = computed(() => readCollectionText(currentCollectionRecord.value?.name))
+    /** 面板里的简介。 */
+    const collectionPanelDescription = computed(() => readCollectionText(currentCollectionRecord.value?.description))
+    /** 面板里的标签。 */
+    const collectionPanelTags = computed(() => readStringList(currentCollectionRecord.value?.tags))
+    /** 合集自己的星级。没有评过是 0。 */
+    const collectionPanelRating = computed(() => {
+      const rating = Number(BaseResources.extractPrimitiveValue(currentCollectionRecord.value?.rating))
+      return Number.isFinite(rating) ? rating : 0
+    })
+    /** 合集自己的短评。 */
+    const collectionPanelComment = computed(() => readCollectionText(currentCollectionRecord.value?.comment))
+
+    /**
+     * 这一页要不要在合集面板上编辑这个字段。
+     * 名称、简介、标签始终有。系列和演员只在页面自己配置了时出现，避免游戏合集上冒出声优。
+     * @param key 字段名
+     */
+    const pageListsField = (key: string) => {
+      const keys = pageFieldKeys.value
+      return Array.isArray(keys) && keys.includes(key)
+    }
+
+    /** 系列、演员、声优、制作组。只列出这一页有的。 */
+    const collectionPanelExtras = computed(() => {
+      const current = currentCollectionRecord.value
+      if (!current) return []
+      /** 合集可以额外编辑的资料，以及面板上的名字。 */
+      const optional = [
+        { key: 'series', label: '系列名', kind: 'text' as const },
+        { key: 'actors', label: '演员', kind: 'tags' as const },
+        { key: 'voiceActors', label: '声优', kind: 'tags' as const },
+        { key: 'productionTeam', label: '制作组', kind: 'tags' as const }
+      ]
+      return optional.filter(field => pageListsField(field.key)).map(field => ({
+        ...field,
+        value: field.kind === 'tags' ? readStringList(current[field.key]) : readCollectionText(current[field.key])
+      }))
+    })
+
+    /** 子树里的普通资源数量。子合集自己不算一条内容。 */
+    const collectionPanelMemberCount = computed(() => {
+      const current = currentCollectionRecord.value
+      if (!current) return 0
+      return subtreeResources(items.value, current).length
+    })
+
+    /**
+     * 这一页会合计哪些数字。
+     * 页面字段写了的要显示。页面没写、但默认资源类上有的也要显示，游戏页的时长就不在字段名单里，仍要出现在面板上。
+     */
+    const collectionTotalFieldKeys = computed(() => {
+      /** 要显示的字段。先抄页面配置，再补资源类自己的时长和次数。 */
+      const keys = new Set<string>(pageFieldKeys.value || [])
+      const sample = ResourceClass ? new ResourceClass() : null
+      if (!sample) return [...keys]
+      for (const spec of COLLECTION_TOTAL_SPECS) {
+        const field = (sample as any)[spec.key]
+        const isNumberField = typeof field === 'number' || (field && typeof field === 'object' && 'value' in field && typeof field.value === 'number')
+        if (isNumberField) keys.add(spec.key)
+      }
+      return [...keys]
+    })
+
+    /** 总数据。时长和次数从成员相加，不写在合集上。 */
+    const collectionPanelTotals = computed(() => {
+      const current = currentCollectionRecord.value
+      if (!current) return []
+      return collectionTotals(items.value, current, collectionTotalFieldKeys.value).map(row => ({
+        label: row.label,
+        text: formatCollectionTotal(row)
+      }))
+    })
+
+    /** 面板封面。先用合集自己的图，没有就用第一个成员的。 */
+    const collectionPanelCoverUrl = ref('')
+
+    /**
+     * 把封面路径换成页面能显示的地址。
+     * 合集一切换就重取，避免还显示上一层的图。
+     */
+    const refreshCollectionPanelCover = async () => {
+      const current = currentCollectionRecord.value
+      if (!current) {
+        collectionPanelCoverUrl.value = ''
+        return
+      }
+      const own = readCollectionText(current.coverPath).trim()
+      const path = own || collectionCover(current)
+      if (!path) {
+        collectionPanelCoverUrl.value = ''
+        return
+      }
+      try {
+        const full = await getCoverUrl(path)
+        if (!full) {
+          collectionPanelCoverUrl.value = ''
+          return
+        }
+        if (/^(https?:|data:|file:|archive:)/.test(full)) {
+          collectionPanelCoverUrl.value = full
+          return
+        }
+        const result = window.electronAPI?.getFileUrl ? await window.electronAPI.getFileUrl(full) : null
+        collectionPanelCoverUrl.value = result?.success && result.url ? result.url : ''
+      } catch {
+        collectionPanelCoverUrl.value = ''
+      }
+    }
+
+    watch(currentCollectionId, () => {
+      refreshCollectionPanelCover()
+    })
+
+    /**
+     * 保存左侧面板改过的合集资料。
+     * 只改名称、简介、标签和这一页有的系列演员。总数据不写回。
+     * @param payload 面板交上来的草稿
+     */
+    /**
+     * 把合集的星级或短评写进这一条记录。
+     * 星级和短评属于合集自己，不从成员平均出来。
+     * @param current 正在看的合集
+     * @param patch 要改的星级或短评
+     */
+    const writeCollectionScore = async (current: any, patch: { rating?: number, comment?: string }) => {
+      if (patch.rating != null) BaseResources.assignSavedValue(current, 'rating', patch.rating)
+      if (patch.comment != null) BaseResources.assignSavedValue(current, 'comment', patch.comment)
+      cancelScheduledResourceSave(current)
+      await saveResourcesDelta(current)
+      refreshFilterSidebar()
+    }
+
+    /**
+     * 点星后立刻保存。
+     * 再点同一颗星不会取消，和详情里的评价一致。
+     * @param rating 1 到 5
+     */
+    const saveCollectionRating = async (rating: number) => {
+      const current = currentCollectionRecord.value
+      if (!current) return
+      try {
+        await writeCollectionScore(current, { rating })
+      } catch (error: any) {
+        notify.toast('error', '合集评价', error?.message || '保存失败')
+      }
+    }
+
+    /** 短评还没落盘的计时器。连续打字只在停下来之后写一次。 */
+    let collectionCommentTimer: ReturnType<typeof setTimeout> | null = null
+
+    /**
+     * 记下短评，稍后再写入合集。
+     * 计时器抓住当时的那一条合集，避免打字时切走后写到另一层上。
+     * @param comment 短评正文
+     */
+    const queueCollectionComment = (comment: string) => {
+      const current = currentCollectionRecord.value
+      if (!current) return
+      if (collectionCommentTimer) clearTimeout(collectionCommentTimer)
+      collectionCommentTimer = setTimeout(() => {
+        collectionCommentTimer = null
+        writeCollectionScore(current, { comment }).catch((error: any) => {
+          notify.toast('error', '合集评价', error?.message || '保存失败')
+        })
+      }, 400)
+    }
+
+    const saveCollectionProfile = async (payload: { name: string, description: string, tags: string[], extras: Record<string, string | string[]> }) => {
+      const current = currentCollectionRecord.value
+      if (!current) return
+      if (!payload.name) {
+        notify.toast('warning', '合集资料', '名称不能为空')
+        return
+      }
+      BaseResources.assignSavedValue(current, 'name', payload.name)
+      BaseResources.assignSavedValue(current, 'description', payload.description)
+      BaseResources.assignSavedValue(current, 'tags', payload.tags)
+      for (const [key, value] of Object.entries(payload.extras || {})) {
+        BaseResources.assignSavedValue(current, key, value)
+      }
+      try {
+        await saveData()
+        notify.toast('success', '合集资料', '已保存')
+      } catch (error: any) {
+        notify.toast('error', '合集资料', error?.message || '保存失败')
+      }
+    }
 
     /**
      * 搜索打穿时，标出这条资源属于哪个合集。人在合集里面时不再重复标注。
@@ -3841,6 +4225,282 @@ export default defineComponent({
     contextMenuHandlers.batchDelete = () => handleBatchDelete()
     contextMenuHandlers.addToCollection = () => openCollectionPicker()
     contextMenuHandlers.removeFromCollection = () => removeSelectionFromCollection()
+
+    /**
+     * 打开转换确认框。
+     * 扫描已经做完，这里只等用户决定要不要把结果写进页面。
+     * @param title 标题
+     * @param message 会新增或去掉多少条数据
+     * @param action 点继续之后执行
+     */
+    const askConvertConfirm = (title: string, message: string, action: () => Promise<void>) => {
+      convertConfirmTitle.value = title
+      convertConfirmMessage.value = message
+      convertConfirmAction = action
+      showConvertConfirm.value = true
+    }
+
+    /** 取消转换，不改列表。 */
+    const cancelConvertConfirm = () => {
+      showConvertConfirm.value = false
+      convertConfirmAction = null
+    }
+
+    /** 按确认框里记下的动作真正转换。 */
+    const runConvertConfirm = async () => {
+      const action = convertConfirmAction
+      showConvertConfirm.value = false
+      convertConfirmAction = null
+      if (!action) return
+      try {
+        await action()
+      } catch (error: any) {
+        console.error('[GenericResourceView] 转换视频展现方式失败:', error)
+        notify.toast('error', '转换失败', error?.message || '保存失败')
+      }
+    }
+
+    /**
+     * 把对照表按路径收成可查找的表。
+     * 封面用正斜杠，播放进度用阅读器那套路径，两种都收进来，避免斜杠不同对不上。
+     * @param field 封面或播放进度字段
+     */
+    const indexPathMap = (field: unknown): Map<string, any> => {
+      const raw = BaseResources.extractPrimitiveValue(field)
+      /** 路径到原值。同一条用正斜杠和播放进度两种键都能查到。 */
+      const indexed = new Map<string, any>()
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return indexed
+      for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+        indexed.set(normalizeResourcePath(key).toLowerCase(), value)
+        indexed.set(normalizeReadingPath(key), value)
+      }
+      return indexed
+    }
+
+    /**
+     * 新资源的 id。同一批里带上序号，避免同一毫秒里撞在一起。
+     * @param index 这一批里的顺序
+     */
+    const newResourceId = (index: number) => `${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`
+
+    /**
+     * 按路径找页面上已经有的资源。
+     * 转换时已经在库里的那一集不再新建一条。
+     * @param filePath 视频路径
+     */
+    const findItemByPath = (filePath: string) => {
+      return items.value.find((entry: any) => {
+        const itemPath = readItemPath(entry)
+        return !!itemPath && isSameResourcePath(itemPath, filePath)
+      })
+    }
+
+    /**
+     * 把番剧拆成视频合集。
+     * 每一集变成可以单独搜索的视频，原来的整季记录换成同名合集。
+     * 添加时间沿用整季，避免一转换就全部排到「刚刚添加」。
+     * @param item 番剧
+     * @param videos 文件夹里的视频路径
+     */
+    const applySeriesToCollection = async (item: any, videos: string[]) => {
+      /** 整季名称。合集和每集的系列名都用它。 */
+      const folderName = String(BaseResources.extractPrimitiveValue(item.name) || '未命名番剧')
+      /** 简介抄到每一集，合集自己也留一份。 */
+      const description = String(BaseResources.extractPrimitiveValue(item.description) || '')
+      /** 系列名。番剧没填时用文件夹名称。 */
+      const series = String(BaseResources.extractPrimitiveValue(item.series) || folderName)
+      /** 整季标签。 */
+      const tags = readStringList(item.tags)
+      /** 整季演员。 */
+      const actors = readStringList(item.actors)
+      /** 原来的添加时间。 */
+      const addedDate = String(BaseResources.extractPrimitiveValue(item.addedDate) || new Date().toISOString())
+      /** 整季封面，合集没有自己的图时用它。 */
+      const folderThumb = String(BaseResources.extractPrimitiveValue(item.thumbnail) || '')
+      /** 每一集已经截过的封面。 */
+      const thumbs = indexPathMap(item.videoThumbnails)
+      /** 每一集的播放进度。 */
+      const playback = indexPathMap(item.playbackByFile)
+      const collection = new Collection()
+      collection.name.value = folderName
+      collection.description.value = description
+      collection.tags.value = [...tags]
+      collection.coverPath.value = folderThumb
+      collection.addedDate.value = addedDate
+      items.value.push(collection)
+      /** 新合集的 id。后面的视频都放进它。 */
+      const collectionId = collectionResourceId(collection)
+      videos.forEach((videoPath, index) => {
+        let existing = findItemByPath(videoPath)
+        if (!existing) {
+          const slashKey = normalizeResourcePath(videoPath).toLowerCase()
+          const playKey = normalizeReadingPath(videoPath)
+          const play = playback.get(playKey) || playback.get(slashKey) || {}
+          const thumb = thumbs.get(slashKey) || thumbs.get(playKey) || ''
+          existing = Video.fromJSON({
+            id: newResourceId(index),
+            resourceType: 'movie',
+            name: extractNameFromPath(videoPath),
+            description,
+            series,
+            tags: [...tags],
+            actors: [...actors],
+            resourcePath: videoPath,
+            thumbnail: typeof thumb === 'string' ? thumb : '',
+            playbackSeconds: Number(play.seconds) || 0,
+            watchProgress: Number(play.progress) || 0,
+            playbackDuration: Number(play.duration) || 0,
+            addedDate,
+            fileExists: true
+          })
+          items.value.push(existing)
+        }
+        moveResourceIntoCollection(collectionId, collectionResourceId(existing))
+      })
+      /** 被换掉的番剧 id。从列表和其它合集名单里拿掉。 */
+      const folderId = collectionResourceId(item)
+      const folderIndex = items.value.findIndex(entry => collectionResourceId(entry) === folderId)
+      if (folderIndex >= 0) items.value.splice(folderIndex, 1)
+      detachDeletedResource(folderId)
+      currentCollectionId.value = collectionId
+      await saveData()
+      notify.toast('success', '已转换为视频合集', `「${folderName}」里的 ${videos.length} 个视频现在可以单独查看和搜索`)
+    }
+
+    /**
+     * 右键把番剧转成视频合集之前，先数清会新增多少条。
+     * 用户取消就不创建记录。
+     * @param item 番剧
+     */
+    const beginConvertSeriesToCollection = async (item: any) => {
+      if (!isSeriesResource(item)) return
+      const folderPath = videoFolderPathOf(item)
+      if (!folderPath) {
+        notify.toast('warning', '转换为视频合集', '这条番剧没有文件夹路径')
+        return
+      }
+      if (!window.electronAPI?.listFiles) {
+        notify.toast('error', '转换为视频合集', '当前环境不能读取文件夹')
+        return
+      }
+      const listed = await window.electronAPI.listFiles(folderPath)
+      if (!listed?.success) {
+        notify.toast('error', '转换为视频合集', listed?.error || '读取文件夹失败')
+        return
+      }
+      /** 这一层的文件名。扫描只看当前文件夹，和番剧详情里的视频列表一致。 */
+      const names = Array.isArray(listed.files)
+        ? listed.files.map((entry: unknown) => typeof entry === 'string' ? entry : '')
+        : []
+      const videos = videoFilesInFolder(folderPath, names)
+      if (videos.length === 0) {
+        notify.toast('warning', '转换为视频合集', '文件夹里没有找到视频')
+        return
+      }
+      /** 页面上还没有、转换后要新建的条数。 */
+      const fresh = videos.filter(path => !pageAlreadyHas(path)).length
+      const name = String(BaseResources.extractPrimitiveValue(item.name) || '未命名番剧')
+      askConvertConfirm(
+        '转换为视频合集',
+        `「${name}」里有 ${videos.length} 个视频。转换后每一集都可以单独查看和搜索，这次会新增 ${fresh} 条数据。原来的番剧记录会换成同名合集。要继续吗？`,
+        () => applySeriesToCollection(item, videos)
+      )
+    }
+
+    /**
+     * 把视频合集收成一部番剧。
+     * 单集记录会从页面删除，播放进度和封面写进番剧的分集对照表。
+     * 合集里不是视频的成员留在页面上，不再属于这个合集。
+     * @param item 合集
+     * @param videos 要收进去的视频
+     * @param folderPath 这些视频共同的文件夹
+     */
+    const applyCollectionToSeries = async (item: any, videos: any[], folderPath: string) => {
+      /** 分集封面。键用正斜杠，和番剧详情里的对照表一致。 */
+      const thumbs: Record<string, string> = {}
+      /** 分集播放进度。键用播放器查找时的路径。 */
+      const playback: Record<string, { seconds: number, progress: number, duration: number }> = {}
+      /** 从各集收来的演员。 */
+      const actors = new Set<string>()
+      /** 合集标签加上各集标签。 */
+      const tags = new Set<string>(readStringList(item.tags))
+      for (const video of videos) {
+        const path = readItemPath(video)
+        if (!path) continue
+        const thumb = String(BaseResources.extractPrimitiveValue(video.thumbnail) || '')
+        if (thumb) thumbs[normalizeResourcePath(path)] = thumb
+        const seconds = Number(BaseResources.extractPrimitiveValue(video.playbackSeconds)) || 0
+        const progress = Number(BaseResources.extractPrimitiveValue(video.watchProgress)) || 0
+        const duration = Number(BaseResources.extractPrimitiveValue(video.playbackDuration)) || 0
+        if (seconds || progress || duration) {
+          playback[normalizeReadingPath(path)] = { seconds, progress, duration }
+        }
+        readStringList(video.actors).forEach(name => actors.add(name))
+        readStringList(video.tags).forEach(tag => tags.add(tag))
+      }
+      /** 合集封面优先，没有就用第一集的图。 */
+      const cover = String(BaseResources.extractPrimitiveValue(item.coverPath) || '') || Object.values(thumbs)[0] || ''
+      const seriesName = String(BaseResources.extractPrimitiveValue(item.name) || '未命名番剧')
+      const seriesItem = VideoFolder.fromJSON({
+        id: newResourceId(0),
+        resourceType: 'animation',
+        name: seriesName,
+        description: String(BaseResources.extractPrimitiveValue(item.description) || ''),
+        series: seriesName,
+        tags: [...tags],
+        actors: [...actors],
+        resourcePath: folderPath,
+        thumbnail: cover,
+        videoThumbnails: thumbs,
+        playbackByFile: playback,
+        addedDate: String(BaseResources.extractPrimitiveValue(item.addedDate) || new Date().toISOString())
+      })
+      ;(seriesItem as any).videoCount = videos.length
+      /** 要从页面拿掉的合集和单集。其它类型的成员不在这里，会留在页面上。 */
+      const removeIds = new Set<string>([collectionResourceId(item), ...videos.map(collectionResourceId)])
+      if (currentCollectionId.value === collectionResourceId(item)) currentCollectionId.value = ''
+      items.value = items.value.filter(entry => !removeIds.has(collectionResourceId(entry)))
+      items.value.unshift(seriesItem)
+      await saveData()
+      notify.toast('success', '已转换为番剧', `「${seriesName}」现在是一部番剧，单集不再单独出现在列表里`)
+    }
+
+    /**
+     * 右键把视频合集收成番剧。
+     * 视频必须在同一个文件夹里，否则无法对应一条番剧路径。
+     * @param item 合集
+     */
+    const beginConvertCollectionToSeries = async (item: any) => {
+      if (!isCollectionRecord(item)) return
+      /** 合集里的成员。找不到的 id 跳过。 */
+      const members = memberIdsOf(item)
+        .map(id => items.value.find(entry => collectionResourceId(entry) === id))
+        .filter(Boolean)
+      /** 可以收进番剧的单集视频。 */
+      const videos = members.filter(isSingleVideoResource)
+      /** 合集里的其它文件。转换后留在页面上。 */
+      const others = members.filter(member => !isSingleVideoResource(member))
+      if (videos.length === 0) {
+        notify.toast('warning', '转换为番剧', '这个合集里没有可以收进去的视频')
+        return
+      }
+      const paths = videos.map(readItemPath).filter(Boolean)
+      const folderPath = sharedParentDirectory(paths)
+      if (!folderPath || paths.length !== videos.length) {
+        notify.toast('warning', '转换为番剧', '这些视频不在同一个文件夹里，不能收成一部番剧')
+        return
+      }
+      const name = String(BaseResources.extractPrimitiveValue(item.name) || '未命名合集')
+      const extra = others.length > 0 ? `另外 ${others.length} 个其它文件会留在页面上，不再属于这个合集。` : ''
+      askConvertConfirm(
+        '转换为番剧',
+        `「${name}」里的 ${videos.length} 个视频会收成一部番剧，之后不能再按单集搜索。这些单集记录会从页面上拿掉。${extra}要继续吗？`,
+        () => applyCollectionToSeries(item, videos, folderPath)
+      )
+    }
+
+    contextMenuHandlers.convertToVideoCollection = (item: any) => beginConvertSeriesToCollection(item)
+    contextMenuHandlers.convertToSeries = (item: any) => beginConvertCollectionToSeries(item)
 
     /**
      * 正在检查文件是否还在。
@@ -5385,6 +6045,13 @@ export default defineComponent({
     // FunGrid 布局相关计算属性
     const displayLayoutConfig = pageConfig.value?.displayLayoutConfig || { minWidth: 200, maxWidth: 400 }
 
+    /**
+     * 当前一行放几张卡片。
+     * 写在这一页的 displayLayoutConfig 里，和最小宽度、最大宽度同一处配置。
+     * 没写或还是旧的百分比时，按 4 张显示。
+     */
+    const cardsPerRow = computed(() => normalizeCardsPerRow(pageConfig.value?.displayLayoutConfig?.columnsPerRow))
+
     const displayLayoutBaseWidth = computed(() => {
       // 使用 maxWidth 作为基础宽度，如果没有则使用默认值
       return displayLayoutConfig.maxWidth || 400
@@ -5564,14 +6231,22 @@ export default defineComponent({
             ? '.' + lowerFileName.split('.').pop() 
             : ''
 
-          /** 文件夹结果用搜索时记下的类型；文件结果仍按扩展名匹配当前页面。 */
+          /**
+           * 文件夹结果用搜索时记下的类型。
+           * 文件结果在根目录按本页类型匹配；在合集里认不出时按文件本身的类型。
+           */
           const folderKindId = importingFolders ? batchImportKindByPath.value[relativeFilePath] : ''
-          const matchedKind = importingFolders
+          const pageKind = importingFolders
             ? findBasicKind(folderKindId)
             : matchAcceptedKind(fileExt, false, acceptedKindIds.value)
-          const MatchedResourceClass = importingFolders
-            ? (folderKindId ? classForKind(folderKindId, legacyResourceTypes.value) : null)
-            : (matchedKind ? classForKind(matchedKind.id, legacyResourceTypes.value) : null)
+          const looseKind = !pageKind && currentCollectionId.value && !importingFolders
+            ? matchLooseFile(fileExt)
+            : undefined
+          const matchedKind = pageKind || looseKind
+          const looseFolder = importingFolders && !!folderKindId && !!currentCollectionId.value && !acceptedKindIds.value.includes(folderKindId)
+          const MatchedResourceClass = matchedKind
+            ? (looseFolder || looseKind ? matchedKind.resourceClass : classForKind(matchedKind.id, legacyResourceTypes.value))
+            : null
 
           if (!matchedKind || !MatchedResourceClass) {
             failedCount++
@@ -5903,6 +6578,7 @@ export default defineComponent({
       getFileExists, // 获取文件存在性状态
       checkFileExistence, // 文件存在性检查方法
       // FunGrid 布局相关
+      cardsPerRow,
       displayLayoutBaseWidth,
       displayLayoutMinWidth,
       displayLayoutMaxWidth,
@@ -6022,7 +6698,20 @@ export default defineComponent({
       toolbarConfig: collectionToolbar,
       emptyStateConfig: collectionEmptyState,
       currentCollectionId,
+      currentCollectionRecord,
       currentCollectionName,
+      collectionPanelName,
+      collectionPanelDescription,
+      collectionPanelTags,
+      collectionPanelExtras,
+      collectionPanelTotals,
+      collectionPanelMemberCount,
+      collectionPanelCoverUrl,
+      collectionPanelRating,
+      collectionPanelComment,
+      saveCollectionProfile,
+      saveCollectionRating,
+      queueCollectionComment,
       pageTitle,
       membershipNote,
       collectionCover,
@@ -6040,6 +6729,11 @@ export default defineComponent({
       toggleMemberPicker,
       confirmAddMembers,
       showCollectionPicker,
+      showConvertConfirm,
+      convertConfirmTitle,
+      convertConfirmMessage,
+      cancelConvertConfirm,
+      runConvertConfirm,
       collectionChoices,
       closeCollectionPicker,
       confirmAddSelectionToCollection,
@@ -6488,6 +7182,23 @@ export default defineComponent({
 
 .collection-bar__crumb {
   color: var(--text-secondary);
+}
+
+.collection-body--split {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.collection-main {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 800px) {
+  .collection-body--split {
+    flex-direction: column;
+  }
 }
 
 .collection-field {

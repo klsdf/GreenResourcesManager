@@ -1,6 +1,19 @@
 <!-- 页面左侧的筛选栏，支持任意数量的筛选器 -->
 <template>
   <div class="filter-sidebar">
+    <!-- 搜索和筛选都是在找东西，搜索固定在这一栏最上面，不跟着下面的条件滚动。 -->
+    <div class="filter-search">
+      <input
+        type="text"
+        class="filter-search__input"
+        :value="searchQuery"
+        :placeholder="$lt(placeholder)"
+        @input="onSearchInput"
+      >
+      <span class="filter-search__icon" aria-hidden="true">🔍</span>
+    </div>
+
+    <div class="filter-sidebar__body">
     <!-- 加载状态 -->
     <FunLoading v-if="isLoading" :text="$lt('正在加载筛选器...')" />
     
@@ -49,6 +62,7 @@
       <div class="empty-icon">🔍</div>
       <p class="empty-text">{{ $lt('暂无筛选器数据') }}</p>
     </div>
+    </div>
   </div>
 </template>
 
@@ -80,9 +94,19 @@ export default {
     isLoading: {
       type: Boolean,
       default: false
+    },
+    /** 当前搜索词。和资源页用的是同一个词，改这里就会收窄下面的卡片。 */
+    searchQuery: {
+      type: String,
+      default: ''
+    },
+    /** 搜索框里的提示，例如「搜索游戏...」。 */
+    placeholder: {
+      type: String,
+      default: '搜索...'
     }
   },
-  emits: ['filter-select', 'filter-exclude', 'filter-clear'],
+  emits: ['filter-select', 'filter-exclude', 'filter-clear', 'search'],
   data() {
     return {
       disguiseModeState: false, // 伪装模式状态
@@ -90,6 +114,15 @@ export default {
     }
   },
   methods: {
+    /**
+     * 把搜索词交给外面的资源页。
+     * 筛选栏只负责输入，真正拿词去对名字和标签的仍是原来的搜索。
+     * @param {Event} event 输入框的 input 事件
+     */
+    onSearchInput(event) {
+      const value = event?.target?.value ?? ''
+      this.$emit('search', value)
+    },
     selectFilter(filterKey, itemName) {
       console.log('FilterSidebar selectFilter:', filterKey, itemName)
       this.$emit('filter-select', { filterKey, itemName })
@@ -196,11 +229,53 @@ export default {
 <style scoped>
 .filter-sidebar {
   width: 100%;
+  height: 100%;
+  min-height: 0;
   background: var(--bg-secondary);
   display: flex;
   flex-direction: column;
-  overflow: visible;
+  overflow: hidden;
   transition: background-color 0.3s ease;
+}
+
+.filter-search {
+  position: relative;
+  flex-shrink: 0;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.filter-search__input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 32px 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.filter-search__input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+.filter-search__icon {
+  position: absolute;
+  right: 26px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.filter-sidebar__body {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* 筛选器样式 */

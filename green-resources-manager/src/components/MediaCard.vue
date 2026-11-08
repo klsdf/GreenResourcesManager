@@ -72,7 +72,7 @@
           alt=""
           loading="lazy"
         >
-        <span v-if="scale >= 30" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">{{ cardTitle || displayName }}</span>
+        <span v-if="scale >= 30" class="media-title__text">{{ cardTitle || displayName }}</span>
       </h3>
       <div v-if="note && scale >= 40" class="media-collection-note">{{ note }}</div>
       
@@ -1766,13 +1766,25 @@ $running-color-dark: #10b981;
   font-size: calc(1.1rem * var(--card-scale, 1));
   font-weight: 600;
   margin-bottom: calc(5px * var(--card-scale, 1));
-  white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
   transition: color 0.3s ease;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: calc(8px * var(--card-scale, 1));
+}
+
+/* 标题最多两行。一行放不下时换行，第三行才省略，短标题仍只占一行。 */
+.media-title__text {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 .exe-icon {

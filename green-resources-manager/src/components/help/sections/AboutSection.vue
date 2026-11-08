@@ -1,9 +1,9 @@
 <template>
   <HelpSection 
-    :title="$lt('ℹ️ 关于我们')" 
+    :title="$lt('ℹ️ 协助者及赞助者')" 
     :subtitle="$lt('了解 GreenResourcesManager 的更多信息')">
-    <!-- 帽子社艺术化展示区域 -->
-    <div class="hat-soft-showcase">
+    <!-- 暂时不显示关于社群。恢复时去掉 v-if="false"。 -->
+    <div v-if="false" class="hat-soft-showcase">
       <div class="showcase-header">
         <h2 class="showcase-title">{{ $lt('关于社群') }}</h2>
       </div>
@@ -32,8 +32,8 @@
       </div>
     </div>
 
-    <!-- 个人信息和名片展示 -->
-    <div class="personal-showcase">
+    <!-- 暂时不显示关于开发者。恢复时去掉 v-if="false"。 -->
+    <div v-if="false" class="personal-showcase">
       <div class="showcase-header">
         <h2 class="showcase-title">{{ $lt('关于开发者') }}</h2>
       </div>

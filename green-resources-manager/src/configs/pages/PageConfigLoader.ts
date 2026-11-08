@@ -20,6 +20,8 @@ export interface PageConfig {
 	displayLayoutConfig: {
 		minWidth: number
 		maxWidth: number
+		/** 一行放几张卡片。没写时页面按 4 张显示。 */
+		columnsPerRow?: number
 	}
 	sortOptions: Array<{
 		id: string

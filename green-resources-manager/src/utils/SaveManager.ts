@@ -114,14 +114,14 @@ class SaveManager {
           websites: 'name-asc',
           audio: 'name-asc'
         },
-        // 各页面的布局缩放设置
+        // 各页面一行放几张卡片。2 到 10 是列数，更大的旧值是以前的百分比。
         layoutSettings: {
-          games: 100,
-          images: 100,
-          videos: 100,
-          novels: 100,
-          websites: 100,
-          audio: 100
+          games: 4,
+          images: 4,
+          videos: 4,
+          novels: 4,
+          websites: 4,
+          audio: 4
         },
         // 各页面的显示方式：grid 是网格，list 是列表
         displayModes: {},
@@ -1901,48 +1901,50 @@ class SaveManager {
   }
 
   /**
-   * 保存页面布局缩放设置
+   * 保存这一页一行放几张卡片。
+   * 数字是列数，不是百分比。百分比会把卡片上的字一起缩小。
    * @param {string} pageType - 页面类型 ('games', 'images', 'videos', 'novels', 'websites', 'audio')
-   * @param {number} scale - 缩放比例 (50-200)
+   * @param {number} columns - 一行卡片数，有效范围是 2 到 10
    * @returns {Promise<boolean>} 保存是否成功
    */
-  async saveLayoutSetting(pageType, scale) {
+  async saveLayoutSetting(pageType, columns) {
     try {
       const settings = await this.loadSettings()
       if (settings) {
         if (!settings.layoutSettings) {
           settings.layoutSettings = {}
         }
-        settings.layoutSettings[pageType] = scale
+        settings.layoutSettings[pageType] = columns
         const success = await this.saveSettings(settings)
         if (success) {
-          console.log(`✅ 已保存${pageType}页面布局缩放:`, scale)
+          console.log(`✅ 已保存${pageType}页面每行卡片数:`, columns)
         }
         return success
       }
       return false
     } catch (error) {
-      console.error(`保存${pageType}页面布局缩放失败:`, error)
+      console.error(`保存${pageType}页面每行卡片数失败:`, error)
       return false
     }
   }
 
   /**
-   * 获取页面布局缩放设置
+   * 读取这一页一行放几张卡片。
+   * 旧存档里可能仍是 15 到 150 的百分比，调用方会把它当成没设过。
    * @param {string} pageType - 页面类型 ('games', 'images', 'videos', 'novels', 'websites', 'audio')
-   * @returns {Promise<number>} 缩放比例
+   * @returns {Promise<number>} 存下来的数字
    */
   async getLayoutSetting(pageType) {
     try {
       const settings = await this.loadSettings()
       if (settings && settings.layoutSettings && settings.layoutSettings[pageType] !== undefined) {
-        console.log(`✅ 加载${pageType}页面布局缩放:`, settings.layoutSettings[pageType])
+        console.log(`✅ 加载${pageType}页面每行卡片数:`, settings.layoutSettings[pageType])
         return settings.layoutSettings[pageType]
       }
-      return 100 // 默认100%
+      return 4
     } catch (error) {
-      console.error(`获取${pageType}页面布局缩放失败:`, error)
-      return 100
+      console.error(`获取${pageType}页面每行卡片数失败:`, error)
+      return 4
     }
   }
 

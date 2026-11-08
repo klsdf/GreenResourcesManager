@@ -239,12 +239,76 @@ function removeAllRefsInTx(db, resourceType, resourceId) {
  * ========================================================================= */
 
 /**
+ * 把页面 id 转成这一页的资源名单表名。
+ * 只接受字母、数字、下划线和短横线，避免页面 id 被拼进 SQL。
+ * @param {string} pageId 页面 id
+ * @returns {string|null} 表名；不合法时返回 null
+ */
+function pageIndexTableName(pageId) {
+  if (typeof pageId !== 'string' || !/^[A-Za-z0-9_-]+$/.test(pageId)) return null
+  return `${pageId.replace(/-/g, '_')}_page`
+}
+
+/**
+ * 只统计这一页名单里的资源用过的标签。
+ * 标签引用按资源类型存放。同类型再新建一页时，如果仍按类型取全部标签，
+ * 空页面会把已有页面的标签整份带出来。这里用页面名单把范围收回到当前页。
+ * 显示名也取这一页自己的写法，不用全局名册里别的页面先登记的名字。
+ * @param {object} db better-sqlite3 实例
+ * @param {string} resourceType 逻辑资源类型
+ * @param {string} field 标签字段
+ * @param {string} pageId 页面 id
+ * @param {{ keyword?: string, limit?: number, offset?: number }} options 关键字和分页
+ * @returns {Array<{name: string, norm: string, count: number}>}
+ */
+function getTagsByFieldOnPage(db, resourceType, field, pageId, options = {}) {
+  const pageTable = pageIndexTableName(pageId)
+  if (!pageTable) return []
+  const exists = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`).get(pageTable)
+  if (!exists) return []
+
+  const { keyword, limit = 500, offset = 0 } = options
+  const where = ['r.resource_type = ?', 'r.field = ?']
+  const params = [resourceType, field]
+  if (keyword && String(keyword).trim()) {
+    where.push('r.tag LIKE ?')
+    params.push(`%${String(keyword).trim()}%`)
+  }
+
+  return db.prepare(`
+    SELECT
+      (
+        SELECT r2.tag
+        FROM tag_refs r2
+        INNER JOIN "${pageTable}" p2 ON p2.resourceId = r2.resource_id
+        WHERE r2.resource_type = r.resource_type
+          AND r2.field = r.field
+          AND r2.tag_norm = r.tag_norm
+        ORDER BY r2.updated_at DESC
+        LIMIT 1
+      ) AS name,
+      r.tag_norm AS norm,
+      COUNT(*) AS count
+    FROM tag_refs r
+    INNER JOIN "${pageTable}" p ON p.resourceId = r.resource_id
+    WHERE ${where.join(' AND ')}
+    GROUP BY r.tag_norm
+    ORDER BY count DESC, name COLLATE NOCASE
+    LIMIT ? OFFSET ?
+  `).all(...params, limit, offset)
+}
+
+/**
  * 按字段查询标签候选及计数。
- * 从标签名册出发，没有引用的也返回，数量是 0。左侧和标签管理都要留着这个名字，不能因为没人用就消失。
+ * 传入 pageId 时只返回这一页资源用过的标签，新建页面不会看到别的页面的标签。
+ * 不传 pageId 时从标签名册出发，没有引用的也返回，数量是 0，供标签管理页使用。
  */
 function getTagsByField(db, resourceType, field, options = {}) {
   ensureTagTables(db)
-  const { keyword, limit = 500, offset = 0 } = options
+  const { keyword, limit = 500, offset = 0, pageId } = options
+  if (pageId != null) {
+    return getTagsByFieldOnPage(db, resourceType, field, pageId, { keyword, limit, offset })
+  }
   const where = ['m.resource_type = ?', 'm.field = ?']
   const params = [resourceType, field]
   if (keyword && keyword.trim()) {
@@ -265,7 +329,7 @@ function getTagsByField(db, resourceType, field, options = {}) {
 
 /**
  * 批量查询多个字段的候选（供页面侧边栏一次拉全）
- * @param {Array<{key: string, resourceType: string, field: string}>} queries
+ * @param {Array<{key: string, resourceType: string, field: string, pageId?: string}>} queries
  * @returns {Object<string, Array<{name: string, norm: string, count: number}>>} 按 key 索引
  */
 function getTagsByFields(db, queries) {
@@ -277,7 +341,7 @@ function getTagsByFields(db, queries) {
       if (q && q.key) result[q.key] = []
       continue
     }
-    result[q.key] = getTagsByField(db, q.resourceType, q.field)
+    result[q.key] = getTagsByField(db, q.resourceType, q.field, { pageId: q.pageId })
   }
   return result
 }

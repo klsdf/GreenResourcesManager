@@ -95,9 +95,11 @@ export function indexMembership(items: any[]): MembershipIndex {
 
 /**
  * 决定这一屏要列出哪些卡片。
- * 没有搜索和筛选时，根目录是合集加上还没归组的资源，合集排在前面。
+ * 没有搜索和筛选时，根目录是合集加上还没归组的资源，先后跟当前排序走。
  * 有搜索或筛选时，根目录把已经收进合集的资源也列出来。
- * 已经进入某个合集时，只列它的成员，并且仍尊重当前搜索和筛选。
+ * 已经进入某个合集时，只列它的成员，并且仍尊重当前搜索、筛选和排序。
+ * 成员名单只决定谁在这个合集里，不决定这一屏的先后。
+ * 排序下拉作用在整页筛选结果上；如果这里再按加入顺序重排，合集里的名称排序和其他排序就会失效。
  * @param items 当前页全部记录
  * @param filtered 搜索、筛选和排序之后的记录
  * @param currentCollectionId 正在看的合集。空字符串表示还在根目录
@@ -109,38 +111,38 @@ export function listCollectionScope(
 	currentCollectionId: string,
 	punchThrough: boolean
 ): any[] {
-	/** 全部记录按 id 查找，进入合集时要按成员顺序取。 */
+	/** 全部记录按 id 查找，用来确认当前打开的是不是合集。 */
 	const byId = new Map<string, any>()
 	for (const item of items || []) {
 		const id = resourceIdOf(item)
 		if (id) byId.set(id, item)
 	}
-	/** 筛选结果里的 id。合集内部只显示既是成员、又通过筛选的资源。 */
-	const filteredIds = new Set((filtered || []).map(resourceIdOf).filter(Boolean))
 
 	if (currentCollectionId) {
 		const collection = byId.get(currentCollectionId)
 		if (!collection || !isCollectionRecord(collection)) return []
-		/** 按合集里的顺序排，不跟着根目录的排序打乱剧集或书卷。 */
-		const members: any[] = []
-		for (const memberId of memberIdsOf(collection)) {
-			if (!filteredIds.has(memberId)) continue
-			const member = byId.get(memberId)
-			if (!member || isCollectionRecord(member)) continue
-			members.push(member)
-		}
-		return members
+		/**
+		 * 合集成员集合。
+		 * 用集合判断归属，顺序则直接沿用 filtered，这样名称、时间等排序在合集里和根目录一致。
+		 */
+		const memberIds = new Set(memberIdsOf(collection))
+		return (filtered || []).filter(item => {
+			if (isCollectionRecord(item)) return false
+			const id = resourceIdOf(item)
+			return Boolean(id) && memberIds.has(id)
+		})
 	}
 
 	if (punchThrough) return filtered || []
 
 	const { ownerByMember } = indexMembership(items)
-	/** 合集卡片保持筛选结果里的相对顺序，再统一放到未归组资源前面。 */
-	const collections = (filtered || []).filter(item => isCollectionRecord(item))
-	const ungrouped = (filtered || []).filter(item => {
-		if (isCollectionRecord(item)) return false
+	/**
+	 * 只拿掉已经收进合集的成员，剩下的保持筛选结果里的顺序。
+	 * 合集和单独文件比的是同一个字段，不能再把合集整组提到最前面。
+	 */
+	return (filtered || []).filter(item => {
+		if (isCollectionRecord(item)) return true
 		const id = resourceIdOf(item)
 		return !id || !ownerByMember.has(id)
 	})
-	return [...collections, ...ungrouped]
 }

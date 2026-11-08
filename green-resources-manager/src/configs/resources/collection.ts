@@ -6,7 +6,8 @@ import { ResourceField } from './base/ResourceField.ts'
  * 合集。
  * 它不是磁盘上的文件夹，也不是一种能拖进来的文件。
  * 点开之后进入当前页的二级目录，里面仍是这一页已有的资源卡片。
- * 电影、游戏、整本漫画、一季番剧都可以作为成员；番剧里的单集和漫画里的页不拆进来。
+ * 合集里可以放任何类型的文件，不限当前页面本来接受的类型。
+ * 番剧里的单集和漫画里的页不自动拆进来；要把番剧拆开，用右键转换成视频合集。
  */
 export class Collection extends BaseResources {
 
@@ -41,6 +42,38 @@ export class Collection extends BaseResources {
 		saveable: true,
 		defaultValue: [],
 		editType: new FormField_Tags('标签', false)
+	})
+
+	/**
+	 * 系列名。只有这一页本来就有系列字段时，左侧面板才显示。
+	 */
+	series: ResourceField<string> = new ResourceField<string>({
+		saveable: true,
+		defaultValue: ''
+	})
+
+	/**
+	 * 合集自己的演员。这是整组的资料，不是把每一集的演员并起来。
+	 */
+	actors: ResourceField<string[]> = new ResourceField<string[]>({
+		saveable: true,
+		defaultValue: []
+	})
+
+	/**
+	 * 合集自己的声优。
+	 */
+	voiceActors: ResourceField<string[]> = new ResourceField<string[]>({
+		saveable: true,
+		defaultValue: []
+	})
+
+	/**
+	 * 合集自己的制作组。
+	 */
+	productionTeam: ResourceField<string[]> = new ResourceField<string[]>({
+		saveable: true,
+		defaultValue: []
 	})
 
 	/**
@@ -81,7 +114,11 @@ export class Collection extends BaseResources {
 			resourceType: this.resourceType.value || 'collection',
 			name: this.name.value || '',
 			description: this.description.value || '',
+			series: this.series.value || '',
 			tags: Array.isArray(this.tags.value) ? [...this.tags.value] : [],
+			actors: Array.isArray(this.actors.value) ? [...this.actors.value] : [],
+			voiceActors: Array.isArray(this.voiceActors.value) ? [...this.voiceActors.value] : [],
+			productionTeam: Array.isArray(this.productionTeam.value) ? [...this.productionTeam.value] : [],
 			resourcePath: '',
 			coverPath: this.coverPath.value || '',
 			memberIds,

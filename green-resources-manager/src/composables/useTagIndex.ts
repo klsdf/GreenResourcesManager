@@ -6,12 +6,12 @@
  * 职责：
  * 1. 按页面一次性加载各 resourceField 筛选器的候选 { name, norm, count }
  * 2. 监听主进程广播：
- *    - tags:changed：单资源增删改 → 本地按 adds/removes 增量调整计数
+ *    - tags:changed：资源增删改 → 按页面重新查询，只更新这一页自己的候选
  *    - tags:rebuilt：重命名/合并/删除/重建 → 重新拉取相关候选
  * 3. 无 Electron 环境（纯浏览器 dev）时不可用，调用方回退到旧的遍历逻辑
  *
- * 内部唯一标识用 `${resourceType}:${field}`（不同页面可能存在同名 filter key，
- * 如多个页面都有 key='tags'，但同一资源类型的同名字段应共享同一份候选）
+ * 候选按「页面 + 资源类型 + 字段」分开保存。
+ * 同类型可以建很多页，每页只统计自己名单里的资源，不能共用另一页的标签。
  */
 import { reactive, toRef } from 'vue'
 
@@ -22,14 +22,23 @@ export interface TagIndexFilterItem {
 }
 
 interface TagQuery {
-  /** 页面筛选器 key（filterConfig.key），结果按此返回 */
+  /** 结果写回时用的键，页面侧边栏用「页面 + 类型 + 字段」 */
   key: string
+  /** 只统计这一页名单里的资源 */
+  pageId: string
   resourceType: string
   field: string
 }
 
-function internalId(resourceType: string, field: string) {
-  return `${resourceType}:${field}`
+/**
+ * 某一页某个标签字段的存储键。
+ * 页面 id 里可能有短横线，用双冒号和「类型:字段」隔开，避免两页写成同一个键。
+ * @param pageId 页面 id
+ * @param resourceType 逻辑资源类型
+ * @param field 标签字段
+ */
+function storeId(pageId: string, resourceType: string, field: string) {
+  return `${pageId}::${resourceType}:${field}`
 }
 
 function getApi(): any | null {
@@ -43,11 +52,11 @@ export function isTagIndexAvailable(): boolean {
   return getApi() !== null
 }
 
-// 候选数据：internalId → 候选数组（reactive 保证 toRef 后响应式）
+/** 存储键 → 这一页的标签候选。换一份键就是另一页，响应式数组不会串页。 */
 const itemsStore = reactive<Record<string, TagIndexFilterItem[]>>({})
 
-// internalId → 元信息
-const metaStore: Record<string, { resourceType: string; field: string }> = {}
+/** 存储键 → 这一页要重新拉取时需要的查询条件 */
+const metaStore: Record<string, { pageId: string; resourceType: string; field: string }> = {}
 
 // 已加载的页面 / 正在加载的页面（防重复请求）
 const loadedPages = new Set<string>()
@@ -65,71 +74,31 @@ function notifySidebar() {
 }
 
 /**
- * 注册一个标签字段，返回其候选项的 Ref
- * 多次注册同一 (resourceType, field) 返回同一份引用
+ * 注册某一页的一个标签字段，返回这一页自己的候选项。
+ * 同一类型的另一页会拿到另一份列表，打开新页面时不会先看到旧页面的标签。
+ * @param pageId 页面 id
+ * @param resourceType 逻辑资源类型
+ * @param field 标签字段
  */
-function register(resourceType: string, field: string) {
-  const id = internalId(resourceType, field)
-  metaStore[id] = { resourceType, field }
+function register(pageId: string, resourceType: string, field: string) {
+  const id = storeId(pageId, resourceType, field)
+  metaStore[id] = { pageId, resourceType, field }
   if (!(id in itemsStore)) itemsStore[id] = []
   return toRef(itemsStore, id)
 }
 
-function applyAdds(resourceType: string, adds: Array<{ field: string; tag: string; norm: string }>) {
-  for (const change of adds) {
-    const id = internalId(resourceType, change.field)
-    const list = itemsStore[id]
-    if (!list) continue
-    const existing = list.find(i => i.norm === change.norm)
-    if (existing) {
-      existing.count += 1
-    } else {
-      // 保持按名称排序的大致顺序（新标签追加，侧边栏展示不做严格要求）
-      list.push({ name: change.tag, norm: change.norm, count: 1 })
-    }
-  }
-}
-
-function applyRemoves(resourceType: string, removes: Array<{ field: string; tag: string; norm: string }>) {
-  for (const change of removes) {
-    const id = internalId(resourceType, change.field)
-    const list = itemsStore[id]
-    if (!list) continue
-    const idx = list.findIndex(i => i.norm === change.norm)
-    if (idx === -1) continue
-    /** 减完后的使用数。到 0 也留在列表里，不把标签名字拿掉。 */
-    const nextCount = list[idx].count - 1
-    list[idx].count = nextCount > 0 ? nextCount : 0
-  }
-}
-
 /**
- * 处理主进程广播：
- * - 单资源事件：resourceType + adds/removes 增量
- * - 批量事件：resourceTypes 列表，整类型重新拉取
+ * 处理主进程广播。
+ * 标签增减不再按资源类型直接改本地计数：那样会把这一页新打的标签加到同类型的其他页面。
+ * 改成按已打开的页面重新查询，每一页只带回自己名单里的标签。
  */
 async function handleChanged(data: any) {
   if (!data) return
-  // 批量保存：重新加载受影响资源类型的所有字段
-  if (Array.isArray(data.resourceTypes) && data.resourceTypes.length > 0) {
-    await reloadByTypes(data.resourceTypes)
-    return
-  }
-  const resourceType: string | null = data.resourceType
-  if (!resourceType) return
-
-  const adds: any[] = Array.isArray(data.adds) ? data.adds : []
-  const removes: any[] = Array.isArray(data.removes) ? data.removes : []
-  if (adds.length === 0 && removes.length === 0) return
-
-  // 该类型字段尚未加载过 → 无需增量（下次加载会拿到最新值）
-  const typePrefix = `${resourceType}:`
-  const hasLoadedType = Object.keys(metaStore).some(id => id.startsWith(typePrefix) && id in itemsStore)
-  if (!hasLoadedType) return
-
-  applyRemoves(resourceType, removes)
-  applyAdds(resourceType, adds)
-  notifySidebar()
+  const resourceTypes: string[] = Array.isArray(data.resourceTypes) && data.resourceTypes.length > 0
+    ? data.resourceTypes
+    : (data.resourceType ? [data.resourceType] : [])
+  if (resourceTypes.length === 0) return
+  await reloadByTypes(resourceTypes)
 }
 
 /** 重新拉取某些资源类型的全部已注册字段 */
@@ -140,7 +109,7 @@ async function reloadByTypes(resourceTypes: string[]) {
   for (const id of Object.keys(metaStore)) {
     const meta = metaStore[id]
     if (resourceTypes.includes(meta.resourceType)) {
-      queries.push({ key: id, resourceType: meta.resourceType, field: meta.field })
+      queries.push({ key: id, pageId: meta.pageId, resourceType: meta.resourceType, field: meta.field })
     }
   }
   if (queries.length === 0) return
@@ -195,7 +164,7 @@ async function ensurePageLoaded(pageId: string, queries: TagQuery[]) {
     const res = await api.tagIndexGetByFields(queries)
     if (res?.ok && res.data) {
       for (const q of queries) {
-        const id = internalId(q.resourceType, q.field)
+        const id = storeId(q.pageId, q.resourceType, q.field)
         itemsStore[id] = res.data[q.key] || []
       }
       loadedPages.add(pageId)

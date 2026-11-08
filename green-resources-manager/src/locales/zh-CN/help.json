@@ -30,7 +30,7 @@
     "workshopNote": "便笺插件",
     "workshopCalendar": "日期管理",
     "support": "客服&问题反馈",
-    "about": "关于我们",
+    "about": "协助者及赞助者",
     "aiSkills": "AI Skills"
   },
   "intro": {
@@ -148,7 +148,7 @@
     }
   },
   "about": {
-    "title": "ℹ️ 关于我们",
+    "title": "ℹ️ 协助者及赞助者",
     "subtitle": "了解 GreenResourcesManager 的更多信息",
     "community": {
       "title": "关于社群",

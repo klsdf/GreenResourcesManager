@@ -51,9 +51,6 @@
         "type": "multi-select"
       },
       {
-        "type": "layout"
-      },
-      {
         "type": "sort"
       }
     ]

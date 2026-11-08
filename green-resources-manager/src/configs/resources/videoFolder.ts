@@ -178,6 +178,16 @@ export class VideoFolder extends BaseResources {
 		}
 	}
 
+	/**
+	 * 右键菜单。转换成视频合集由页面加在删除前面，这里只放番剧自己的操作。
+	 */
+	static contextMenuItems = [
+		{ key: 'detail', icon: '👁️', label: '查看详情' },
+		{ key: 'folder', icon: '📁', label: '打开文件夹' },
+		{ key: 'edit', icon: '✏️', label: '编辑信息' },
+		{ key: 'remove', icon: '🗑️', label: '删除番剧' }
+	]
+
 	// 静态配置：启动方式配置
 	static actionConfig = {
 		key: 'open',
