@@ -92,7 +92,20 @@ jobs:
         run: npm run build
 
       - name: 打包 Windows 安装包（不上传）
-        run: npx electron-builder --win --publish never
+        shell: bash
+        run: |
+          set +e
+          npx electron-builder --win --publish never > electron-builder.log 2>&1
+          code=$?
+          set -e
+          if [ "$code" -ne 0 ]; then
+            echo "----- electron-builder 输出（末尾） -----"
+            tail -n 120 electron-builder.log
+            # 日志页需要登录才能看。把失败摘要写进注解，公开接口也能读到原因。
+            msg=$(tail -n 25 electron-builder.log | tr '\r' ' ' | tr '\n' ' ' | cut -c1-700)
+            echo "::error::$msg"
+            exit "$code"
+          fi
 
       - name: 汇总发布附件
         shell: pwsh
