@@ -16,9 +16,8 @@ permissions:
 
 jobs:
   release:
-    # windows-latest 已换成 Visual Studio 2026。electron-builder 24 自带的 node-gyp
-    # 只认识到 VS 2022，重编 better-sqlite3 时会直接报找不到编译器。
-    # 0.8.1 能打过，是因为当时的镜像还是 VS 2022。固定到 windows-2022，打包环境与上次成功发布一致。
+    # 固定在 windows-2022：上面还有 Visual Studio 2022，node-gyp 10 能找到编译器。
+    # windows-latest 已经换成 Visual Studio 2026，当前这套打包工具认不出来。
     runs-on: windows-2022
     timeout-minutes: 60
     defaults:
@@ -87,6 +86,13 @@ jobs:
 
       - name: 安装依赖
         run: npm ci
+
+      # electron-builder 会调用 node_modules/.bin/node-gyp 重编 better-sqlite3。
+      # 现在这个命令来自已弃用的 electron-rebuild，版本停在 9.4.1。
+      # 它的 gyp 脚本会 import distutils，而 runner 上的 Python 3.12 已经删除该模块，打包会立刻失败。
+      # node-gyp 10 去掉了这个依赖。只装在打包机上，不改 package.json 和 lock。
+      - name: 升级 node-gyp 以兼容 Python 3.12
+        run: npm install --no-save --no-package-lock node-gyp@10.2.0
 
       - name: 构建前端
         run: npm run build
