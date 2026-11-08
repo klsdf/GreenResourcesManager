@@ -19,6 +19,10 @@ jobs:
     # 固定在 windows-2022：上面还有 Visual Studio 2022，node-gyp 10 能找到编译器。
     # windows-latest 已经换成 Visual Studio 2026，当前这套打包工具认不出来。
     runs-on: windows-2022
+    env:
+      # 改图标时要下载 winCodeSign。GitHub Releases 这次返回 504，打包会停在签名工具这一步。
+      # 改走国内镜像，和 .npmrc 里的 Electron 镜像同一来源。
+      ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
     timeout-minutes: 60
     defaults:
       run:
